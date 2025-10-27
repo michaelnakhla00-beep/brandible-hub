@@ -8,6 +8,11 @@
   
 [dev]
   command = "netlify dev"
+  # Environment variables for local development
+  # Create a netlify/functions/.env file or use netlify dev:env:set
+  [dev.environment]
+    SUPABASE_URL = ""
+    SUPABASE_ANON_KEY = ""
   
 # Redirect root to login page
 [[redirects]]

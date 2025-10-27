@@ -16,6 +16,8 @@
   "author": "Brandible",
   "license": "MIT",
   "devDependencies": {},
-  "dependencies": {}
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.3"
+  }
 }
 

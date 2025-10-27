@@ -1,25 +1,5 @@
 // netlify/functions/update-client.js
-const fs = require("fs");
-const path = require("path");
-
-// Helper to find the data file
-function getDataPath() {
-  const possiblePaths = [
-    path.join(__dirname, "../../data/clients.json"),
-    path.join(process.cwd(), "data/clients.json"),
-    path.join("/var/task/data/clients.json"),
-    path.join(__dirname, "data/clients.json")
-  ];
-  
-  for (const dataPath of possiblePaths) {
-    try {
-      if (fs.existsSync(dataPath)) {
-        return dataPath;
-      }
-    } catch (e) {}
-  }
-  return null;
-}
+const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
   // Only allow POST
@@ -50,66 +30,70 @@ exports.handler = async (event, context) => {
 
     const { email, kpis, activity } = JSON.parse(event.body);
     
-    if (!email || !kpis) {
+    if (!email) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Email and KPIs are required" })
+        body: JSON.stringify({ error: "Email is required" })
       };
     }
 
-    // Find and read the data file
-    const dataPath = getDataPath();
-    if (!dataPath) {
-      console.error("Could not find clients.json file");
-      return { 
-        statusCode: 500, 
-        body: JSON.stringify({ error: "Configuration error" }) 
+    // Initialize Supabase client
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Supabase credentials not configured");
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Database not configured" })
       };
     }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Prepare update data
+    const updateData = {
+      updated_at: new Date().toISOString()
+    };
     
-    const jsonData = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+    if (kpis) {
+      updateData.kpis = kpis;
+    }
     
-    // Find the client
-    const clientIndex = jsonData.clients.findIndex(
-      (c) => (c.email || "").toLowerCase() === email.toLowerCase()
-    );
-    
-    if (clientIndex === -1) {
+    if (activity) {
+      updateData.activity = activity;
+    }
+
+    // Update client in Supabase
+    const { data: updatedClient, error } = await supabase
+      .from('clients')
+      .update(updateData)
+      .eq('email', email)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Database error: " + error.message })
+      };
+    }
+
+    if (!updatedClient) {
       return {
         statusCode: 404,
         body: JSON.stringify({ error: "Client not found" })
       };
     }
 
-    // Update client data
-    if (kpis) {
-      jsonData.clients[clientIndex].kpis = {
-        ...jsonData.clients[clientIndex].kpis,
-        ...kpis
-      };
-    }
-    
-    if (activity) {
-      jsonData.clients[clientIndex].activity = activity;
-    }
-
-    // IMPORTANT: In production, you would update a database here
-    // The filesystem in Netlify Functions is read-only
-    // Options for production:
-    // 1. Use a database (Fauna, Supabase, DynamoDB, etc.)
-    // 2. Use Netlify's KV storage
-    // 3. Use Git API to commit changes back to the repo
-    
-    // For now, we'll return success but note that the file wasn't modified
-    // In a real implementation, you'd save to a database here
-    
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         success: true,
-        message: "Client updated (Note: File system is read-only in Netlify. Connect to a database for persistence.)",
-        client: jsonData.clients[clientIndex]
+        message: "Client updated successfully",
+        client: updatedClient
       })
     };
   } catch (err) {
@@ -120,4 +104,3 @@ exports.handler = async (event, context) => {
     };
   }
 };
-

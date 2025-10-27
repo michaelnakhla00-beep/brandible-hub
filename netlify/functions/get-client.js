@@ -1,28 +1,5 @@
 // netlify/functions/get-client.js
-const fs = require("fs");
-const path = require("path");
-
-// Helper to find the data file in different environments
-function getDataPath() {
-  // Try multiple possible paths for different environments
-  const possiblePaths = [
-    path.join(__dirname, "../../data/clients.json"),
-    path.join(process.cwd(), "data/clients.json"),
-    path.join("/var/task/data/clients.json"),
-    path.join(__dirname, "data/clients.json")
-  ];
-  
-  for (const dataPath of possiblePaths) {
-    try {
-      if (fs.existsSync(dataPath)) {
-        return dataPath;
-      }
-    } catch (e) {
-      // Continue to next path
-    }
-  }
-  return null;
-}
+const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
   try {
@@ -43,23 +20,42 @@ exports.handler = async (event, context) => {
     // If admin and email query parameter provided, use that
     if (isAdmin && event.queryStringParameters && event.queryStringParameters.email) {
       emailToQuery = event.queryStringParameters.email.toLowerCase();
+    } else if (!isAdmin) {
+      // Non-admin users can only access their own data
+      // This is already enforced by setting emailToQuery to their email
     }
     
     const email = emailToQuery;
+
+    // Initialize Supabase client
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
     
-    // Find and read the data file
-    const dataPath = getDataPath();
-    if (!dataPath) {
-      console.error("Could not find clients.json file");
-      return { 
-        statusCode: 500, 
-        body: JSON.stringify({ error: "Configuration error" }) 
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Supabase credentials not configured");
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Database not configured" })
       };
     }
-    
-    const jsonData = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 
-    const client = jsonData.clients.find((c) => (c.email || "").toLowerCase() === email);
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Query Supabase for client data
+    const { data: client, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Database error: " + error.message })
+      };
+    }
+
     if (!client) {
       return { 
         statusCode: 404, 
@@ -67,7 +63,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Return only safe fields (now includes `updates`)
+    // Return client data (excluding internal fields)
     const { id, email: e, name, kpis, projects, files, invoices, activity, updates } = client;
     return {
       statusCode: 200,

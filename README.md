@@ -19,6 +19,7 @@ A modern client portal built with vanilla JavaScript, Netlify Identity, and Tail
 ### Prerequisites
 
 - A Netlify account
+- A Supabase account (free tier available)
 - Git repository connected to Netlify
 
 ### Local Development
@@ -66,9 +67,24 @@ A modern client portal built with vanilla JavaScript, Netlify Identity, and Tail
 4. Configure email settings (SMTP) for production use
 5. Set up custom email templates if desired
 
+### Setting Up Supabase (Database)
+
+The Hub now uses Supabase for persistent data storage. See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for complete instructions.
+
+Quick start:
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Run `supabase/schema.sql` in the SQL Editor
+3. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in Netlify environment variables
+4. Optionally migrate existing data using `scripts/migrate-to-supabase.js`
+
 ### Adding Client Data
 
-Edit `data/clients.json` to add or modify client information:
+Client data is now stored in Supabase. You can add/modify clients:
+1. Via Supabase Dashboard → Table Editor
+2. Via the Admin panel in the Hub (edit mode)
+3. Or manually via SQL
+
+For reference, here's the data structure for `data/clients.json` (if you need to migrate):
 
 ```json
 {

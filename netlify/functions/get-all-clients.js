@@ -1,27 +1,5 @@
 // netlify/functions/get-all-clients.js
-const fs = require("fs");
-const path = require("path");
-
-// Helper to find the data file in different environments
-function getDataPath() {
-  const possiblePaths = [
-    path.join(__dirname, "../../data/clients.json"),
-    path.join(process.cwd(), "data/clients.json"),
-    path.join("/var/task/data/clients.json"),
-    path.join(__dirname, "data/clients.json")
-  ];
-  
-  for (const dataPath of possiblePaths) {
-    try {
-      if (fs.existsSync(dataPath)) {
-        return dataPath;
-      }
-    } catch (e) {
-      // Continue to next path
-    }
-  }
-  return null;
-}
+const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
   try {
@@ -42,29 +20,51 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Find and read the data file
-    const dataPath = getDataPath();
-    if (!dataPath) {
-      console.error("Could not find clients.json file");
-      return { 
-        statusCode: 500, 
-        body: JSON.stringify({ error: "Configuration error" }) 
+    // Initialize Supabase client
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Supabase credentials not configured");
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Database not configured" })
       };
     }
-    
-    const jsonData = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 
-    // Return all clients with safe fields only
-    const clients = jsonData.clients.map(client => {
-      const { id, email, name, kpis, files } = client;
-      // Return minimal data for admin overview - full details can be fetched via get-client
-      return { id, email, name, kpis, filesCount: files?.length || 0, activity: client.activity };
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Query all clients from Supabase
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Database error: " + error.message })
+      };
+    }
+
+    // Return minimal data for admin overview (full details available via get-client)
+    const clientsList = clients.map(client => {
+      const { id, email, name, kpis, files, activity } = client;
+      return {
+        id,
+        email,
+        name,
+        kpis,
+        filesCount: Array.isArray(files) ? files.length : 0,
+        activity: activity || []
+      };
     });
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clients })
+      body: JSON.stringify({ clients: clientsList })
     };
   } catch (err) {
     console.error("Error in get-all-clients:", err);
@@ -74,4 +74,3 @@ exports.handler = async (event, context) => {
     };
   }
 };
-
