@@ -60,11 +60,13 @@
     <!-- Topbar -->
     <header class="glass-header sticky top-0 z-40">
       <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="size-9 rounded-xl bg-indigo-600"></div>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30 flex items-center justify-center">
+            <span class="text-xl font-bold text-white">B</span>
+          </div>
           <div>
-            <div class="font-semibold">Brandible Hub</div>
-            <div class="text-xs text-slate-500">Admin Dashboard</div>
+            <div class="font-semibold text-sm">Brandible Hub</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Admin Dashboard</div>
           </div>
         </div>
         <div class="flex items-center gap-3">
@@ -88,9 +90,17 @@
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-2xl font-bold">All Clients</h2>
           <div class="flex items-center gap-3">
-            <input id="clientSearch" placeholder="Search clients..." class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
-            <button onclick="openNewClientModal()" class="btn-primary">
-              + New Client
+            <div class="relative flex-1 max-w-md">
+              <input id="clientSearch" placeholder="Search clients..." class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-2.5 pl-10 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all" />
+              <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <button onclick="openNewClientModal()" class="btn-primary whitespace-nowrap">
+              <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              New Client
             </button>
           </div>
         </div>
@@ -134,8 +144,8 @@
   </script>
 
   <!-- Client Profile Modal -->
-  <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] hidden" onclick="closeModalOnBackdrop(event)">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+  <div id="clientModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[2000] hidden transition-all duration-300" onclick="closeModalOnBackdrop(event)">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
       <!-- Modal Header -->
       <div class="card-header flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -270,15 +280,15 @@
   </div>
 
   <!-- New Client Modal -->
-  <div id="newClientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] hidden" onclick="closeNewClientModalOnBackdrop(event)">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+  <div id="newClientModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[2000] hidden transition-all duration-300" onclick="closeNewClientModalOnBackdrop(event)">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
       <!-- Modal Header -->
-      <div class="card-header flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
+      <div class="card-header flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/20 dark:to-pink-950/20">
         <div>
-          <h3 class="text-xl font-bold">Create New Client</h3>
-          <p class="text-sm text-slate-500">Add a new client to the system</p>
+          <h3 class="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Create New Client</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Add a new client to the system</p>
         </div>
-        <button onclick="closeNewClientModal()" class="btn-ghost text-xl">✕</button>
+        <button onclick="closeNewClientModal()" class="btn-ghost text-xl hover:rotate-90 transition-transform duration-200">✕</button>
       </div>
       
       <!-- Modal Body -->
@@ -364,13 +374,15 @@
   </script>
 
   <!-- Loading Spinner -->
-  <div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 z-[1000]">
-    <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+  <div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm z-[1000]">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 border-t-transparent"></div>
+    </div>
   </div>
 
   <!-- Toast Notification -->
-  <div id="toast" class="fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-full opacity-0">
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center gap-3 min-w-[300px]">
+  <div id="toast" class="fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-full opacity-0">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 px-6 py-4 flex items-center gap-3 min-w-[320px] max-w-md">
       <div class="flex-shrink-0">
         <div id="toastIcon" class="size-8 rounded-full flex items-center justify-center"></div>
       </div>
@@ -396,21 +408,21 @@
       // Set icon and colors based on type
       if (type === 'success') {
         toastIcon.innerHTML = '✓';
-        toastIcon.className = 'size-8 rounded-full flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300';
-        toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-0 opacity-100';
+        toastIcon.className = 'size-9 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/50';
+        toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-0 opacity-100';
       } else if (type === 'error') {
         toastIcon.innerHTML = '✕';
-        toastIcon.className = 'size-8 rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300';
-        toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-0 opacity-100';
+        toastIcon.className = 'size-9 rounded-full flex items-center justify-center bg-gradient-to-br from-red-400 to-red-600 text-white shadow-lg shadow-red-500/50';
+        toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-0 opacity-100';
       }
       
-      // Auto-hide after 5 seconds
-      setTimeout(() => hideToast(), 5000);
+      // Auto-hide after 3 seconds
+      setTimeout(() => hideToast(), 3000);
     }
     
     function hideToast() {
       const toast = document.getElementById('toast');
-      toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-full opacity-0';
+      toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-full opacity-0';
     }
     
     // Make functions globally available

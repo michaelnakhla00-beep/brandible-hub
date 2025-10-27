@@ -58,11 +58,13 @@
   <div class="min-h-screen grid grid-cols-1 lg:grid-cols-[260px,1fr]">
     <!-- Sidebar -->
     <aside class="hidden lg:block border-r border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-900/60 backdrop-blur-2xl">
-      <div class="p-4 flex items-center gap-3">
-        <div class="size-9 rounded-xl bg-indigo-600"></div>
+      <div class="p-6 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30 flex items-center justify-center">
+          <span class="text-xl font-bold text-white">B</span>
+        </div>
         <div>
-          <div class="font-semibold leading-tight">Brandible Hub</div>
-          <div class="text-xs text-slate-500">Client Dashboard</div>
+          <div class="font-semibold leading-tight text-sm">Brandible Hub</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">Client Dashboard</div>
         </div>
       </div>
       <nav class="px-3 space-y-1">
@@ -87,7 +89,12 @@
             <span class="font-semibold">Brandible Hub</span>
           </div>
           <div class="hidden md:flex items-center gap-2 flex-1 max-w-xl">
-            <input id="globalSearch" placeholder="Search projects, files, invoices…" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div class="relative w-full">
+              <input id="globalSearch" placeholder="Search projects, files, invoices…" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-2.5 pl-10 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all" />
+              <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
           </div>
           <div class="flex items-center gap-3">
             <span id="userEmail" class="hidden sm:inline text-sm text-slate-500"></span>
@@ -177,10 +184,10 @@
               <div class="card-header">Need help?</div>
               <div class="card-body space-y-3">
                 <p class="text-sm text-slate-600 dark:text-slate-300">Create a quick support request and we’ll get back to you.</p>
-                <form name="hub-support" method="POST" data-netlify="true" class="space-y-3">
+                <form name="hub-support" method="POST" data-netlify="true" class="space-y-4">
                   <input type="hidden" name="form-name" value="hub-support" />
-                  <input name="email" placeholder="Your email" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2" />
-                  <textarea name="message" placeholder="How can we help?" rows="3" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2"></textarea>
+                  <input name="email" placeholder="Your email" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all" />
+                  <textarea name="message" placeholder="How can we help?" rows="3" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all"></textarea>
                   <button class="btn-primary w-full">Submit</button>
                 </form>
               </div>
@@ -257,8 +264,10 @@
     window.addEventListener('load', hydrate);
   </script>
 <!-- Loading Spinner -->
-<div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 z-[1000]">
-  <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+<div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm z-[1000]">
+  <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl">
+    <div class="animate-spin rounded-full h-12 w-12 border-4 border-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 border-t-transparent"></div>
+  </div>
 </div>
 <script>
 document.addEventListener("submit", function(e) {

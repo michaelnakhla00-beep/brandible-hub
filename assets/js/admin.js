@@ -76,13 +76,13 @@ function renderClientsTable(clients = [], searchTerm = "") {
   container.innerHTML = filtered
     .map(
       (client) => `
-      <tr class="border-t border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900">
-        <td class="py-3 font-medium">${client.name || "N/A"}</td>
-        <td class="py-3 text-slate-600 dark:text-slate-300">${client.email || "N/A"}</td>
-        <td class="py-3">${client.kpis?.activeProjects || 0}</td>
-        <td class="py-3">${client.kpis?.openInvoices || 0}</td>
-        <td class="py-3 text-sm text-slate-500">${client.kpis?.lastUpdate || "N/A"}</td>
-        <td class="py-3 text-right">
+      <tr class="table-row">
+        <td class="py-3 px-2 font-medium">${client.name || "N/A"}</td>
+        <td class="py-3 px-2 text-slate-600 dark:text-slate-300">${client.email || "N/A"}</td>
+        <td class="py-3 px-2">${client.kpis?.activeProjects || 0}</td>
+        <td class="py-3 px-2">${client.kpis?.openInvoices || 0}</td>
+        <td class="py-3 px-2 text-sm text-slate-500">${client.kpis?.lastUpdate || "N/A"}</td>
+        <td class="py-3 px-2 text-right">
           <button onclick="viewClient('${client.email}')" class="btn-primary text-sm">
             View
           </button>
