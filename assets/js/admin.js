@@ -668,7 +668,10 @@ async function deleteClientConfirmed() {
     
     const res = await fetch('/.netlify/functions/delete-client', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({ 
         email: clientToDelete.email 
       })
@@ -677,19 +680,24 @@ async function deleteClientConfirmed() {
     const result = await res.json();
     
     if (!res.ok) {
+      closeDeleteModal();
       throw new Error(result.error || 'Failed to delete client');
     }
     
     // Close modal
     closeDeleteModal();
     
-    // Show appropriate toast
-    if (result.deleted && result.identityDeleted) {
-      showToast('Client removed', 'success', 'Client successfully removed from database and Identity.');
-    } else if (result.deleted && !result.identityDeleted) {
-      showToast('Client removed', 'success', 'Client record deleted, but Netlify user not found.');
+    // Show appropriate toast with specific message
+    if (result.success) {
+      if (result.identityDeleted === true) {
+        showToast('Client removed', 'success', result.message || 'Client successfully removed from database and Identity.');
+      } else if (result.identityDeleted === false) {
+        showToast('Client removed', 'success', result.message || 'Client record deleted, but Netlify user not found.');
+      } else {
+        showToast('Client removed', 'success', result.message || 'Client successfully deleted.');
+      }
     } else {
-      showToast('Failed to remove client', 'error', result.error || 'Unknown error occurred');
+      showToast('Failed to remove client', 'error', result.error || result.message || 'Unknown error occurred');
       return;
     }
     

@@ -7,43 +7,56 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Get auth token
-    const authHeader = event.headers['authorization'];
-    if (!authHeader) {
+    // Get auth token from Authorization header
+    const authHeader = event.headers['authorization'] || event.headers['Authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return { 
         statusCode: 401, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Not authenticated' }) 
       };
     }
 
-    // Check admin role
-    const authToken = authHeader.replace('Bearer ', '');
+    // Check admin role by verifying the JWT
+    const authToken = authHeader.replace('Bearer ', '').trim();
+    
+    // Use Netlify Identity Admin API to verify user
     const userResponse = await fetch(`${process.env.URL}/.netlify/identity/user`, {
-      headers: { 'Authorization': `Bearer ${authToken}` }
+      headers: { 
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
     });
     
     if (!userResponse.ok) {
+      console.error('Identity user verification failed:', userResponse.status);
       return { 
         statusCode: 401, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Invalid authentication token' }) 
       };
     }
 
     const user = await userResponse.json();
-    const isAdmin = user.app_metadata?.roles?.includes('admin');
+    const isAdmin = user?.app_metadata?.roles?.includes('admin');
     
     if (!isAdmin) {
+      console.error('User is not admin:', user.email);
       return { 
         statusCode: 403, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Only admins can delete clients' }) 
       };
     }
+    
+    console.log('✓ Authenticated admin user:', user.email);
 
     // Parse request
     const { email } = JSON.parse(event.body);
     if (!email) {
       return { 
         statusCode: 400, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Email is required' }) 
       };
     }
@@ -55,6 +68,7 @@ exports.handler = async (event, context) => {
     if (!supabaseUrl || !supabaseKey) {
       return { 
         statusCode: 500, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Supabase not configured' }) 
       };
     }
@@ -72,6 +86,7 @@ exports.handler = async (event, context) => {
       console.error('Client not found:', email);
       return { 
         statusCode: 404, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Client not found' }) 
       };
     }
@@ -86,6 +101,7 @@ exports.handler = async (event, context) => {
       console.error('Supabase delete error:', deleteError);
       return { 
         statusCode: 500, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Failed to delete client from database' }) 
       };
     }
