@@ -144,6 +144,9 @@ function sanitizeEmail(email) {
   return email.replace(/[^a-zA-Z0-9]/g, '_');
 }
 
+// Store Supabase config globally
+let supabaseConfig = { url: null, anonKey: null };
+
 async function initSupabase() {
   if (!window.supabase) {
     console.error('❌ Supabase client library not loaded');
@@ -151,24 +154,6 @@ async function initSupabase() {
   }
   
   try {
-    // Get JWT token from Netlify Identity for authenticated access
-    console.log('🔍 Checking for Netlify Identity user...');
-    const token = await new Promise((resolve) => {
-      const id = window.netlifyIdentity;
-      const user = id && id.currentUser();
-      console.log('User found:', !!user, user?.email);
-      if (!user) {
-        console.warn('⚠️ No user logged in to Netlify Identity');
-        return resolve(null);
-      }
-      user.jwt().then(resolve).catch(() => {
-        console.warn('⚠️ Failed to get JWT token');
-        resolve(null);
-      });
-    });
-    
-    console.log('🔑 JWT token retrieved:', token ? 'Yes (length: ' + token.length + ')' : 'No');
-    
     const res = await fetch('/.netlify/functions/get-storage-config');
     const config = await res.json();
     
@@ -178,19 +163,14 @@ async function initSupabase() {
     });
     
     if (config.url && config.anonKey) {
-      // Initialize Supabase client with auth token for authenticated access
-      supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
-        global: {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        }
-      });
+      // Store config globally for REST API calls
+      supabaseConfig.url = config.url;
+      supabaseConfig.anonKey = config.anonKey;
       
-      console.log('✅ Supabase Storage initialized with auth');
-      console.log('📝 Supabase client created:', {
-        hasClient: !!supabaseClient,
-        hasAuth: !!token,
-        authLength: token ? token.length : 0
-      });
+      // Initialize Supabase client WITHOUT auth headers for public Storage bucket
+      supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+      
+      console.log('✅ Supabase Storage initialized (public bucket, no auth)');
       return true;
     } else {
       console.error('❌ Missing Supabase config (url or anonKey)');
@@ -304,10 +284,26 @@ window.testActivityLog = async function() {
   const user = window.netlifyIdentity?.currentUser();
   const userEmail = user?.email || 'test@example.com';
   
-  console.log('🧪 Testing activity log...', { userEmail, supabaseClient: !!supabaseClient });
+  console.log('🧪 Testing activity log...', { userEmail, hasConfig: !!(supabaseConfig.url && supabaseConfig.anonKey) });
   
-  if (!supabaseClient) {
-    console.error('❌ Supabase client not initialized');
+  if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+    console.error('❌ Supabase config not initialized');
+    return;
+  }
+  
+  // Get JWT token
+  const token = await new Promise((resolve) => {
+    const id = window.netlifyIdentity;
+    const user = id && id.currentUser();
+    if (!user) {
+      console.error('No user logged in');
+      return resolve(null);
+    }
+    user.jwt().then(resolve).catch(() => resolve(null));
+  });
+  
+  if (!token) {
+    console.error('❌ No JWT token available');
     return;
   }
   
@@ -316,60 +312,84 @@ window.testActivityLog = async function() {
   
   console.log('📝 Inserting test activity...', { client_email: userEmail, activity: testActivity, type: 'test' });
   
-  const { data, error } = await supabaseClient
-    .from('client_activity')
-    .insert({
+  const response = await fetch(`${supabaseConfig.url}/rest/v1/client_activity`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseConfig.anonKey,
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
       client_email: userEmail,
       activity: testActivity,
       type: 'test'
     })
-    .select();
+  });
   
-  if (error) {
-    console.error('❌ Test insert failed:', error);
-    console.error('Error details:', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code
-    });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.error('❌ Test insert failed:', errorData);
+    console.error('Status:', response.status, response.statusText);
   } else {
+    const data = await response.json();
     console.log('✅ Test insert successful!', data);
   }
 };
 
-// Log client activity to Supabase
+// Log client activity to Supabase using REST API with JWT
 async function logClientActivity(clientEmail, activity, type = 'upload') {
   try {
     console.log('🔍 logClientActivity called with:', { clientEmail, activity, type });
     
-    if (!supabaseClient) {
-      console.error('❌ Supabase client is null/undefined!');
+    if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+      console.error('❌ Supabase config not available');
       console.warn('Supabase not initialized, skipping activity log');
       return;
     }
     
-    console.log('📝 Supabase client exists, preparing insert...');
+    // Get JWT token from Netlify Identity
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) {
+        console.warn('⚠️ No user logged in');
+        return resolve(null);
+      }
+      user.jwt().then(resolve).catch(() => {
+        console.warn('⚠️ Failed to get JWT token');
+        resolve(null);
+      });
+    });
+    
+    if (!token) {
+      console.error('❌ No JWT token available');
+      return;
+    }
+    
+    console.log('📝 Using REST API to insert activity...');
     console.log('📝 Insert payload:', { client_email: clientEmail, activity, type });
     
-    const { data, error } = await supabaseClient
-      .from('client_activity')
-      .insert({
+    // Use REST API directly with JWT authentication
+    const response = await fetch(`${supabaseConfig.url}/rest/v1/client_activity`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseConfig.anonKey,
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
         client_email: clientEmail,
         activity: activity,
         type: type
       })
-      .select();
+    });
     
-    if (error) {
-      console.error('❌ Supabase insert error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('❌ REST API error:', errorData);
+      console.error('Status:', response.status, response.statusText);
     } else {
+      const data = await response.json();
       console.log('✅ Activity logged successfully!', data);
     }
   } catch (err) {
