@@ -33,36 +33,69 @@ async function ensureIdentityLoaded() {
     });
   }
 
-  id.on("login", (user) => {
-    console.log("User logged in:", user.email);
-    id.close();
-    // After login, go to portal
-    if (location.pathname.endsWith("index.html") || location.pathname === "/") {
-      location.href = "/portal.html";
-    } else {
-      // On portal, just refresh
-      location.reload();
-    }
-  });
-
   id.on("logout", () => {
     console.log("User logged out");
-    if (!location.pathname.endsWith("index.html")) {
-      location.href = "/index.html";
-    }
+    location.href = "/index.html";
   });
 
   id.on("init", (user) => {
     console.log("Netlify Identity initialized", user ? `User: ${user.email}` : "No user");
-    const onPortal = location.pathname.endsWith("portal.html");
-    if (onPortal && !user) location.href = "/index.html";
+    
+    if (!user) {
+      // Not logged in - redirect to login if on protected pages
+      if (location.pathname.endsWith("portal.html") || location.pathname.endsWith("admin.html")) {
+        location.href = "/index.html";
+      }
+      return;
+    }
 
-    if (onPortal && user) {
+    // User is logged in - check role
+    const isAdmin = user.app_metadata?.roles?.includes("admin");
+    const onAdmin = location.pathname.endsWith("admin.html");
+    const onPortal = location.pathname.endsWith("portal.html");
+
+    // Role-based routing
+    if (isAdmin) {
+      // Admin should be on admin page
+      if (!onAdmin && !onPortal) {
+        // On login page or root - redirect to admin
+        location.href = "/admin.html";
+      } else if (onPortal) {
+        // Admin accidentally on portal - redirect to admin
+        location.href = "/admin.html";
+      }
+      
+      // Update admin page UI
       const el = document.getElementById("userEmail");
       if (el) el.textContent = user.email;
+    } else {
+      // Regular client - should be on portal page
+      if (onAdmin) {
+        // Client on admin page - redirect to portal
+        location.href = "/portal.html";
+      } else if (!onPortal && !location.pathname.endsWith("index.html") && location.pathname !== "/") {
+        // On any other page except portal or login - redirect to portal
+        location.href = "/portal.html";
+      }
       
-      // Future: Add role-based features here if needed
-      // const isAdmin = user.app_metadata?.roles?.includes("admin");
+      // Update portal page UI
+      const el = document.getElementById("userEmail");
+      if (el) el.textContent = user.email;
+    }
+  });
+
+  id.on("login", (user) => {
+    console.log("User logged in:", user.email);
+    id.close();
+    
+    // Check role after login
+    const isAdmin = user.app_metadata?.roles?.includes("admin");
+    
+    // Redirect based on role
+    if (isAdmin) {
+      location.href = "/admin.html";
+    } else {
+      location.href = "/portal.html";
     }
   });
 })();

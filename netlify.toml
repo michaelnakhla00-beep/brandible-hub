@@ -4,6 +4,7 @@
 [functions]
   included_files = ["data/clients.json"]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
   
 [dev]
   command = "netlify dev"
