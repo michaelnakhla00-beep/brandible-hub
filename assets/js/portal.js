@@ -147,6 +147,40 @@ function sanitizeEmail(email) {
 // Store Supabase config globally
 let supabaseConfig = { url: null, anonKey: null };
 
+// Get an authenticated Supabase client for database operations
+async function getAuthenticatedSupabaseClient() {
+  if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+    console.error('❌ Supabase config not initialized');
+    return null;
+  }
+  
+  // Get JWT token from Netlify Identity
+  const token = await new Promise((resolve) => {
+    const id = window.netlifyIdentity;
+    const user = id && id.currentUser();
+    if (!user) {
+      console.warn('⚠️ No user logged in');
+      return resolve(null);
+    }
+    user.jwt().then(resolve).catch(() => {
+      console.warn('⚠️ Failed to get JWT token');
+      resolve(null);
+    });
+  });
+  
+  if (!token) {
+    console.error('❌ No JWT token available');
+    return null;
+  }
+  
+  // Create a Supabase client with auth headers for database operations
+  return window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+    global: {
+      headers: { Authorization: `Bearer ${token}` }
+    }
+  });
+}
+
 async function initSupabase() {
   if (!window.supabase) {
     console.error('❌ Supabase client library not loaded');
@@ -163,7 +197,7 @@ async function initSupabase() {
     });
     
     if (config.url && config.anonKey) {
-      // Store config globally for REST API calls
+      // Store config globally
       supabaseConfig.url = config.url;
       supabaseConfig.anonKey = config.anonKey;
       
@@ -284,26 +318,13 @@ window.testActivityLog = async function() {
   const user = window.netlifyIdentity?.currentUser();
   const userEmail = user?.email || 'test@example.com';
   
-  console.log('🧪 Testing activity log...', { userEmail, hasConfig: !!(supabaseConfig.url && supabaseConfig.anonKey) });
+  console.log('🧪 Testing activity log...', { userEmail });
   
-  if (!supabaseConfig.url || !supabaseConfig.anonKey) {
-    console.error('❌ Supabase config not initialized');
-    return;
-  }
+  // Get authenticated Supabase client
+  const supabase = await getAuthenticatedSupabaseClient();
   
-  // Get JWT token
-  const token = await new Promise((resolve) => {
-    const id = window.netlifyIdentity;
-    const user = id && id.currentUser();
-    if (!user) {
-      console.error('No user logged in');
-      return resolve(null);
-    }
-    user.jwt().then(resolve).catch(() => resolve(null));
-  });
-  
-  if (!token) {
-    console.error('❌ No JWT token available');
+  if (!supabase) {
+    console.error('❌ Failed to get authenticated Supabase client');
     return;
   }
   
@@ -312,85 +333,62 @@ window.testActivityLog = async function() {
   
   console.log('📝 Inserting test activity...', { client_email: userEmail, activity: testActivity, type: 'test' });
   
-  const response = await fetch(`${supabaseConfig.url}/rest/v1/client_activity`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': supabaseConfig.anonKey,
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      client_email: userEmail,
-      activity: testActivity,
-      type: 'test'
-    })
-  });
+  const { data, error } = await supabase
+    .from('client_activity')
+    .insert([{ 
+      client_email: userEmail, 
+      activity: testActivity, 
+      type: 'test' 
+    }]);
   
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    console.error('❌ Test insert failed:', errorData);
-    console.error('Status:', response.status, response.statusText);
+  if (error) {
+    console.error('❌ Test insert failed:', error);
+    console.error('Error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
   } else {
-    const data = await response.json();
     console.log('✅ Test insert successful!', data);
   }
 };
 
-// Log client activity to Supabase using REST API with JWT
+// Log client activity to Supabase
 async function logClientActivity(clientEmail, activity, type = 'upload') {
   try {
-    console.log('🔍 logClientActivity called with:', { clientEmail, activity, type });
+    console.log("Logging activity:", clientEmail, activity, type);
     
-    if (!supabaseConfig.url || !supabaseConfig.anonKey) {
-      console.error('❌ Supabase config not available');
-      console.warn('Supabase not initialized, skipping activity log');
+    // Get authenticated Supabase client
+    const supabase = await getAuthenticatedSupabaseClient();
+    
+    if (!supabase) {
+      console.error('❌ Failed to get authenticated Supabase client');
       return;
     }
     
-    // Get JWT token from Netlify Identity
-    const token = await new Promise((resolve) => {
-      const id = window.netlifyIdentity;
-      const user = id && id.currentUser();
-      if (!user) {
-        console.warn('⚠️ No user logged in');
-        return resolve(null);
-      }
-      user.jwt().then(resolve).catch(() => {
-        console.warn('⚠️ Failed to get JWT token');
-        resolve(null);
+    console.log('📝 Inserting activity into client_activity table...');
+    console.log('Insert payload:', { client_email: clientEmail, activity, type });
+    
+    // Insert activity using Supabase client
+    const { data, error } = await supabase
+      .from('client_activity')
+      .insert([{ 
+        client_email: clientEmail, 
+        activity: activity, 
+        type: type 
+      }]);
+    
+    if (error) {
+      console.error("Activity insert error:", error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
       });
-    });
-    
-    if (!token) {
-      console.error('❌ No JWT token available');
-      return;
-    }
-    
-    console.log('📝 Using REST API to insert activity...');
-    console.log('📝 Insert payload:', { client_email: clientEmail, activity, type });
-    
-    // Use REST API directly with JWT authentication
-    const response = await fetch(`${supabaseConfig.url}/rest/v1/client_activity`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseConfig.anonKey,
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        client_email: clientEmail,
-        activity: activity,
-        type: type
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('❌ REST API error:', errorData);
-      console.error('Status:', response.status, response.statusText);
     } else {
-      const data = await response.json();
-      console.log('✅ Activity logged successfully!', data);
+      console.log("Activity insert success:", data);
     }
   } catch (err) {
     console.error('❌ Exception in logClientActivity:', err);
