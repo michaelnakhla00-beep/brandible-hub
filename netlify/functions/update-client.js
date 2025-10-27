@@ -75,7 +75,9 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { email, kpis, activity } = requestData;
+    const { email, kpis, activity, updates } = requestData;
+    
+    console.log('Update request received:', { email, has_kpis: !!kpis, has_activity: !!activity, has_updates: !!updates });
     
     if (!email) {
       return {
@@ -105,38 +107,93 @@ exports.handler = async (event, context) => {
       updated_at: new Date().toISOString()
     };
     
-    // Add kpis if provided
-    if (kpis && typeof kpis === 'object') {
-      updateData.kpis = kpis;
+    // Parse and add kpis if provided
+    if (kpis) {
+      try {
+        if (typeof kpis === 'string') {
+          updateData.kpis = JSON.parse(kpis);
+        } else if (typeof kpis === 'object') {
+          updateData.kpis = kpis;
+        }
+        console.log('Added kpis to update:', updateData.kpis);
+      } catch (err) {
+        console.error('Failed to parse kpis:', err);
+      }
     }
     
-    // Add activity if provided
-    if (activity && Array.isArray(activity)) {
-      updateData.activity = activity;
+    // Parse and add activity if provided
+    if (activity) {
+      try {
+        if (typeof activity === 'string') {
+          updateData.activity = JSON.parse(activity);
+        } else if (Array.isArray(activity)) {
+          updateData.activity = activity;
+        }
+        console.log('Added activity to update, count:', updateData.activity?.length || 0);
+      } catch (err) {
+        console.error('Failed to parse activity:', err);
+      }
     }
+    
+    // Parse and add updates if provided
+    if (updates) {
+      try {
+        if (typeof updates === 'string') {
+          updateData.updates = JSON.parse(updates);
+        } else if (Array.isArray(updates)) {
+          updateData.updates = updates;
+        }
+        console.log('Added updates to update, count:', updateData.updates?.length || 0);
+      } catch (err) {
+        console.error('Failed to parse updates:', err);
+      }
+    }
+    
+    console.log('Final update data:', JSON.stringify(updateData, null, 2));
 
     // Update client in Supabase with error handling
     let updatedClient;
     let supabaseError;
+    let rowsAffected = 0;
     
     try {
-      const { data, error } = await supabase
+      console.log(`Attempting to update client with email: ${email}`);
+      
+      const { data, error, count } = await supabase
         .from('clients')
         .update(updateData)
-        .eq('email', email)
-        .select()
-        .single();
+        .eq('email', email.toLowerCase())
+        .select();
       
-      updatedClient = data;
+      console.log('Supabase response:', { 
+        data: data ? 'present' : 'null', 
+        error: error ? error.message : 'none',
+        count,
+        data_length: data?.length
+      });
+      
+      updatedClient = data && data[0];
       supabaseError = error;
+      rowsAffected = data?.length || 0;
+      
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+      }
     } catch (dbError) {
-      console.error("Supabase call failed:", dbError);
+      console.error("Supabase call exception:", dbError);
       return {
         statusCode: 500,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          success: false,
           error: "Supabase update failed", 
-          details: dbError.message 
+          details: dbError.message,
+          type: 'database_exception'
         })
       };
     }
@@ -147,21 +204,29 @@ exports.handler = async (event, context) => {
         statusCode: 500,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          success: false,
           error: "Supabase update failed", 
-          details: supabaseError.message 
+          details: supabaseError.message,
+          hint: supabaseError.hint,
+          code: supabaseError.code
         })
       };
     }
 
-    if (!updatedClient) {
+    if (!updatedClient || rowsAffected === 0) {
+      console.error(`Client not found or no rows updated: ${email}`);
       return {
         statusCode: 404,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: "Client not found" })
+        body: JSON.stringify({ 
+          success: false,
+          error: "Client not found", 
+          details: `No client found with email: ${email}`
+        })
       };
     }
 
-    console.log(`✓ Client ${email} updated successfully`);
+    console.log(`✓ Client ${email} updated successfully (${rowsAffected} row(s) affected)`);
 
     return {
       statusCode: 200,

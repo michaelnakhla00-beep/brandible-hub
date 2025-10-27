@@ -500,11 +500,16 @@ window.saveClientChanges = async function() {
     }
     
     if (!res.ok) {
-      throw new Error(result.error || result.message || `Failed to save: ${res.status}`);
+      // Extract detailed error information
+      const errorDetails = result.details || result.hint || result.error || `Failed to save: ${res.status}`;
+      const errorCode = result.code ? ` (${result.code})` : '';
+      throw new Error(`${errorDetails}${errorCode}`);
     }
     
     if (!result.success) {
-      throw new Error(result.error || result.message || 'Failed to save changes');
+      const errorDetails = result.details || result.error || result.message || 'Failed to save changes';
+      const errorCode = result.code ? ` (${result.code})` : '';
+      throw new Error(`${errorDetails}${errorCode}`);
     }
     
     // Update the display
