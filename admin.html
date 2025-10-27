@@ -61,33 +61,35 @@
     <header class="glass-header sticky top-0 z-40">
       <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30 flex items-center justify-center">
-            <span class="text-xl font-bold text-white">B</span>
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-lg shadow-purple-500/30 flex items-center justify-center">
+            <span class="text-2xl font-bold text-white">B</span>
           </div>
           <div>
-            <div class="font-semibold text-sm">Brandible Hub</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400">Admin Dashboard</div>
+            <h1 class="font-bold text-lg text-slate-900 dark:text-white mb-0.5">Brandible Hub</h1>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Admin Dashboard</p>
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <span id="userEmail" class="text-sm text-slate-500"></span>
-          <span class="pill-blue">Admin</span>
-          <button onclick="toggleDark()" class="btn-ghost" title="Dark mode">🌗</button>
-          <button id="logoutBtn" class="btn-ghost">Log out</button>
+          <span id="userEmail" class="hidden md:inline text-sm font-medium text-slate-600 dark:text-slate-400"></span>
+          <span class="pill-blue font-semibold">Admin</span>
+          <button onclick="toggleDark()" class="btn-ghost p-2" title="Toggle dark mode">
+            <span class="text-xl">🌗</span>
+          </button>
+          <button id="logoutBtn" class="btn-ghost text-sm font-medium">Log out</button>
         </div>
       </div>
     </header>
 
     <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6 space-y-8">
       <!-- Admin KPIs -->
-      <section>
-        <h2 class="text-2xl font-bold mb-4">Overview</h2>
-        <div id="adminKPIs" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
-      </section>
+        <section>
+          <h2 class="text-2xl font-bold mb-6">Overview</h2>
+          <div id="adminKPIs" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+        </section>
 
       <!-- Clients List -->
       <section>
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-6">
           <h2 class="text-2xl font-bold">All Clients</h2>
           <div class="flex items-center gap-3">
             <div class="relative flex-1 max-w-md">
@@ -109,14 +111,14 @@
           <div class="card-header">Client List</div>
           <div class="card-body overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="text-slate-500">
+              <thead class="bg-slate-50/50 dark:bg-slate-800/20">
                 <tr>
-                  <th class="text-left py-2">Name</th>
-                  <th class="text-left py-2">Email</th>
-                  <th class="text-left py-2">Active Projects</th>
-                  <th class="text-left py-2">Open Invoices</th>
-                  <th class="text-left py-2">Last Update</th>
-                  <th class="text-right py-2">Actions</th>
+                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Name</th>
+                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Email</th>
+                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Active Projects</th>
+                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Open Invoices</th>
+                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Last Update</th>
+                  <th class="text-right py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody id="clientsTable"></tbody>
@@ -127,7 +129,7 @@
 
       <!-- Recent Activity Across All Clients -->
       <section>
-        <h2 class="text-2xl font-bold mb-4">Recent Activity</h2>
+        <h2 class="text-2xl font-bold mb-6">Recent Activity</h2>
         <div class="card">
           <ul id="allActivity" class="card-body space-y-3"></ul>
         </div>

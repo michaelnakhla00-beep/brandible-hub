@@ -77,12 +77,12 @@ function renderClientsTable(clients = [], searchTerm = "") {
     .map(
       (client) => `
       <tr class="table-row">
-        <td class="py-3 px-2 font-medium">${client.name || "N/A"}</td>
-        <td class="py-3 px-2 text-slate-600 dark:text-slate-300">${client.email || "N/A"}</td>
-        <td class="py-3 px-2">${client.kpis?.activeProjects || 0}</td>
-        <td class="py-3 px-2">${client.kpis?.openInvoices || 0}</td>
-        <td class="py-3 px-2 text-sm text-slate-500">${client.kpis?.lastUpdate || "N/A"}</td>
-        <td class="py-3 px-2 text-right">
+        <td class="py-3 px-4 font-medium">${client.name || "N/A"}</td>
+        <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${client.email || "N/A"}</td>
+        <td class="py-3 px-4">${client.kpis?.activeProjects || 0}</td>
+        <td class="py-3 px-4">${client.kpis?.openInvoices || 0}</td>
+        <td class="py-3 px-4 text-sm text-slate-500">${client.kpis?.lastUpdate || "N/A"}</td>
+        <td class="py-3 px-4 text-right">
           <button onclick="viewClient('${client.email}')" class="btn-primary text-sm">
             View
           </button>
