@@ -6,33 +6,74 @@ exports.handler = async (event, context) => {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: "Method not allowed" })
     };
   }
 
   try {
-    const user = context.clientContext && context.clientContext.user;
-    if (!user) {
+    // Get auth token from Authorization header
+    const authHeader = event.headers['authorization'] || event.headers['Authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return { 
         statusCode: 401, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: "Not authenticated" }) 
       };
     }
 
-    // Check if user is admin
-    const isAdmin = user.app_metadata?.roles?.includes("admin");
-    if (!isAdmin) {
+    // Check admin role by verifying the JWT
+    const authToken = authHeader.replace('Bearer ', '').trim();
+    
+    // Use Netlify Identity Admin API to verify user
+    const userResponse = await fetch(`${process.env.URL}/.netlify/identity/user`, {
+      headers: { 
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!userResponse.ok) {
+      console.error('Identity user verification failed:', userResponse.status);
       return { 
-        statusCode: 403, 
-        body: JSON.stringify({ error: "Admin access required" }) 
+        statusCode: 401, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: "Invalid authentication token" }) 
       };
     }
 
-    const { email, kpis, activity } = JSON.parse(event.body);
+    const user = await userResponse.json();
+    const isAdmin = user?.app_metadata?.roles?.includes('admin');
+    
+    if (!isAdmin) {
+      console.error('User is not admin:', user.email);
+      return { 
+        statusCode: 403, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: "Admin access required" }) 
+      };
+    }
+    
+    console.log('✓ Authenticated admin user:', user.email);
+
+    // Parse request body safely
+    let requestData;
+    try {
+      requestData = event.body ? JSON.parse(event.body) : {};
+    } catch (parseError) {
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: "Invalid JSON in request body" })
+      };
+    }
+
+    const { email, kpis, activity } = requestData;
     
     if (!email) {
       return {
         statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: "Email is required" })
       };
     }
@@ -45,51 +86,79 @@ exports.handler = async (event, context) => {
       console.error("Supabase credentials not configured");
       return {
         statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: "Database not configured" })
       };
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Prepare update data
+    // Prepare update data matching Supabase schema
     const updateData = {
       updated_at: new Date().toISOString()
     };
     
-    if (kpis) {
+    // Add kpis if provided
+    if (kpis && typeof kpis === 'object') {
       updateData.kpis = kpis;
     }
     
-    if (activity) {
+    // Add activity if provided
+    if (activity && Array.isArray(activity)) {
       updateData.activity = activity;
     }
 
-    // Update client in Supabase
-    const { data: updatedClient, error } = await supabase
-      .from('clients')
-      .update(updateData)
-      .eq('email', email)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Supabase error:", error);
+    // Update client in Supabase with error handling
+    let updatedClient;
+    let supabaseError;
+    
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .update(updateData)
+        .eq('email', email)
+        .select()
+        .single();
+      
+      updatedClient = data;
+      supabaseError = error;
+    } catch (dbError) {
+      console.error("Supabase call failed:", dbError);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Database error: " + error.message })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          error: "Supabase update failed", 
+          details: dbError.message 
+        })
+      };
+    }
+
+    if (supabaseError) {
+      console.error("Supabase error:", supabaseError);
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          error: "Supabase update failed", 
+          details: supabaseError.message 
+        })
       };
     }
 
     if (!updatedClient) {
       return {
         statusCode: 404,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: "Client not found" })
       };
     }
 
+    console.log(`✓ Client ${email} updated successfully`);
+
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         success: true,
         message: "Client updated successfully",
@@ -100,6 +169,7 @@ exports.handler = async (event, context) => {
     console.error("Error in update-client:", err);
     return { 
       statusCode: 500, 
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: "Server error: " + err.message }) 
     };
   }

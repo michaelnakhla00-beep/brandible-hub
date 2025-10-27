@@ -483,8 +483,7 @@ window.saveClientChanges = async function() {
       body: JSON.stringify({
         email: currentClientEmail,
         kpis: updatedKPIs,
-        activity: originalClientData.activity,
-        timestamp: new Date().toISOString()
+        activity: originalClientData.activity || []
       }),
     });
     
@@ -495,10 +494,14 @@ window.saveClientChanges = async function() {
     const result = await res.json();
     console.log("Save result:", result);
     
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to save changes');
+    }
+    
     // Update the display
     renderModalKPIs(originalClientData);
     
-    alert("✅ Changes saved successfully!");
+    showToast("Changes saved", "success", "Client updated successfully!");
     cancelEditMode();
     
     // Refresh the clients list
@@ -510,7 +513,8 @@ window.saveClientChanges = async function() {
     
   } catch (error) {
     console.error("Error saving:", error);
-    alert("❌ Failed to save changes: " + error.message);
+    const errorMessage = error.message || 'Failed to save changes';
+    showToast("Failed to save", "error", errorMessage);
   } finally {
     saveBtn.disabled = false;
     saveBtnText.textContent = "Save Changes";
