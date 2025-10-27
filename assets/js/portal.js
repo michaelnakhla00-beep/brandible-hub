@@ -299,6 +299,45 @@ function formatFileSize(bytes) {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
+// Test function to manually test activity logging
+window.testActivityLog = async function() {
+  const user = window.netlifyIdentity?.currentUser();
+  const userEmail = user?.email || 'test@example.com';
+  
+  console.log('🧪 Testing activity log...', { userEmail, supabaseClient: !!supabaseClient });
+  
+  if (!supabaseClient) {
+    console.error('❌ Supabase client not initialized');
+    return;
+  }
+  
+  // Try to insert a test record
+  const testActivity = `Test activity at ${new Date().toISOString()}`;
+  
+  console.log('📝 Inserting test activity...', { client_email: userEmail, activity: testActivity, type: 'test' });
+  
+  const { data, error } = await supabaseClient
+    .from('client_activity')
+    .insert({
+      client_email: userEmail,
+      activity: testActivity,
+      type: 'test'
+    })
+    .select();
+  
+  if (error) {
+    console.error('❌ Test insert failed:', error);
+    console.error('Error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
+  } else {
+    console.log('✅ Test insert successful!', data);
+  }
+};
+
 // Log client activity to Supabase
 async function logClientActivity(clientEmail, activity, type = 'upload') {
   try {
