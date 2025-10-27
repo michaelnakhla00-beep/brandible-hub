@@ -8,8 +8,8 @@
 [dev]
   command = "netlify dev"
   
+# Redirect root to login page
 [[redirects]]
-  from = "/*"
+  from = "/"
   to = "/index.html"
   status = 200
-  conditions = {Role = ["admin"]}
