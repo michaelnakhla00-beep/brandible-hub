@@ -135,20 +135,185 @@ function renderProjects({ projects = [] }) {
   }
 }
 
-// Files
-function renderFiles({ files = [] }) {
+// Files - Supabase Storage
+let supabaseClient = null;
+
+async function initSupabase() {
+  if (!window.supabase) {
+    console.error('Supabase client not loaded');
+    return false;
+  }
+  
+  try {
+    const res = await fetch('/.netlify/functions/get-storage-config');
+    const config = await res.json();
+    
+    if (config.url && config.anonKey) {
+      supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+      console.log('✓ Supabase Storage initialized');
+      return true;
+    }
+  } catch (err) {
+    console.warn('Failed to initialize Supabase Storage:', err);
+    return false;
+  }
+  
+  return false;
+}
+
+// Fetch files from Supabase Storage
+async function fetchSupabaseFiles(userEmail) {
+  if (!supabaseClient) {
+    console.log('Supabase not initialized, returning empty files array');
+    return [];
+  }
+  
+  try {
+    const { data, error } = await supabaseClient.storage
+      .from('client_files')
+      .list(userEmail || '');
+    
+    if (error) {
+      console.error('Error fetching files:', error);
+      return [];
+    }
+    
+    return data.map(file => ({
+      name: file.name,
+      size: file.metadata?.size || 0,
+      updated: new Date(file.updated_at).toLocaleDateString()
+    }));
+  } catch (err) {
+    console.error('Error fetching Supabase files:', err);
+    return [];
+  }
+}
+
+// Upload file to Supabase Storage
+async function uploadFileToSupabase(file, userEmail) {
+  if (!supabaseClient) {
+    throw new Error('Supabase not initialized');
+  }
+  
+  const filePath = `${userEmail}/${Date.now()}-${file.name}`;
+  
+  const { data, error } = await supabaseClient.storage
+    .from('client_files')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+  
+  if (error) {
+    throw new Error(error.message);
+  }
+  
+  return data;
+}
+
+// Delete file from Supabase Storage
+async function deleteFileFromSupabase(filePath, userEmail) {
+  if (!supabaseClient) {
+    throw new Error('Supabase not initialized');
+  }
+  
+  const fullPath = `${userEmail}/${filePath}`;
+  
+  const { error } = await supabaseClient.storage
+    .from('client_files')
+    .remove([fullPath]);
+  
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+// Get public URL for file
+async function getFileUrl(filePath, userEmail) {
+  if (!supabaseClient) {
+    throw new Error('Supabase not initialized');
+  }
+  
+  const fullPath = `${userEmail}/${filePath}`;
+  
+  const { data } = await supabaseClient.storage
+    .from('client_files')
+    .getPublicUrl(fullPath);
+  
+  return data.publicUrl;
+}
+
+// Render files with modern UI
+function renderFiles({ files = [], userEmail = '' }) {
   const el = document.getElementById("files");
+  const emptyState = document.getElementById("filesEmpty");
+  
   if (!el) return;
+  
+  if (files.length === 0) {
+    el.innerHTML = '';
+    if (emptyState) emptyState.style.display = 'block';
+    return;
+  }
+  
+  if (emptyState) emptyState.style.display = 'none';
+  
   el.innerHTML = files
     .map(
       (f) => `
-    <li class="flex items-center justify-between gap-3">
-      <a href="${f.url}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline">${f.name}</a>
-      <span class="text-xs text-slate-500">${f.updated || ""}</span>
+    <li class="group flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900/50 transition-all">
+      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <div class="flex-shrink-0">
+          <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">${f.name}</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">${f.updated || 'Recently'}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="downloadFile('${f.name}', '${userEmail}')" class="btn-ghost text-xs px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+        </button>
+        <button onclick="deleteStorageFile('${f.name}', '${userEmail}')" class="text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </button>
+      </div>
     </li>`
     )
     .join("");
 }
+
+// Global functions for file operations
+window.downloadFile = async function(filename, userEmail) {
+  try {
+    const url = await getFileUrl(filename, userEmail);
+    window.open(url, '_blank');
+  } catch (err) {
+    console.error('Error downloading file:', err);
+    alert('Failed to download file');
+  }
+};
+
+window.deleteStorageFile = async function(filename, userEmail) {
+  if (!confirm(`Delete ${filename}?`)) return;
+  
+  try {
+    await deleteFileFromSupabase(filename, userEmail);
+    showToast('File deleted', 'success', `${filename} has been removed`);
+    // Refresh file list
+    init();
+  } catch (err) {
+    console.error('Error deleting file:', err);
+    showToast('Delete failed', 'error', err.message);
+  }
+};
 
 // Invoices → table (advanced) + keep hidden fallback div updated
 function renderInvoices({ invoices = [] }) {
@@ -300,6 +465,58 @@ function wireFilters(fullData) {
   }
 }
 
+// Toast notification function
+function showToast(message, type = 'success', detail = '') {
+  // Create toast if it doesn't exist
+  let toast = document.getElementById('fileToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'fileToast';
+    toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-full opacity-0';
+    toast.innerHTML = `
+      <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 px-6 py-4 min-w-[300px]">
+        <div class="flex items-center gap-3">
+          <div id="toastIcon" class="size-8 rounded-full flex items-center justify-center"></div>
+          <div class="flex-1">
+            <div id="toastMessage" class="font-medium text-slate-900 dark:text-slate-100"></div>
+            <div id="toastDetail" class="text-sm text-slate-600 dark:text-slate-400"></div>
+          </div>
+          <button onclick="hideToast()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">✕</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(toast);
+  }
+
+  const toastIcon = document.getElementById('toastIcon');
+  const toastMessage = document.getElementById('toastMessage');
+  const toastDetail = document.getElementById('toastDetail');
+  
+  toastMessage.textContent = message;
+  toastDetail.textContent = detail || '';
+  
+  if (type === 'success') {
+    toastIcon.innerHTML = '✓';
+    toastIcon.className = 'size-9 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/50';
+    toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-0 opacity-100';
+  } else if (type === 'error') {
+    toastIcon.innerHTML = '✕';
+    toastIcon.className = 'size-9 rounded-full flex items-center justify-center bg-gradient-to-br from-red-400 to-red-600 text-white shadow-lg shadow-red-500/50';
+    toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-0 opacity-100';
+  }
+  
+  setTimeout(() => hideToast(), 3000);
+}
+
+function hideToast() {
+  const toast = document.getElementById('fileToast');
+  if (toast) {
+    toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-500 translate-x-full opacity-0';
+  }
+}
+
+window.hideToast = hideToast;
+
 /* ---------------------------
    4) Init
 ---------------------------- */
@@ -307,15 +524,78 @@ function wireFilters(fullData) {
   const overlay = document.getElementById("loadingOverlay");
   try {
     const data = await fetchClientData();
+    
+    // Get user email for Supabase Storage
+    const user = window.netlifyIdentity?.currentUser();
+    const userEmail = user?.email || '';
+
+    // Initialize Supabase Storage
+    await initSupabase();
 
     renderKPIs(data);
     renderProjects({ projects: data.projects || [] });
-    renderFiles({ files: data.files || [] });
+    
+    // Try to fetch Supabase files if client is initialized
+    let storageFiles = [];
+    if (supabaseClient && userEmail) {
+      storageFiles = await fetchSupabaseFiles(userEmail);
+    }
+    
+    renderFiles({ files: storageFiles.length > 0 ? storageFiles : (data.files || []), userEmail });
     renderInvoices({ invoices: data.invoices || [] });
     renderActivity({ activity: data.activity || [] });
     renderUpdates({ updates: data.updates || [] });
 
     wireFilters(data);
+    
+    // Wire up file upload handler
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput && userEmail) {
+      fileInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressBar = document.getElementById('progressBar');
+        const uploadStatus = document.getElementById('uploadStatus');
+        
+        if (uploadProgress && progressBar && uploadStatus) {
+          uploadProgress.classList.remove('hidden');
+        }
+        
+        for (const file of files) {
+          try {
+            if (!supabaseClient) {
+              throw new Error('Supabase Storage not configured');
+            }
+            
+            uploadStatus.textContent = `Uploading ${file.name}...`;
+            progressBar.style.width = '0%';
+            
+            await uploadFileToSupabase(file, userEmail);
+            
+            progressBar.style.width = '100%';
+            showToast('File uploaded', 'success', `${file.name} uploaded successfully`);
+            
+            // Refresh file list
+            setTimeout(async () => {
+              const newFiles = await fetchSupabaseFiles(userEmail);
+              renderFiles({ files: newFiles, userEmail });
+            }, 500);
+          } catch (err) {
+            console.error('Upload error:', err);
+            showToast('Upload failed', 'error', err.message);
+          }
+        }
+        
+        if (uploadProgress) {
+          uploadProgress.classList.add('hidden');
+        }
+        
+        // Reset file input
+        e.target.value = '';
+      });
+    }
   } catch (e) {
     console.error(e);
     alert("Failed to load dashboard. If this persists, contact Brandible.");

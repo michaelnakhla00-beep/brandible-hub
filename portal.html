@@ -12,6 +12,9 @@
   
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
   <style>
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -164,11 +167,37 @@
             <div class="card" id="filesCard">
               <div class="card-header flex items-center justify-between">
                 <span>Files</span>
-                <button class="btn-ghost text-sm" onclick="document.getElementById('fileInput').click()">Upload</button>
+                <label class="btn-primary text-sm cursor-pointer">
+                  <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                  </svg>
+                  Upload
+                  <input id="fileInput" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc" multiple />
+                </label>
               </div>
               <div class="card-body">
-                <input id="fileInput" type="file" class="hidden" />
-                <ul id="files" class="space-y-2"></ul>
+                <!-- Upload Progress -->
+                <div id="uploadProgress" class="hidden mb-4">
+                  <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent"></div>
+                    <span id="uploadStatus">Uploading...</span>
+                  </div>
+                  <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
+                    <div id="progressBar" class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                  </div>
+                </div>
+                
+                <!-- File List -->
+                <ul id="files" class="space-y-2 min-h-[100px]"></ul>
+                
+                <!-- Empty State -->
+                <div id="filesEmpty" class="text-center py-8 text-slate-400">
+                  <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  <p class="text-sm">No files yet</p>
+                  <p class="text-xs mt-1">Click Upload to add files</p>
+                </div>
               </div>
             </div>
 
