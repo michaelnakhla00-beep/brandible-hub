@@ -24,6 +24,9 @@ async function fetchAllClients() {
 
 // Store all clients globally for modal access
 let allClientsGlobal = [];
+let currentClientEmail = null;
+let editMode = false;
+let originalClientData = null;
 
 /* ---------------------------
    2) Render helpers
@@ -309,12 +312,23 @@ window.viewClient = function (email) {
     return;
   }
   
+  // Store current client for editing
+  currentClientEmail = email;
+  
   // Populate modal header
   document.getElementById("modalClientName").textContent = client.name || "Unknown";
   document.getElementById("modalClientEmail").textContent = client.email || "";
   
+  // Reset edit mode
+  if (editMode) {
+    cancelEditMode();
+  }
+  
   // Fetch full client data
   fetchClientFullData(email).then(fullClient => {
+    // Store original data
+    originalClientData = { ...fullClient };
+    
     renderModalKPIs(fullClient);
     renderModalProjects(fullClient);
     renderModalFiles(fullClient);
@@ -324,6 +338,7 @@ window.viewClient = function (email) {
   }).catch(err => {
     console.error("Error fetching full client data:", err);
     // Fallback to basic data from list
+    originalClientData = { ...client };
     renderModalKPIs(client);
   });
   
@@ -348,6 +363,151 @@ async function fetchClientFullData(email) {
   }
   return res.json();
 }
+
+/* ---------------------------
+   7) Edit Mode Functions
+---------------------------- */
+
+window.toggleEditMode = function() {
+  editMode = !editMode;
+  
+  // Toggle headers
+  document.getElementById("editModeHeader").classList.toggle("hidden");
+  
+  // Toggle edit sections
+  document.getElementById("editKPIsSection").classList.toggle("hidden");
+  document.getElementById("editActivitySection").classList.toggle("hidden");
+  
+  // Update edit button
+  const editBtn = document.getElementById("editBtn");
+  if (editBtn) {
+    editBtn.textContent = editMode ? "Viewing" : "Edit";
+    editBtn.disabled = editMode;
+  }
+  
+  // Populate edit fields with current data
+  if (editMode && originalClientData) {
+    populateEditFields(originalClientData);
+  }
+};
+
+window.cancelEditMode = function() {
+  editMode = false;
+  document.getElementById("editModeHeader").classList.add("hidden");
+  document.getElementById("editKPIsSection").classList.add("hidden");
+  document.getElementById("editActivitySection").classList.add("hidden");
+  document.getElementById("editBtn").textContent = "Edit";
+  document.getElementById("editBtn").disabled = false;
+};
+
+function populateEditFields(client) {
+  if (!client.kpis) return;
+  
+  document.getElementById("editKPIProjects").value = client.kpis.activeProjects || 0;
+  document.getElementById("editKPIFiles").value = client.kpis.files || 0;
+  document.getElementById("editKPIInvoices").value = client.kpis.openInvoices || 0;
+  document.getElementById("editKPILastUpdate").value = client.kpis.lastUpdate || "";
+}
+
+window.addActivityToClient = function() {
+  const type = document.getElementById("newActivityType").value;
+  const text = document.getElementById("newActivityText").value;
+  const when = document.getElementById("newActivityWhen").value;
+  
+  if (!text || !when) {
+    alert("Please fill in both activity description and time");
+    return;
+  }
+  
+  // Add to original client data
+  if (!originalClientData.activity) {
+    originalClientData.activity = [];
+  }
+  
+  originalClientData.activity.unshift({
+    type: type,
+    text: text,
+    when: when
+  });
+  
+  // Re-render activity
+  renderModalActivity(originalClientData);
+  
+  // Clear form
+  document.getElementById("newActivityText").value = "";
+  document.getElementById("newActivityWhen").value = "";
+};
+
+window.saveClientChanges = async function() {
+  const saveBtn = document.getElementById("saveBtn");
+  const saveBtnText = document.getElementById("saveBtnText");
+  
+  try {
+    // Show saving state
+    saveBtn.disabled = true;
+    saveBtnText.textContent = "Saving...";
+    
+    // Get updated KPI values
+    const updatedKPIs = {
+      activeProjects: parseInt(document.getElementById("editKPIProjects").value) || 0,
+      files: parseInt(document.getElementById("editKPIFiles").value) || 0,
+      openInvoices: parseInt(document.getElementById("editKPIInvoices").value) || 0,
+      lastUpdate: document.getElementById("editKPILastUpdate").value || ""
+    };
+    
+    // Update original data
+    originalClientData.kpis = updatedKPIs;
+    
+    // Call update function
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    const res = await fetch("/.netlify/functions/update-client", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        email: currentClientEmail,
+        kpis: updatedKPIs,
+        activity: originalClientData.activity,
+        timestamp: new Date().toISOString()
+      }),
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Failed to save: ${res.status}`);
+    }
+    
+    const result = await res.json();
+    console.log("Save result:", result);
+    
+    // Update the display
+    renderModalKPIs(originalClientData);
+    
+    alert("✅ Changes saved successfully!");
+    cancelEditMode();
+    
+    // Refresh the clients list
+    const data = await fetchAllClients();
+    const clients = data.clients || [];
+    allClientsGlobal = clients;
+    renderAdminKPIs(clients);
+    renderClientsTable(clients);
+    
+  } catch (error) {
+    console.error("Error saving:", error);
+    alert("❌ Failed to save changes: " + error.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtnText.textContent = "Save Changes";
+  }
+};
 
 /* ---------------------------
    6) Init

@@ -127,7 +127,23 @@
           <h3 id="modalClientName" class="text-xl font-bold">Client Name</h3>
           <p id="modalClientEmail" class="text-sm text-slate-500"></p>
         </div>
-        <button onclick="closeModal()" class="btn-ghost text-xl">✕</button>
+        <div class="flex items-center gap-2">
+          <button id="editBtn" onclick="toggleEditMode()" class="btn-ghost">Edit</button>
+          <button onclick="closeModal()" class="btn-ghost text-xl">✕</button>
+        </div>
+      </div>
+      
+      <!-- Edit Mode Header -->
+      <div id="editModeHeader" class="hidden card-header flex items-center justify-between border-b-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-950">
+        <div class="flex items-center gap-2">
+          <span class="text-indigo-700 dark:text-indigo-300 font-medium">✏️ Edit Mode</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="cancelEditBtn" onclick="cancelEditMode()" class="btn-ghost">Cancel</button>
+          <button id="saveBtn" onclick="saveClientChanges()" class="btn-primary">
+            <span id="saveBtnText">Save Changes</span>
+          </button>
+        </div>
       </div>
       
       <!-- Modal Body -->
@@ -178,6 +194,56 @@
         <section id="modalUpdatesSection">
           <h4 class="text-lg font-semibold mb-3">Updates</h4>
           <ul id="modalUpdates" class="space-y-2"></ul>
+        </section>
+        
+        <!-- Edit Section: KPIs -->
+        <section id="editKPIsSection" class="hidden">
+          <h4 class="text-lg font-semibold mb-3 text-indigo-700 dark:text-indigo-300">Edit KPIs</h4>
+          <div class="card p-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Active Projects</label>
+                <input type="number" id="editKPIProjects" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 mt-1" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Files Shared</label>
+                <input type="number" id="editKPIFiles" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 mt-1" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Open Invoices</label>
+                <input type="number" id="editKPIInvoices" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 mt-1" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Last Update</label>
+                <input type="text" id="editKPILastUpdate" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 mt-1" placeholder="e.g., Oct 3, 2025" />
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        <!-- Edit Section: Add Activity -->
+        <section id="editActivitySection" class="hidden">
+          <h4 class="text-lg font-semibold mb-3 text-indigo-700 dark:text-indigo-300">Add Activity</h4>
+          <div class="card p-4 space-y-4">
+            <div>
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Activity Type</label>
+              <select id="newActivityType" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 mt-1">
+                <option value="project">Project</option>
+                <option value="file">File</option>
+                <option value="invoice">Invoice</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Activity Description</label>
+              <input type="text" id="newActivityText" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 mt-1" placeholder="e.g., Uploaded new design file" />
+            </div>
+            <div>
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300">When</label>
+              <input type="text" id="newActivityWhen" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 mt-1" placeholder="e.g., 2 days ago" />
+            </div>
+            <button onclick="addActivityToClient()" class="btn-primary w-full">Add Activity</button>
+          </div>
         </section>
       </div>
       
