@@ -155,8 +155,17 @@ async function initSupabase() {
     const config = await res.json();
     
     if (config.url && config.anonKey) {
-      supabaseClient = window.supabase.createClient(config.url, config.anonKey);
-      console.log('✓ Supabase Storage initialized');
+      // Get Netlify Identity token for authentication
+      const user = window.netlifyIdentity?.currentUser();
+      const token = user?.token?.access_token;
+      
+      supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
+        global: {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }
+      });
+      
+      console.log('✓ Supabase Storage initialized', token ? 'with auth' : 'without auth');
       return true;
     }
   } catch (err) {
