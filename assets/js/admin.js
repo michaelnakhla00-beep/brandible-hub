@@ -414,7 +414,31 @@ function populateEditFields(client) {
   document.getElementById("editKPIProjects").value = client.kpis.activeProjects || 0;
   document.getElementById("editKPIFiles").value = client.kpis.files || 0;
   document.getElementById("editKPIInvoices").value = client.kpis.openInvoices || 0;
-  document.getElementById("editKPILastUpdate").value = client.kpis.lastUpdate || "";
+  
+  // Handle date format conversion for date picker (expects YYYY-MM-DD)
+  const lastUpdate = client.kpis.lastUpdate || "";
+  if (lastUpdate) {
+    try {
+      // If it's already in YYYY-MM-DD format, use it directly
+      if (lastUpdate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        document.getElementById("editKPILastUpdate").value = lastUpdate;
+      } else {
+        // Try to parse and convert to YYYY-MM-DD
+        const date = new Date(lastUpdate);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          document.getElementById("editKPILastUpdate").value = `${year}-${month}-${day}`;
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing date:', err);
+      document.getElementById("editKPILastUpdate").value = "";
+    }
+  } else {
+    document.getElementById("editKPILastUpdate").value = "";
+  }
 }
 
 window.addActivityToClient = function() {
