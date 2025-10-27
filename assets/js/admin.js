@@ -559,6 +559,86 @@ function renderModalUpdates(client) {
   `).join("");
 }
 
+// Fetch and render client activity from Supabase
+async function fetchClientActivity(clientEmail) {
+  if (!adminSupabaseClient) {
+    console.warn('Supabase not initialized');
+    return [];
+  }
+  
+  try {
+    const { data, error } = await adminSupabaseClient
+      .from('client_activity')
+      .select('*')
+      .eq('client_email', clientEmail)
+      .order('timestamp', { ascending: false })
+      .limit(10);
+    
+    if (error) {
+      console.error('Error fetching client activity:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error('Failed to fetch client activity:', err);
+    return [];
+  }
+}
+
+function renderClientActivity(activities, clientEmail, clientName) {
+  const container = document.getElementById("modalClientActivity");
+  if (!container) return;
+  
+  if (!activities || activities.length === 0) {
+    container.innerHTML = '<p class="text-slate-500 dark:text-slate-400">No client activity recorded</p>';
+    return;
+  }
+  
+  const getTypeBadgeClass = (type) => {
+    switch(type) {
+      case 'upload':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+      case 'invoice':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+      case 'project':
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+      default:
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300';
+    }
+  };
+  
+  const getTimeAgo = (timestamp) => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffMs = now - time;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return time.toLocaleDateString();
+  };
+  
+  container.innerHTML = activities.map(activity => `
+    <li class="flex items-start gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900/50 transition-all">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">${clientName || activity.client_email}</span>
+          <span class="px-2 py-0.5 text-xs font-medium rounded-full ${getTypeBadgeClass(activity.type)}">
+            ${activity.type}
+          </span>
+        </div>
+        <p class="text-sm text-slate-600 dark:text-slate-300">${activity.activity}</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${getTimeAgo(activity.timestamp)}</p>
+      </div>
+    </li>
+  `).join("");
+}
+
 /* ---------------------------
    5) View client modal
 ---------------------------- */
@@ -582,7 +662,7 @@ window.viewClient = function (email) {
   }
   
   // Fetch full client data
-  fetchClientFullData(email).then(fullClient => {
+  fetchClientFullData(email).then(async fullClient => {
     // Store original data
     originalClientData = { ...fullClient };
     
@@ -592,6 +672,10 @@ window.viewClient = function (email) {
     renderModalInvoices(fullClient);
     renderModalActivity(fullClient);
     renderModalUpdates(fullClient);
+    
+    // Fetch and render client activity from Supabase
+    const activities = await fetchClientActivity(email);
+    renderClientActivity(activities, email, fullClient.name || client.name);
   }).catch(err => {
     console.error("Error fetching full client data:", err);
     // Fallback to basic data from list

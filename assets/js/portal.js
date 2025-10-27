@@ -265,6 +265,30 @@ function formatFileSize(bytes) {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
+// Log client activity to Supabase
+async function logClientActivity(clientEmail, activity, type = 'upload') {
+  try {
+    if (!supabaseClient) {
+      console.warn('Supabase not initialized, skipping activity log');
+      return;
+    }
+    
+    const { error } = await supabaseClient
+      .from('client_activity')
+      .insert({
+        client_email: clientEmail,
+        activity: activity,
+        type: type
+      });
+    
+    if (error) {
+      console.error('Error logging activity:', error);
+    }
+  } catch (err) {
+    console.error('Failed to log client activity:', err);
+  }
+}
+
 // Render files with modern UI
 function renderFiles({ files = [], userEmail = '' }) {
   const el = document.getElementById("files");
@@ -598,6 +622,9 @@ window.hideToast = hideToast;
             progressBar.style.width = '0%';
             
             await uploadFileToSupabase(file, userEmail);
+            
+            // Log client activity
+            await logClientActivity(userEmail, `Uploaded ${file.name}`, 'upload');
             
             progressBar.style.width = '100%';
             showToast('File uploaded', 'success', `${file.name} uploaded successfully`);
