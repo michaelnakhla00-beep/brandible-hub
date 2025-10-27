@@ -34,7 +34,18 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const email = (user.email || "").toLowerCase();
+    // Check if user is admin
+    const isAdmin = user.app_metadata?.roles?.includes("admin");
+    
+    // Get the email to query - admin can query by param, clients get their own email
+    let emailToQuery = (user.email || "").toLowerCase();
+    
+    // If admin and email query parameter provided, use that
+    if (isAdmin && event.queryStringParameters && event.queryStringParameters.email) {
+      emailToQuery = event.queryStringParameters.email.toLowerCase();
+    }
+    
+    const email = emailToQuery;
     
     // Find and read the data file
     const dataPath = getDataPath();

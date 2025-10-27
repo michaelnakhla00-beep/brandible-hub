@@ -22,6 +22,9 @@ async function fetchAllClients() {
   return res.json();
 }
 
+// Store all clients globally for modal access
+let allClientsGlobal = [];
+
 /* ---------------------------
    2) Render helpers
 ---------------------------- */
@@ -148,23 +151,215 @@ function wireSearch(allClients) {
 }
 
 /* ---------------------------
-   4) View client function
+   4) Modal rendering functions
 ---------------------------- */
-window.viewClient = function (email) {
-  // Redirect to portal view of specific client
-  // In a full implementation, this would pass the email as a parameter
-  // or switch to an admin view of that client's data
-  alert(`View client: ${email}\nThis would show detailed view for this client.`);
-};
+
+function renderModalKPIs(client) {
+  const container = document.getElementById("modalKPIs");
+  if (!container || !client.kpis) return;
+  
+  const toMoney = (n) => `$${Number(n).toFixed(2)}`;
+  
+  container.innerHTML = `
+    <div class="card p-4">
+      <div class="text-2xl font-semibold">${client.kpis.activeProjects || 0}</div>
+      <div class="text-slate-500">Active Projects</div>
+    </div>
+    <div class="card p-4">
+      <div class="text-2xl font-semibold">${client.kpis.files || 0}</div>
+      <div class="text-slate-500">Files Shared</div>
+    </div>
+    <div class="card p-4">
+      <div class="text-2xl font-semibold">${client.kpis.openInvoices || 0}</div>
+      <div class="text-slate-500">Open Invoices</div>
+    </div>
+    <div class="card p-4">
+      <div class="text-2xl font-semibold">${client.kpis.lastUpdate || "N/A"}</div>
+      <div class="text-slate-500">Last Update</div>
+    </div>
+  `;
+}
+
+function renderModalProjects(client) {
+  const container = document.getElementById("modalProjects");
+  if (!container || !client.projects || !client.projects.length) {
+    container.innerHTML = '<p class="text-slate-500">No projects</p>';
+    return;
+  }
+  
+  container.innerHTML = client.projects.map(p => {
+    const pillClass = p.status === "Completed" || p.status === "Done" 
+      ? "pill-green" 
+      : p.status.toLowerCase().includes("review") 
+      ? "pill-slate" 
+      : "pill-amber";
+    
+    return `
+      <div class="card p-4">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="font-medium mb-1">${p.name}</div>
+            <div class="text-sm text-slate-600 dark:text-slate-300 mb-2">${p.summary || ""}</div>
+            ${p.links?.length ? `
+              <div class="flex flex-wrap gap-2 mt-2">
+                ${p.links.map(l => `<a href="${l.url}" target="_blank" rel="noopener" class="chip">${l.label}</a>`).join("")}
+              </div>
+            ` : ""}
+          </div>
+          <span class="${pillClass}">${p.status}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderModalFiles(client) {
+  const container = document.getElementById("modalFiles");
+  if (!container || !client.files || !client.files.length) {
+    container.innerHTML = '<p class="text-slate-500">No files</p>';
+    return;
+  }
+  
+  container.innerHTML = client.files.map(f => `
+    <li class="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+      <a href="${f.url}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline flex-1">
+        ${f.name}
+      </a>
+      <span class="text-xs text-slate-500">${f.updated || ""}</span>
+    </li>
+  `).join("");
+}
+
+function renderModalInvoices(client) {
+  const container = document.getElementById("modalInvoices");
+  if (!container || !client.invoices || !client.invoices.length) {
+    container.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-500">No invoices</td></tr>';
+    return;
+  }
+  
+  const toMoney = (n) => `$${Number(n).toFixed(2)}`;
+  
+  container.innerHTML = client.invoices.map(inv => `
+    <tr class="border-t border-slate-200 dark:border-slate-800">
+      <td class="py-2">${inv.number}</td>
+      <td class="py-2">${inv.date}</td>
+      <td class="py-2">${toMoney(inv.amount)}</td>
+      <td class="py-2">
+        ${inv.status === "Paid" 
+          ? '<span class="pill-green">Paid</span>' 
+          : '<span class="pill-amber">Open</span>'
+        }
+      </td>
+    </tr>
+  `).join("");
+}
+
+function renderModalActivity(client) {
+  const container = document.getElementById("modalActivity");
+  if (!container || !client.activity || !client.activity.length) {
+    container.innerHTML = '<p class="text-slate-500">No recent activity</p>';
+    return;
+  }
+  
+  container.innerHTML = client.activity.map(a => `
+    <li class="flex items-start gap-3 p-2">
+      <div class="size-2 mt-2 rounded-full ${
+        a.type === "file" 
+          ? "bg-sky-500" 
+          : a.type === "invoice" 
+          ? "bg-amber-500" 
+          : "bg-indigo-500"
+      }"></div>
+      <div class="flex-1">
+        <div class="text-sm">${a.text}</div>
+        <div class="text-xs text-slate-500">${a.when}</div>
+      </div>
+    </li>
+  `).join("");
+}
+
+function renderModalUpdates(client) {
+  const container = document.getElementById("modalUpdates");
+  const section = document.getElementById("modalUpdatesSection");
+  if (!container || !client.updates || !client.updates.length) {
+    if (section) section.style.display = "none";
+    return;
+  }
+  
+  if (section) section.style.display = "block";
+  
+  container.innerHTML = client.updates.map(u => `
+    <li class="p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-start justify-between mb-1">
+        <div class="font-medium">${u.title}</div>
+        <div class="text-xs text-slate-500">${u.when}</div>
+      </div>
+      <div class="text-sm text-slate-600 dark:text-slate-300">${u.body || ""}</div>
+    </li>
+  `).join("");
+}
 
 /* ---------------------------
-   5) Init
+   5) View client modal
+---------------------------- */
+window.viewClient = function (email) {
+  const client = allClientsGlobal.find(c => c.email?.toLowerCase() === email.toLowerCase());
+  if (!client) {
+    alert("Client not found");
+    return;
+  }
+  
+  // Populate modal header
+  document.getElementById("modalClientName").textContent = client.name || "Unknown";
+  document.getElementById("modalClientEmail").textContent = client.email || "";
+  
+  // Fetch full client data
+  fetchClientFullData(email).then(fullClient => {
+    renderModalKPIs(fullClient);
+    renderModalProjects(fullClient);
+    renderModalFiles(fullClient);
+    renderModalInvoices(fullClient);
+    renderModalActivity(fullClient);
+    renderModalUpdates(fullClient);
+  }).catch(err => {
+    console.error("Error fetching full client data:", err);
+    // Fallback to basic data from list
+    renderModalKPIs(client);
+  });
+  
+  // Show modal
+  document.getElementById("clientModal").classList.remove("hidden");
+};
+
+async function fetchClientFullData(email) {
+  const token = await new Promise((resolve) => {
+    const id = window.netlifyIdentity;
+    const user = id && id.currentUser();
+    if (!user) return resolve(null);
+    user.jwt().then(resolve).catch(() => resolve(null));
+  });
+
+  const res = await fetch(`/.netlify/functions/get-client?email=${encodeURIComponent(email)}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch client data: ${res.status}`);
+  }
+  return res.json();
+}
+
+/* ---------------------------
+   6) Init
 ---------------------------- */
 (async function init() {
   const overlay = document.getElementById("loadingOverlay");
   try {
     const data = await fetchAllClients();
     const clients = data.clients || [];
+    
+    // Store clients globally for modal access
+    allClientsGlobal = clients;
 
     renderAdminKPIs(clients);
     renderClientsTable(clients);

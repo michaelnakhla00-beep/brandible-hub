@@ -118,6 +118,96 @@
     document.getElementById('year').textContent = new Date().getFullYear();
   </script>
 
+  <!-- Client Profile Modal -->
+  <div id="clientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] hidden" onclick="closeModalOnBackdrop(event)">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="card-header flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h3 id="modalClientName" class="text-xl font-bold">Client Name</h3>
+          <p id="modalClientEmail" class="text-sm text-slate-500"></p>
+        </div>
+        <button onclick="closeModal()" class="btn-ghost text-xl">✕</button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- KPIs -->
+        <section>
+          <h4 class="text-lg font-semibold mb-3">Overview</h4>
+          <div id="modalKPIs" class="grid grid-cols-2 gap-4"></div>
+        </section>
+        
+        <!-- Projects -->
+        <section>
+          <h4 class="text-lg font-semibold mb-3">Projects</h4>
+          <div id="modalProjects" class="space-y-3"></div>
+        </section>
+        
+        <!-- Files -->
+        <section>
+          <h4 class="text-lg font-semibold mb-3">Files</h4>
+          <ul id="modalFiles" class="space-y-2"></ul>
+        </section>
+        
+        <!-- Invoices -->
+        <section>
+          <h4 class="text-lg font-semibold mb-3">Invoices</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-slate-500">
+                <tr>
+                  <th class="text-left py-2">#</th>
+                  <th class="text-left py-2">Date</th>
+                  <th class="text-left py-2">Amount</th>
+                  <th class="text-left py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody id="modalInvoices"></tbody>
+            </table>
+          </div>
+        </section>
+        
+        <!-- Activity -->
+        <section>
+          <h4 class="text-lg font-semibold mb-3">Recent Activity</h4>
+          <ul id="modalActivity" class="space-y-2"></ul>
+        </section>
+        
+        <!-- Updates -->
+        <section id="modalUpdatesSection">
+          <h4 class="text-lg font-semibold mb-3">Updates</h4>
+          <ul id="modalUpdates" class="space-y-2"></ul>
+        </section>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="card-header border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+        <button onclick="closeModal()" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Modal functions
+    function closeModal() {
+      document.getElementById('clientModal').classList.add('hidden');
+    }
+    
+    function closeModalOnBackdrop(event) {
+      if (event.target === event.currentTarget) {
+        closeModal();
+      }
+    }
+    
+    // Close on ESC key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    });
+  </script>
+
   <!-- Loading Spinner -->
   <div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 z-[1000]">
     <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
