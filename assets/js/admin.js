@@ -294,8 +294,45 @@ function formatFileSize(bytes) {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
+// Get file type icon based on file extension
+function getFileTypeIcon(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  const iconClass = "w-6 h-6";
+  
+  switch(ext) {
+    case 'pdf':
+      return `<svg class="${iconClass} text-red-600" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6"/><path d="M16 13H8v-2h8v2zm0 3H8v-2h8v2z"/>
+      </svg>`;
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'webp':
+      return `<svg class="${iconClass} text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>`;
+    case 'docx':
+    case 'doc':
+      return `<svg class="${iconClass} text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>`;
+    case 'zip':
+    case 'rar':
+      return `<svg class="${iconClass} text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+      </svg>`;
+    default:
+      return `<svg class="${iconClass} text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>`;
+  }
+}
+
 async function renderModalFiles(client) {
   const container = document.getElementById("modalFiles");
+  const downloadAllBtn = document.getElementById("downloadAllBtn");
+  const filesLastUpdated = document.getElementById("filesLastUpdated");
   if (!container) return;
   
   // Try to fetch from Supabase Storage first
@@ -306,13 +343,29 @@ async function renderModalFiles(client) {
   
   // If we have Supabase files, display them
   if (supabaseFiles.length > 0) {
+    // Show download all button
+    if (downloadAllBtn) downloadAllBtn.classList.remove('hidden');
+    
+    // Calculate most recent upload time
+    const latestDate = supabaseFiles.reduce((latest, file) => {
+      const fileDate = new Date(file.updated_at);
+      if (!latest || fileDate > latest) return fileDate;
+      return latest;
+    }, null);
+    
+    // Show last updated timestamp
+    if (filesLastUpdated) {
+      filesLastUpdated.classList.remove('hidden');
+      filesLastUpdated.textContent = latestDate 
+        ? `Last updated: ${latestDate.toLocaleString()}`
+        : 'Last updated: Recently';
+    }
+    
     container.innerHTML = supabaseFiles.map(f => `
       <li class="group flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900/50 transition-all">
         <div class="flex items-center gap-3 flex-1 min-w-0">
           <div class="flex-shrink-0">
-            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
+            ${getFileTypeIcon(f.name)}
           </div>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">${f.name}</p>
@@ -334,9 +387,13 @@ async function renderModalFiles(client) {
     return;
   }
   
+  // Hide download all button if no files
+  if (downloadAllBtn) downloadAllBtn.classList.add('hidden');
+  if (filesLastUpdated) filesLastUpdated.classList.add('hidden');
+  
   // Fallback to old files array if no Supabase files
   if (!client.files || !client.files.length) {
-    container.innerHTML = '<p class="text-slate-500 p-3">No files uploaded yet</p>';
+    container.innerHTML = '<p class="text-slate-500 dark:text-slate-400 p-3">No files uploaded yet</p>';
     return;
   }
   
@@ -368,6 +425,68 @@ window.downloadAdminFile = async function(clientEmail, filename) {
   } catch (err) {
     console.error('Error downloading file:', err);
     alert('Failed to download file');
+  }
+};
+
+// Download all files as ZIP for the current client
+window.downloadAllFilesForCurrentClient = async function() {
+  if (!currentClientEmail || !adminSupabaseClient) {
+    showToast('Error', 'error', 'No client selected or Supabase not initialized');
+    return;
+  }
+  
+  const downloadBtn = document.getElementById('downloadAllBtn');
+  if (downloadBtn) downloadBtn.disabled = true;
+  
+  try {
+    // Fetch all files for the current client
+    const files = await fetchSupabaseFilesForClient(currentClientEmail);
+    
+    if (!files || files.length === 0) {
+      showToast('No files', 'info', 'No files available to download');
+      return;
+    }
+    
+    showToast('Preparing download...', 'info', `Downloading ${files.length} files...`);
+    
+    // Create JSZip instance
+    const zip = new JSZip();
+    const safeEmail = sanitizeEmailForAdmin(currentClientEmail);
+    
+    // Download and add each file to the ZIP
+    for (const file of files) {
+      try {
+        const { data, error } = await adminSupabaseClient.storage
+          .from('client_files')
+          .download(`${safeEmail}/${file.name}`);
+        
+        if (error) {
+          console.error(`Error downloading ${file.name}:`, error);
+          continue;
+        }
+        
+        // Convert blob to array buffer and add to ZIP
+        const blob = data;
+        zip.file(file.name, blob);
+      } catch (err) {
+        console.error(`Error processing ${file.name}:`, err);
+      }
+    }
+    
+    // Generate the ZIP file
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    // Trigger download
+    const clientName = (currentClientEmail.split('@')[0] || 'client').replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `${clientName}_files_${Date.now()}.zip`;
+    saveAs(zipBlob, filename);
+    
+    showToast('Download complete', 'success', `Downloaded ${files.length} files`);
+  } catch (err) {
+    console.error('Error creating ZIP:', err);
+    showToast('Download failed', 'error', 'Failed to download files');
+  } finally {
+    if (downloadBtn) downloadBtn.disabled = false;
   }
 };
 
