@@ -371,6 +371,7 @@
       if (e.key === 'Escape') {
         closeModal();
         closeNewClientModal();
+        closeDeleteModal();
       }
     });
   </script>
@@ -379,6 +380,38 @@
   <div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm z-[1000]">
     <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl">
       <div class="animate-spin rounded-full h-12 w-12 border-4 border-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 border-t-transparent"></div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteConfirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[2500] hidden transition-all duration-300" onclick="closeDeleteModalOnBackdrop(event)">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-md w-full mx-4 overflow-hidden transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="size-12 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Remove Client</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">This action cannot be undone</p>
+          </div>
+        </div>
+        
+        <p class="text-slate-700 dark:text-slate-300 mb-6">
+          Are you sure you want to remove <span id="deleteClientName" class="font-semibold text-slate-900 dark:text-white"></span>? This will permanently delete their record and revoke access.
+        </p>
+        
+        <div class="flex gap-3">
+          <button onclick="closeDeleteModal()" class="flex-1 btn-ghost">
+            Cancel
+          </button>
+          <button onclick="deleteClientConfirmed()" id="confirmDeleteBtn" class="flex-1 inline-flex items-center justify-center rounded-xl px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-medium shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all">
+            <span id="confirmDeleteBtnText">Confirm Delete</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

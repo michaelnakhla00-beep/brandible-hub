@@ -83,9 +83,17 @@ function renderClientsTable(clients = [], searchTerm = "") {
         <td class="py-3 px-4">${client.kpis?.openInvoices || 0}</td>
         <td class="py-3 px-4 text-sm text-slate-500">${client.kpis?.lastUpdate || "N/A"}</td>
         <td class="py-3 px-4 text-right">
-          <button onclick="viewClient('${client.email}')" class="btn-primary text-sm">
-            View
-          </button>
+          <div class="flex items-center gap-2 justify-end">
+            <button onclick="viewClient('${client.email}')" class="btn-primary text-sm">
+              View
+            </button>
+            <button onclick="confirmDeleteClient('${client.email}', '${client.name || 'this client'}')" 
+                    class="inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
+          </div>
         </td>
       </tr>`
     )
@@ -618,6 +626,96 @@ window.submitNewClient = async function() {
     submitBtnText.textContent = 'Create Client';
   }
 };
+
+/* ---------------------------
+   5.5) Delete Client
+---------------------------- */
+let clientToDelete = { email: null, name: null };
+
+function confirmDeleteClient(email, name) {
+  clientToDelete = { email, name };
+  document.getElementById('deleteClientName').textContent = name;
+  document.getElementById('deleteConfirmModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteConfirmModal').classList.add('hidden');
+  clientToDelete = { email: null, name: null };
+}
+
+function closeDeleteModalOnBackdrop(event) {
+  if (event.target === event.currentTarget) {
+    closeDeleteModal();
+  }
+}
+
+async function deleteClientConfirmed() {
+  if (!clientToDelete.email) return;
+  
+  const btn = document.getElementById('confirmDeleteBtn');
+  const btnText = document.getElementById('confirmDeleteBtnText');
+  
+  btn.disabled = true;
+  btnText.textContent = 'Deleting...';
+  
+  try {
+    const user = window.netlifyIdentity?.currentUser();
+    const token = user?.token?.access_token;
+    
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    
+    const res = await fetch('/.netlify/functions/delete-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: clientToDelete.email 
+      })
+    });
+    
+    const result = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(result.error || 'Failed to delete client');
+    }
+    
+    // Close modal
+    closeDeleteModal();
+    
+    // Show appropriate toast
+    if (result.deleted && result.identityDeleted) {
+      showToast('Client removed', 'success', 'Client successfully removed from database and Identity.');
+    } else if (result.deleted && !result.identityDeleted) {
+      showToast('Client removed', 'success', 'Client record deleted, but Netlify user not found.');
+    } else {
+      showToast('Failed to remove client', 'error', result.error || 'Unknown error occurred');
+      return;
+    }
+    
+    // Refresh clients list
+    const data = await fetchAllClients();
+    const clients = data.clients || [];
+    allClientsGlobal = clients;
+    
+    renderAdminKPIs(clients);
+    renderClientsTable(clients);
+    renderAllActivity(clients);
+    
+  } catch (error) {
+    console.error('Error deleting client:', error);
+    showToast('Failed to remove client', 'error', error.message);
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Confirm Delete';
+  }
+}
+
+// Make functions globally available
+window.confirmDeleteClient = confirmDeleteClient;
+window.closeDeleteModal = closeDeleteModal;
+window.closeDeleteModalOnBackdrop = closeDeleteModalOnBackdrop;
+window.deleteClientConfirmed = deleteClientConfirmed;
 
 /* ---------------------------
    6) Init
