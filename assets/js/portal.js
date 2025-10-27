@@ -243,6 +243,15 @@ async function getFileUrl(filePath, userEmail) {
   return data.publicUrl;
 }
 
+// Format file size
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
 // Render files with modern UI
 function renderFiles({ files = [], userEmail = '' }) {
   const el = document.getElementById("files");
@@ -270,11 +279,14 @@ function renderFiles({ files = [], userEmail = '' }) {
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">${f.name}</p>
-          <p class="text-xs text-slate-500 dark:text-slate-400">${f.updated || 'Recently'}</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <p class="text-xs text-slate-500 dark:text-slate-400">${f.updated || 'Recently'}</p>
+            ${f.size ? `<span class="text-xs text-slate-400 dark:text-slate-500">• ${formatFileSize(f.size)}</span>` : ''}
+          </div>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="downloadFile('${f.name}', '${userEmail}')" class="btn-ghost text-xs px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onclick="downloadFile('${f.name}', '${userEmail}')" class="btn-ghost text-xs px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
