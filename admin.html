@@ -77,6 +77,9 @@
           <h2 class="text-2xl font-bold">All Clients</h2>
           <div class="flex items-center gap-3">
             <input id="clientSearch" placeholder="Search clients..." class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+            <button onclick="openNewClientModal()" class="btn-primary">
+              + New Client
+            </button>
           </div>
         </div>
         
@@ -254,6 +257,68 @@
     </div>
   </div>
 
+  <!-- New Client Modal -->
+  <div id="newClientModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] hidden" onclick="closeNewClientModalOnBackdrop(event)">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="card-header flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h3 class="text-xl font-bold">Create New Client</h3>
+          <p class="text-sm text-slate-500">Add a new client to the system</p>
+        </div>
+        <button onclick="closeNewClientModal()" class="btn-ghost text-xl">✕</button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Name *</label>
+          <input type="text" id="newClientName" placeholder="Client Name" required class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Email *</label>
+          <input type="email" id="newClientEmail" placeholder="client@example.com" required class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Active Projects</label>
+            <input type="number" id="newClientProjects" value="0" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Files Shared</label>
+            <input type="number" id="newClientFiles" value="0" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Open Invoices</label>
+            <input type="number" id="newClientInvoices" value="0" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Last Update</label>
+            <input type="text" id="newClientLastUpdate" placeholder="e.g., Oct 2025" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Notes (Optional)</label>
+          <textarea id="newClientNotes" rows="3" placeholder="Any additional notes about this client..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="card-header border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+        <button onclick="closeNewClientModal()" class="btn-ghost">Cancel</button>
+        <button onclick="submitNewClient()" id="submitNewClientBtn" class="btn-primary">
+          <span id="submitNewClientBtnText">Create Client</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Modal functions
     function closeModal() {
@@ -266,10 +331,22 @@
       }
     }
     
+    // New Client Modal functions
+    function closeNewClientModal() {
+      document.getElementById('newClientModal').classList.add('hidden');
+    }
+    
+    function closeNewClientModalOnBackdrop(event) {
+      if (event.target === event.currentTarget) {
+        closeNewClientModal();
+      }
+    }
+    
     // Close on ESC key
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         closeModal();
+        closeNewClientModal();
       }
     });
   </script>

@@ -510,6 +510,106 @@ window.saveClientChanges = async function() {
 };
 
 /* ---------------------------
+   8) New Client Modal Functions
+---------------------------- */
+
+window.openNewClientModal = function() {
+  document.getElementById('newClientModal').classList.remove('hidden');
+  // Reset form
+  document.getElementById('newClientName').value = '';
+  document.getElementById('newClientEmail').value = '';
+  document.getElementById('newClientProjects').value = '0';
+  document.getElementById('newClientFiles').value = '0';
+  document.getElementById('newClientInvoices').value = '0';
+  document.getElementById('newClientLastUpdate').value = '';
+  document.getElementById('newClientNotes').value = '';
+};
+
+window.submitNewClient = async function() {
+  const name = document.getElementById('newClientName').value.trim();
+  const email = document.getElementById('newClientEmail').value.trim();
+  
+  // Validate required fields
+  if (!name || !email) {
+    alert('Please fill in name and email');
+    return;
+  }
+  
+  // Validate email format
+  if (!email.includes('@')) {
+    alert('Please enter a valid email address');
+    return;
+  }
+  
+  const submitBtn = document.getElementById('submitNewClientBtn');
+  const submitBtnText = document.getElementById('submitNewClientBtnText');
+  
+  try {
+    submitBtn.disabled = true;
+    submitBtnText.textContent = 'Creating...';
+    
+    // Get KPI values
+    const kpis = {
+      activeProjects: parseInt(document.getElementById('newClientProjects').value) || 0,
+      files: parseInt(document.getElementById('newClientFiles').value) || 0,
+      openInvoices: parseInt(document.getElementById('newClientInvoices').value) || 0,
+      lastUpdate: document.getElementById('newClientLastUpdate').value || new Date().toLocaleDateString()
+    };
+    
+    // Get auth token
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    // Call create function
+    const res = await fetch('/.netlify/functions/create-client', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        kpis
+      })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `Failed to create client: ${res.status}`);
+    }
+    
+    const result = await res.json();
+    console.log('Create result:', result);
+    
+    alert('✅ Client created successfully!');
+    
+    // Close modal
+    document.getElementById('newClientModal').classList.add('hidden');
+    
+    // Refresh clients list
+    const data = await fetchAllClients();
+    const clients = data.clients || [];
+    allClientsGlobal = clients;
+    
+    renderAdminKPIs(clients);
+    renderClientsTable(clients);
+    renderAllActivity(clients);
+    
+  } catch (error) {
+    console.error('Error creating client:', error);
+    alert('❌ Failed to create client: ' + error.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtnText.textContent = 'Create Client';
+  }
+};
+
+/* ---------------------------
    6) Init
 ---------------------------- */
 (async function init() {
