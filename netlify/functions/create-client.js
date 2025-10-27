@@ -102,44 +102,51 @@ exports.handler = async (event, context) => {
     // Send Netlify Identity invitation to the client
     let invitationSent = false;
     let invitationError = null;
+    const adminToken = process.env.NETLIFY_IDENTITY_ADMIN_TOKEN;
     
-    try {
-      // Get the site URL from headers or use NETLIFY_SITE_URL
-      const origin = event.headers['origin'] || event.headers['host'] || 
-                     process.env.CONTEXT ? `https://${process.env.DEPLOY_PRIME_URL}` : '';
-      
-      if (!origin) {
-        throw new Error('Could not determine site URL');
-      }
-      
-      const siteUrl = origin.includes('://') ? origin : `https://${origin}`;
-      
-      // Call Netlify Identity invite API
-      const inviteResponse = await fetch(`${siteUrl}/.netlify/identity/invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.toLowerCase(),
-          data: {
-            role: 'client'
-          }
-        })
-      });
+    if (adminToken) {
+      try {
+        // Get the site URL
+        const origin = event.headers['host'] || event.headers['x-forwarded-host'] || '';
+        const protocol = event.headers['x-forwarded-proto'] || 'https';
+        const siteUrl = origin ? `${protocol}://${origin}` : process.env.URL;
+        
+        if (!siteUrl) {
+          throw new Error('Could not determine site URL');
+        }
+        
+        console.log(`Attempting to send invitation to ${email} via Identity Admin API`);
+        
+        // Call Netlify Identity Admin API to invite user
+        const inviteResponse = await fetch(`${siteUrl}/.netlify/identity/admin/users/invite`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({
+            email: email.toLowerCase()
+          })
+        });
 
-      if (inviteResponse.ok) {
-        invitationSent = true;
-        console.log(`Invitation sent to ${email}`);
-      } else {
-        invitationError = await inviteResponse.text();
-        console.error('Failed to send invitation:', invitationError);
+        if (inviteResponse.ok) {
+          invitationSent = true;
+          const inviteData = await inviteResponse.json();
+          console.log(`✓ Invitation sent successfully to ${email}`, inviteData);
+        } else {
+          const errorText = await inviteResponse.text();
+          invitationError = `Invite failed (${inviteResponse.status}): ${errorText}`;
+          console.error('❌ Failed to send invitation:', invitationError);
+        }
+      } catch (inviteErr) {
+        console.error('❌ Error sending invitation:', inviteErr);
+        invitationError = inviteErr.message;
+        // Don't fail the whole request if invitation fails
+        // Client is already created in database
       }
-    } catch (inviteErr) {
-      console.error('Error sending invitation:', inviteErr);
-      invitationError = inviteErr.message;
-      // Don't fail the whole request if invitation fails
-      // Client is already created in database
+    } else {
+      invitationError = 'Admin token not configured';
+      console.warn('⚠️ NETLIFY_IDENTITY_ADMIN_TOKEN not set - skipping invitation');
     }
 
     return {
@@ -148,11 +155,12 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ 
         success: true,
         message: invitationSent 
-          ? "Client created successfully and invitation sent" 
+          ? "Client created and invitation email sent" 
           : "Client created successfully" + (invitationError ? " (invitation not sent)" : ""),
         client: createdClient,
         invitationSent,
-        invitationError: invitationError || undefined
+        invitationError: invitationError || undefined,
+        inviteStatus: invitationSent ? 'sent' : invitationError ? 'failed' : 'not_configured'
       })
     };
   } catch (err) {

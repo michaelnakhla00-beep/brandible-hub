@@ -26,7 +26,23 @@ When you create a new client via the admin panel, the system automatically sends
 2. Customize the invitation email template
 3. Or leave default template
 
-### 3. Set Up Email Provider
+### 3. Get Your Admin Token
+
+To enable automatic invitations, you need to set up an admin token:
+
+1. Go to **Site settings** → **Environment variables**
+2. Go to **Identity** → **Actions** → **Generate new access token**
+3. Or use Netlify CLI:
+   ```bash
+   netlify status
+   # Copy your Identity Admin Token
+   ```
+4. In Netlify dashboard, go to **Site settings** → **Environment variables**
+5. Add new variable:
+   - **Key**: `NETLIFY_IDENTITY_ADMIN_TOKEN`
+   - **Value**: Your admin token from Identity settings
+
+### 4. Set Up Email Provider
 
 For production, configure SMTP:
 

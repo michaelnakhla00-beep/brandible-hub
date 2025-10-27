@@ -602,8 +602,10 @@ window.submitNewClient = async function() {
     // Show toast notification
     if (result.invitationSent) {
       showToast('New client added', 'success', 'Client created and invitation email sent!');
-    } else if (result.invitationError) {
-      showToast('New client added', 'success', 'Client created (invitation not sent)');
+    } else if (result.inviteStatus === 'failed') {
+      showToast('New client added', 'success', 'Client created! (Please invite them manually from Netlify)');
+    } else if (result.inviteStatus === 'not_configured') {
+      showToast('New client added', 'success', 'Client created! (Add NETLIFY_IDENTITY_ADMIN_TOKEN to enable auto-invites)');
     } else {
       showToast('New client added', 'success', 'Client created successfully!');
     }
