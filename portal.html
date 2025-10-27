@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brandible Hub – Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <!-- Netlify Identity Widget -->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script>
+    if (window.netlifyIdentity) {
+      window.netlifyIdentity.init();
+    }
+  </script>
   <link rel="stylesheet" href="/assets/css/styles.css" />
   <script defer src="/assets/js/auth.js"></script>
   <script defer src="/assets/js/portal.js"></script>
