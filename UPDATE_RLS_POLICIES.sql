@@ -1,6 +1,11 @@
 -- Updated Supabase Storage RLS Policies
 -- Run this in Supabase SQL Editor
 
+-- ⚠️ CRITICAL: Bucket Name
+-- The storage bucket MUST be named exactly 'client_files' (lowercase, underscore)
+-- All policies check: bucket_id = 'client_files'
+-- Changing the bucket name will break file uploads!
+
 -- Drop existing policies
 DROP POLICY IF EXISTS "authenticated_upload" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated_read" ON storage.objects;

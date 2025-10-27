@@ -84,6 +84,22 @@ Client data is now stored in Supabase. You can add/modify clients:
 2. Via the Admin panel in the Hub (edit mode)
 3. Or manually via SQL
 
+### Setting Up Supabase Storage (File Uploads)
+
+The Hub supports file uploads via Supabase Storage. See [SUPABASE_STORAGE_SETUP.md](./SUPABASE_STORAGE_SETUP.md) for complete setup instructions.
+
+**⚠️ CRITICAL: Bucket Name**
+- The storage bucket **MUST** be named exactly `client_files` (lowercase, underscore)
+- All RLS policies are scoped to `bucket_id = 'client_files'`
+- Never change the bucket name without updating all policies and code references
+- Changing the bucket name will break file uploads and cause RLS violations
+
+Quick setup:
+1. Create bucket named `client_files` in Supabase Dashboard → Storage
+2. Make the bucket **public**
+3. Configure RLS policies (see UPDATE_RLS_POLICIES.sql)
+4. Files are stored in folders by sanitized email: `client_files/{sanitized_email}/{timestamp-filename}`
+
 For reference, here's the data structure for `data/clients.json` (if you need to migrate):
 
 ```json

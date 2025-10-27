@@ -1,5 +1,14 @@
 # Fix: Storage RLS Policy Error
 
+## ⚠️ CRITICAL: Bucket Name
+
+**The storage bucket MUST be named exactly `client_files` (lowercase, underscore)**
+
+All code references use `.from('client_files')`:
+- `assets/js/portal.js` - Lines 180, 209, 232, 250
+- All RLS policies check `bucket_id = 'client_files'`
+- **Never change this without updating all references**
+
 ## Problem
 ```
 Upload failed: new row violates row-level security policy
