@@ -138,6 +138,12 @@ function renderProjects({ projects = [] }) {
 // Files - Supabase Storage
 let supabaseClient = null;
 
+// Sanitize email for use in file paths (replace @ and . with _)
+function sanitizeEmail(email) {
+  if (!email) return '';
+  return email.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
 async function initSupabase() {
   if (!window.supabase) {
     console.error('Supabase client not loaded');
@@ -169,9 +175,10 @@ async function fetchSupabaseFiles(userEmail) {
   }
   
   try {
+    const safeEmail = sanitizeEmail(userEmail);
     const { data, error } = await supabaseClient.storage
       .from('client_files')
-      .list(userEmail || '');
+      .list(safeEmail || '');
     
     if (error) {
       console.error('Error fetching files:', error);
@@ -195,7 +202,8 @@ async function uploadFileToSupabase(file, userEmail) {
     throw new Error('Supabase not initialized');
   }
   
-  const filePath = `${userEmail}/${Date.now()}-${file.name}`;
+  const safeEmail = sanitizeEmail(userEmail);
+  const filePath = `${safeEmail}/${Date.now()}-${file.name}`;
   
   const { data, error } = await supabaseClient.storage
     .from('client_files')
@@ -217,7 +225,8 @@ async function deleteFileFromSupabase(filePath, userEmail) {
     throw new Error('Supabase not initialized');
   }
   
-  const fullPath = `${userEmail}/${filePath}`;
+  const safeEmail = sanitizeEmail(userEmail);
+  const fullPath = `${safeEmail}/${filePath}`;
   
   const { error } = await supabaseClient.storage
     .from('client_files')
@@ -234,7 +243,8 @@ async function getFileUrl(filePath, userEmail) {
     throw new Error('Supabase not initialized');
   }
   
-  const fullPath = `${userEmail}/${filePath}`;
+  const safeEmail = sanitizeEmail(userEmail);
+  const fullPath = `${safeEmail}/${filePath}`;
   
   const { data } = await supabaseClient.storage
     .from('client_files')
