@@ -531,13 +531,13 @@ window.submitNewClient = async function() {
   
   // Validate required fields
   if (!name || !email) {
-    alert('Please fill in name and email');
+    showToast('Validation error', 'error', 'Please fill in name and email');
     return;
   }
   
   // Validate email format
   if (!email.includes('@')) {
-    alert('Please enter a valid email address');
+    showToast('Validation error', 'error', 'Please enter a valid email address');
     return;
   }
   
@@ -586,13 +586,6 @@ window.submitNewClient = async function() {
     const result = await res.json();
     console.log('Create result:', result);
     
-    // Show appropriate success message
-    if (result.invitationSent) {
-      alert('✅ Client created and invitation email sent!');
-    } else {
-      alert('✅ Client created successfully! (Note: Invitation could not be sent - you may need to invite them manually from Netlify)');
-    }
-    
     // Close modal
     document.getElementById('newClientModal').classList.add('hidden');
     
@@ -601,13 +594,23 @@ window.submitNewClient = async function() {
     const clients = data.clients || [];
     allClientsGlobal = clients;
     
+    // Update KPIs (will automatically show incremented total clients)
     renderAdminKPIs(clients);
     renderClientsTable(clients);
     renderAllActivity(clients);
     
+    // Show toast notification
+    if (result.invitationSent) {
+      showToast('New client added', 'success', 'Client created and invitation email sent!');
+    } else if (result.invitationError) {
+      showToast('New client added', 'success', 'Client created (invitation not sent)');
+    } else {
+      showToast('New client added', 'success', 'Client created successfully!');
+    }
+    
   } catch (error) {
     console.error('Error creating client:', error);
-    alert('❌ Failed to create client: ' + error.message);
+    showToast('Failed to create client', 'error', error.message);
   } finally {
     submitBtn.disabled = false;
     submitBtnText.textContent = 'Create Client';

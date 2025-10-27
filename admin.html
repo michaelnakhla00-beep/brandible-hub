@@ -355,6 +355,56 @@
   <div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 z-[1000]">
     <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
   </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-full opacity-0">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center gap-3 min-w-[300px]">
+      <div class="flex-shrink-0">
+        <div id="toastIcon" class="size-8 rounded-full flex items-center justify-center"></div>
+      </div>
+      <div class="flex-1">
+        <div id="toastMessage" class="font-medium text-slate-900 dark:text-slate-100"></div>
+        <div id="toastDetail" class="text-sm text-slate-600 dark:text-slate-400"></div>
+      </div>
+      <button onclick="hideToast()" class="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">✕</button>
+    </div>
+  </div>
+
+  <script>
+    // Toast notification functions
+    function showToast(message, type = 'success', detail = '') {
+      const toast = document.getElementById('toast');
+      const toastIcon = document.getElementById('toastIcon');
+      const toastMessage = document.getElementById('toastMessage');
+      const toastDetail = document.getElementById('toastDetail');
+      
+      toastMessage.textContent = message;
+      toastDetail.textContent = detail || '';
+      
+      // Set icon and colors based on type
+      if (type === 'success') {
+        toastIcon.innerHTML = '✓';
+        toastIcon.className = 'size-8 rounded-full flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300';
+        toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-0 opacity-100';
+      } else if (type === 'error') {
+        toastIcon.innerHTML = '✕';
+        toastIcon.className = 'size-8 rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300';
+        toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-0 opacity-100';
+      }
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => hideToast(), 5000);
+    }
+    
+    function hideToast() {
+      const toast = document.getElementById('toast');
+      toast.className = 'fixed top-4 right-4 z-[3000] transform transition-all duration-300 translate-x-full opacity-0';
+    }
+    
+    // Make functions globally available
+    window.showToast = showToast;
+    window.hideToast = hideToast;
+  </script>
 </body>
 </html>
 
