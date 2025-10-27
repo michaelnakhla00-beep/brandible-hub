@@ -151,15 +151,26 @@ async function initSupabase() {
   }
   
   try {
+    // Get JWT token from Netlify Identity for authenticated access
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
     const res = await fetch('/.netlify/functions/get-storage-config');
     const config = await res.json();
     
     if (config.url && config.anonKey) {
-      // Initialize Supabase client WITHOUT auth header
-      // Storage bucket is public and uses folder-based security
-      supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+      // Initialize Supabase client with auth token for authenticated access
+      supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
+        global: {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }
+      });
       
-      console.log('✓ Supabase Storage initialized');
+      console.log('✓ Supabase Storage initialized with auth');
       return true;
     }
   } catch (err) {
@@ -273,19 +284,24 @@ async function logClientActivity(clientEmail, activity, type = 'upload') {
       return;
     }
     
-    const { error } = await supabaseClient
+    console.log('📝 Logging client activity:', { clientEmail, activity, type });
+    
+    const { data, error } = await supabaseClient
       .from('client_activity')
       .insert({
         client_email: clientEmail,
         activity: activity,
         type: type
-      });
+      })
+      .select();
     
     if (error) {
-      console.error('Error logging activity:', error);
+      console.error('❌ Error logging activity:', error);
+    } else {
+      console.log('✅ Activity logged successfully:', data);
     }
   } catch (err) {
-    console.error('Failed to log client activity:', err);
+    console.error('❌ Failed to log client activity:', err);
   }
 }
 
