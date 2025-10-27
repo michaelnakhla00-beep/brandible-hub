@@ -1,11 +1,133 @@
 <style type="text/tailwindcss">
   @layer components {
-    .btn-primary { @apply inline-flex items-center justify-center rounded-xl px-4 py-2 bg-indigo-600 text-white font-medium shadow hover:bg-indigo-700 transition; }
-    .btn-ghost   { @apply inline-flex items-center justify-center rounded-xl px-3 py-2 text-slate-700 hover:bg-slate-100; }
-    .card        { @apply bg-white rounded-2xl shadow border border-slate-200 dark:bg-slate-900 dark:border-slate-800; }
-    .card-header { @apply px-4 py-3 border-b font-semibold border-slate-200 dark:border-slate-800; }
-    .chip        { @apply inline-flex items-center rounded-full px-3 py-1 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700; }
+    /* Modern Gradient Buttons */
+    .btn-primary { 
+      @apply inline-flex items-center justify-center rounded-xl px-6 py-3 
+             bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 
+             text-white font-medium shadow-lg shadow-purple-500/30 
+             hover:shadow-xl hover:shadow-purple-500/40 hover:scale-[1.02]
+             active:scale-[0.98]
+             transition-all duration-200;
+    }
+    
+    .btn-secondary {
+      @apply inline-flex items-center justify-center rounded-xl px-6 py-3
+             bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400
+             font-medium shadow border-2 border-indigo-200 dark:border-indigo-800
+             hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:scale-[1.02]
+             active:scale-[0.98]
+             transition-all duration-200;
+    }
+    
+    .btn-ghost { 
+      @apply inline-flex items-center justify-center rounded-xl px-4 py-2 
+             text-slate-700 dark:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-800/50
+             transition-all duration-200;
+    }
+    
+    /* Glass Cards */
+    .card { 
+      @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl 
+             rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-800/50
+             hover:shadow-2xl transition-all duration-300;
+    }
+    
+    .card-header { 
+      @apply px-6 py-4 border-b border-slate-200/50 dark:border-slate-800/50 
+             font-semibold text-lg; 
+    }
+    
+    .card-body { 
+      @apply p-6; 
+    }
+    
+    /* Modern Chips/Pills */
+    .chip { 
+      @apply inline-flex items-center rounded-full px-3 py-1.5 text-sm 
+             bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900
+             hover:from-slate-200 hover:to-slate-100 dark:hover:from-slate-700 dark:hover:to-slate-800
+             transition-all duration-200 font-medium; 
+    }
+    
+    /* Pills with colors */
+    .pill { 
+      @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full font-medium; 
+    }
+    .pill-green { 
+      @apply pill bg-gradient-to-r from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-800/30 
+             text-emerald-700 dark:text-emerald-300 shadow-sm; 
+    }
+    .pill-amber { 
+      @apply pill bg-gradient-to-r from-amber-100 to-amber-50 dark:from-amber-900/40 dark:to-amber-800/30 
+             text-amber-700 dark:text-amber-300 shadow-sm; 
+    }
+    .pill-blue { 
+      @apply pill bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-800/30 
+             text-blue-700 dark:text-blue-300 shadow-sm; 
+    }
+    .pill-slate { 
+      @apply pill bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-900/40 dark:to-slate-800/30 
+             text-slate-700 dark:text-slate-300 shadow-sm; 
+    }
+    
+    /* Glass tables */
+    .table-row {
+      @apply border-b border-slate-200/50 dark:border-slate-800/50
+             hover:bg-slate-50/50 dark:hover:bg-slate-900/50
+             transition-all duration-200;
+    }
+    
+    /* Sizes */
     .size-9 { width: 2.25rem; height: 2.25rem; }
     .size-10 { width: 2.5rem; height: 2.5rem; }
+    
+    /* Gradients */
+    .gradient-bg {
+      @apply bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50
+             dark:from-slate-950 dark:via-slate-900 dark:to-slate-950;
+    }
+    
+    .glass-header {
+      @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl
+             border-b border-slate-200/50 dark:border-slate-800/50
+             shadow-sm;
+    }
+    
+    /* Fade in animation */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.4s ease-out;
+    }
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(100 116 139);
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105);
+  }
+  
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgb(51 65 85);
   }
 </style>
