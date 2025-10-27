@@ -224,10 +224,119 @@ function renderModalProjects(client) {
   }).join("");
 }
 
-function renderModalFiles(client) {
+// Admin Supabase Storage
+let adminSupabaseClient = null;
+
+async function initAdminSupabase() {
+  if (!window.supabase) {
+    console.error('Supabase client not loaded');
+    return false;
+  }
+  
+  try {
+    const res = await fetch('/.netlify/functions/get-storage-config');
+    const config = await res.json();
+    
+    if (config.url && config.anonKey) {
+      adminSupabaseClient = window.supabase.createClient(config.url, config.anonKey);
+      console.log('✓ Admin Supabase Storage initialized');
+      return true;
+    }
+  } catch (err) {
+    console.warn('Failed to initialize Admin Supabase Storage:', err);
+    return false;
+  }
+  
+  return false;
+}
+
+// Sanitize email for use in file paths
+function sanitizeEmailForAdmin(email) {
+  if (!email) return '';
+  return email.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+// Fetch files from Supabase Storage for a client
+async function fetchSupabaseFilesForClient(clientEmail) {
+  if (!adminSupabaseClient) {
+    console.log('Supabase not initialized, returning empty files array');
+    return [];
+  }
+  
+  try {
+    const safeEmail = sanitizeEmailForAdmin(clientEmail);
+    const { data, error } = await adminSupabaseClient.storage
+      .from('client_files')
+      .list(safeEmail || '');
+    
+    if (error) {
+      console.error('Error fetching files for admin:', error);
+      return [];
+    }
+    
+    return data.map(file => ({
+      name: file.name,
+      size: file.metadata?.size || 0,
+      updated: new Date(file.updated_at).toLocaleDateString()
+    }));
+  } catch (err) {
+    console.error('Error fetching Supabase files for admin:', err);
+    return [];
+  }
+}
+
+// Format file size
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+async function renderModalFiles(client) {
   const container = document.getElementById("modalFiles");
-  if (!container || !client.files || !client.files.length) {
-    container.innerHTML = '<p class="text-slate-500">No files</p>';
+  if (!container) return;
+  
+  // Try to fetch from Supabase Storage first
+  let supabaseFiles = [];
+  if (adminSupabaseClient && client.email) {
+    supabaseFiles = await fetchSupabaseFilesForClient(client.email);
+  }
+  
+  // If we have Supabase files, display them
+  if (supabaseFiles.length > 0) {
+    container.innerHTML = supabaseFiles.map(f => `
+      <li class="group flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900/50 transition-all">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+          <div class="flex-shrink-0">
+            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">${f.name}</p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <p class="text-xs text-slate-500 dark:text-slate-400">${f.updated || 'Recently'}</p>
+              ${f.size ? `<span class="text-xs text-slate-400 dark:text-slate-500">• ${formatFileSize(f.size)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="downloadAdminFile('${client.email}', '${f.name}')" class="btn-ghost text-xs px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+          </button>
+        </div>
+      </li>
+    `).join("");
+    return;
+  }
+  
+  // Fallback to old files array if no Supabase files
+  if (!client.files || !client.files.length) {
+    container.innerHTML = '<p class="text-slate-500 p-3">No files uploaded yet</p>';
     return;
   }
   
@@ -240,6 +349,27 @@ function renderModalFiles(client) {
     </li>
   `).join("");
 }
+
+// Admin file download function
+window.downloadAdminFile = async function(clientEmail, filename) {
+  try {
+    if (!adminSupabaseClient) {
+      throw new Error('Supabase not initialized');
+    }
+    
+    const safeEmail = sanitizeEmailForAdmin(clientEmail);
+    const fullPath = `${safeEmail}/${filename}`;
+    
+    const { data } = await adminSupabaseClient.storage
+      .from('client_files')
+      .getPublicUrl(fullPath);
+    
+    window.open(data.publicUrl, '_blank');
+  } catch (err) {
+    console.error('Error downloading file:', err);
+    alert('Failed to download file');
+  }
+};
 
 function renderModalInvoices(client) {
   const container = document.getElementById("modalInvoices");
@@ -955,6 +1085,9 @@ function renderAnalytics(clients = []) {
 (async function init() {
   const overlay = document.getElementById("loadingOverlay");
   try {
+    // Initialize Supabase Storage for admin
+    await initAdminSupabase();
+    
     const data = await fetchAllClients();
     const clients = data.clients || [];
     
