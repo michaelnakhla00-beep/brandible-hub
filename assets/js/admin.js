@@ -586,7 +586,12 @@ window.submitNewClient = async function() {
     const result = await res.json();
     console.log('Create result:', result);
     
-    alert('✅ Client created successfully!');
+    // Show appropriate success message
+    if (result.invitationSent) {
+      alert('✅ Client created and invitation email sent!');
+    } else {
+      alert('✅ Client created successfully! (Note: Invitation could not be sent - you may need to invite them manually from Netlify)');
+    }
     
     // Close modal
     document.getElementById('newClientModal').classList.add('hidden');

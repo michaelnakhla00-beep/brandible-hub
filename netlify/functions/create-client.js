@@ -99,13 +99,60 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Send Netlify Identity invitation to the client
+    let invitationSent = false;
+    let invitationError = null;
+    
+    try {
+      // Get the site URL from headers or use NETLIFY_SITE_URL
+      const origin = event.headers['origin'] || event.headers['host'] || 
+                     process.env.CONTEXT ? `https://${process.env.DEPLOY_PRIME_URL}` : '';
+      
+      if (!origin) {
+        throw new Error('Could not determine site URL');
+      }
+      
+      const siteUrl = origin.includes('://') ? origin : `https://${origin}`;
+      
+      // Call Netlify Identity invite API
+      const inviteResponse = await fetch(`${siteUrl}/.netlify/identity/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase(),
+          data: {
+            role: 'client'
+          }
+        })
+      });
+
+      if (inviteResponse.ok) {
+        invitationSent = true;
+        console.log(`Invitation sent to ${email}`);
+      } else {
+        invitationError = await inviteResponse.text();
+        console.error('Failed to send invitation:', invitationError);
+      }
+    } catch (inviteErr) {
+      console.error('Error sending invitation:', inviteErr);
+      invitationError = inviteErr.message;
+      // Don't fail the whole request if invitation fails
+      // Client is already created in database
+    }
+
     return {
       statusCode: 201,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         success: true,
-        message: "Client created successfully",
-        client: createdClient
+        message: invitationSent 
+          ? "Client created successfully and invitation sent" 
+          : "Client created successfully" + (invitationError ? " (invitation not sent)" : ""),
+        client: createdClient,
+        invitationSent,
+        invitationError: invitationError || undefined
       })
     };
   } catch (err) {
