@@ -25,8 +25,15 @@ exports.handler = async (event, context) => {
     // Check admin role by verifying the JWT
     const authToken = authHeader.replace('Bearer ', '').trim();
     
+    // Get site URL from headers or environment
+    const origin = event.headers['host'] || event.headers['x-forwarded-host'] || '';
+    const protocol = event.headers['x-forwarded-proto'] || 'https';
+    const siteUrl = origin ? `${protocol}://${origin}` : process.env.URL || process.env.DEPLOY_PRIME_URL;
+    
+    console.log('Site URL:', siteUrl);
+    
     // Use Netlify Identity Admin API to verify user
-    const userResponse = await fetch(`${process.env.URL}/.netlify/identity/user`, {
+    const userResponse = await fetch(`${siteUrl}/.netlify/identity/user`, {
       headers: { 
         'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json'

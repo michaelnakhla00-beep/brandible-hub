@@ -466,19 +466,22 @@ window.saveClientChanges = async function() {
     // Update original data
     originalClientData.kpis = updatedKPIs;
     
-    // Call update function
-    const token = await new Promise((resolve) => {
-      const id = window.netlifyIdentity;
-      const user = id && id.currentUser();
-      if (!user) return resolve(null);
-      user.jwt().then(resolve).catch(() => resolve(null));
-    });
+    // Get current user and token
+    const user = window.netlifyIdentity?.currentUser();
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+    
+    const token = user?.token?.access_token;
+    if (!token) {
+      throw new Error('No access token available');
+    }
     
     const res = await fetch("/.netlify/functions/update-client", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({
         email: currentClientEmail,
@@ -487,15 +490,21 @@ window.saveClientChanges = async function() {
       }),
     });
     
-    if (!res.ok) {
-      throw new Error(`Failed to save: ${res.status}`);
+    let result;
+    try {
+      result = await res.json();
+      console.log("Save result:", result);
+    } catch (jsonError) {
+      console.error("Failed to parse response:", jsonError);
+      throw new Error(`Server error (${res.status}): Invalid response`);
     }
     
-    const result = await res.json();
-    console.log("Save result:", result);
+    if (!res.ok) {
+      throw new Error(result.error || result.message || `Failed to save: ${res.status}`);
+    }
     
     if (!result.success) {
-      throw new Error(result.error || 'Failed to save changes');
+      throw new Error(result.error || result.message || 'Failed to save changes');
     }
     
     // Update the display
