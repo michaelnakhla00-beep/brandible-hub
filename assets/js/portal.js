@@ -370,10 +370,17 @@ window.deleteStorageFile = async function(filename, userEmail) {
   if (!confirm(`Delete ${filename}?`)) return;
   
   try {
+    // The filename is just the file name (e.g., "document.pdf")
+    // We need to pass it to deleteFileFromSupabase which expects just the filename
+    // It will construct the full path internally
     await deleteFileFromSupabase(filename, userEmail);
     showToast('File deleted', 'success', `${filename} has been removed`);
+    
     // Refresh file list
-    init();
+    if (userEmail) {
+      const newFiles = await fetchSupabaseFiles(userEmail);
+      renderFiles({ files: newFiles, userEmail });
+    }
   } catch (err) {
     console.error('Error deleting file:', err);
     showToast('Delete failed', 'error', err.message);
