@@ -173,7 +173,12 @@ Client appears in table
 ```
 POST https://your-site.netlify.app/.netlify/identity/admin/users/invite
 Authorization: Bearer {NETLIFY_IDENTITY_ADMIN_TOKEN}
-Body: { "email": "client@example.com" }
+Body: { 
+  "email": "client@example.com",
+  "app_metadata": {
+    "roles": ["client"]
+  }
+}
 ```
 
 ### Response Handling:

@@ -7,8 +7,10 @@ When you create a new client via the admin panel, the system automatically sends
 1. Admin creates a new client in the admin panel
 2. Client record is saved to Supabase
 3. Netlify Identity invitation is automatically sent to the client's email
-4. Client receives email with invitation link
-5. Client can set their password and log in
+4. Client is automatically assigned the **'client' role** via `app_metadata`
+5. Client receives email with invitation link
+6. Client can set their password and log in
+7. Client will access portal.html (role-based routing)
 
 ## Prerequisites
 

@@ -117,7 +117,7 @@ exports.handler = async (event, context) => {
         
         console.log(`Attempting to send invitation to ${email} via Identity Admin API`);
         
-        // Call Netlify Identity Admin API to invite user
+        // Call Netlify Identity Admin API to invite user with client role
         const inviteResponse = await fetch(`${siteUrl}/.netlify/identity/admin/users/invite`, {
           method: 'POST',
           headers: {
@@ -125,7 +125,10 @@ exports.handler = async (event, context) => {
             'Authorization': `Bearer ${adminToken}`
           },
           body: JSON.stringify({
-            email: email.toLowerCase()
+            email: email.toLowerCase(),
+            app_metadata: {
+              roles: ['client']
+            }
           })
         });
 
