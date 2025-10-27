@@ -146,6 +146,7 @@ When you create a new client in the admin dashboard, the system can automaticall
 1. Go to Netlify Dashboard → **Identity** → **Users**
 2. Look for the new user
 3. Status should be "Invited" or "Confirmed"
+4. Click on user to see **app_metadata** - should show `{"roles": ["client"]}`
 
 ## How It Works
 

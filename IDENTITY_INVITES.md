@@ -113,6 +113,10 @@ If automatic invitation fails, invite manually:
 - Client receives invitation with secure token
 - Client must set password before first login
 - All authentication handled by Netlify Identity
+- **All invited users are automatically assigned the 'client' role**
+- Role is stored in `app_metadata: { "roles": ["client"] }`
+- Clients are automatically redirected to `/portal.html` on login
+- Admin users must be manually assigned `roles: ['admin']` via Netlify dashboard
 
 ## Advanced: Custom Invitation Templates
 
