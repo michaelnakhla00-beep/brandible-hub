@@ -548,6 +548,7 @@ window.saveClientChanges = async function() {
     allClientsGlobal = clients;
     renderAdminKPIs(clients);
     renderClientsTable(clients);
+    renderAnalytics(clients);
     
   } catch (error) {
     console.error("Error saving:", error);
@@ -648,6 +649,7 @@ window.submitNewClient = async function() {
     renderAdminKPIs(clients);
     renderClientsTable(clients);
     renderAllActivity(clients);
+    renderAnalytics(clients);
     
     // Show toast notification
     if (result.invitationSent) {
@@ -751,6 +753,7 @@ async function deleteClientConfirmed() {
     renderAdminKPIs(clients);
     renderClientsTable(clients);
     renderAllActivity(clients);
+    renderAnalytics(clients);
     
   } catch (error) {
     console.error('Error deleting client:', error);
@@ -768,6 +771,185 @@ window.closeDeleteModalOnBackdrop = closeDeleteModalOnBackdrop;
 window.deleteClientConfirmed = deleteClientConfirmed;
 
 /* ---------------------------
+   5.6) Analytics
+---------------------------- */
+let doughnutChartInstance = null;
+let barChartInstance = null;
+
+function calculateAnalytics(clients = []) {
+  const analytics = {
+    totalClients: clients.length,
+    activeProjects: 0,
+    openInvoices: 0,
+    filesShared: 0,
+    projectsData: [],
+    invoicesData: []
+  };
+
+  clients.forEach(client => {
+    analytics.activeProjects += client.kpis?.activeProjects || 0;
+    analytics.openInvoices += client.kpis?.openInvoices || 0;
+    analytics.filesShared += client.kpis?.files || 0;
+    
+    if (client.kpis?.activeProjects > 0) {
+      analytics.projectsData.push({
+        name: client.name,
+        projects: client.kpis.activeProjects
+      });
+    }
+    
+    if (client.kpis?.openInvoices > 0) {
+      analytics.invoicesData.push({
+        name: client.name,
+        invoices: client.kpis.openInvoices
+      });
+    }
+  });
+
+  return analytics;
+}
+
+function renderAnalytics(clients = []) {
+  const analytics = calculateAnalytics(clients);
+  
+  // Hide analytics section if no data
+  const analyticsSection = document.getElementById('analyticsSection');
+  if (analytics.totalClients === 0) {
+    if (analyticsSection) analyticsSection.style.display = 'none';
+    return;
+  }
+  if (analyticsSection) analyticsSection.style.display = 'block';
+
+  // Destroy existing charts if they exist
+  if (doughnutChartInstance) {
+    doughnutChartInstance.destroy();
+  }
+  if (barChartInstance) {
+    barChartInstance.destroy();
+  }
+
+  // Create doughnut chart
+  const doughnutCtx = document.getElementById('doughnutChart');
+  if (doughnutCtx) {
+    const isDark = document.documentElement.classList.contains('dark');
+    doughnutChartInstance = new Chart(doughnutCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Active Projects', 'Open Invoices'],
+        datasets: [{
+          data: [analytics.activeProjects, analytics.openInvoices],
+          backgroundColor: [
+            'rgba(99, 102, 241, 0.8)', // indigo
+            'rgba(139, 92, 246, 0.8)'  // purple
+          ],
+          borderColor: [
+            'rgba(99, 102, 241, 1)',
+            'rgba(139, 92, 246, 1)'
+          ],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              color: isDark ? '#e2e8f0' : '#475569',
+              padding: 15,
+              font: {
+                family: "'Inter', sans-serif",
+                size: 12
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+            padding: 12,
+            titleColor: isDark ? '#e2e8f0' : '#1e293b',
+            bodyColor: isDark ? '#cbd5e1' : '#475569',
+            borderColor: 'rgba(139, 92, 246, 0.3)',
+            borderWidth: 1
+          }
+        }
+      }
+    });
+  }
+
+  // Sort and get top clients for bar chart
+  const topClients = analytics.projectsData
+    .sort((a, b) => b.projects - a.projects)
+    .slice(0, 8);
+
+  // Create bar chart
+  const barCtx = document.getElementById('barChart');
+  if (barCtx) {
+    const isDark = document.documentElement.classList.contains('dark');
+    barChartInstance = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: topClients.map(c => c.name || 'Unknown'),
+        datasets: [{
+          label: 'Active Projects',
+          data: topClients.map(c => c.projects),
+          backgroundColor: 'rgba(99, 102, 241, 0.7)',
+          borderColor: 'rgba(99, 102, 241, 1)',
+          borderWidth: 2,
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: isDark ? '#94a3b8' : '#64748b',
+              font: {
+                family: "'Inter', sans-serif",
+                size: 11
+              }
+            },
+            grid: {
+              color: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)'
+            }
+          },
+          x: {
+            ticks: {
+              color: isDark ? '#94a3b8' : '#64748b',
+              font: {
+                family: "'Inter', sans-serif",
+                size: 11
+              },
+              maxRotation: 45,
+              minRotation: 0
+            },
+            grid: {
+              display: false
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+            padding: 12,
+            titleColor: isDark ? '#e2e8f0' : '#1e293b',
+            bodyColor: isDark ? '#cbd5e1' : '#475569',
+            borderColor: 'rgba(139, 92, 246, 0.3)',
+            borderWidth: 1
+          }
+        }
+      }
+    });
+  }
+}
+
+/* ---------------------------
    6) Init
 ---------------------------- */
 (async function init() {
@@ -782,6 +964,7 @@ window.deleteClientConfirmed = deleteClientConfirmed;
     renderAdminKPIs(clients);
     renderClientsTable(clients);
     renderAllActivity(clients);
+    renderAnalytics(clients);
     wireSearch(clients);
   } catch (e) {
     console.error(e);
