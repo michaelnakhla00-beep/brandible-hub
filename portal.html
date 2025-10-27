@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brandible Hub – Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <link rel="stylesheet" href="/assets/css/styles.css" />
+  <script defer src="/assets/js/auth.js"></script>
+  <script defer src="/assets/js/portal.js"></script>
+
+  <!-- Tailwind component layer -->
+  <style type="text/tailwindcss">
+    @layer components {
+      .pill { @apply inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full font-medium; }
+      .pill-green { @apply pill bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
+      .pill-amber { @apply pill bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300; }
+      .pill-slate { @apply pill bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300; }
+      .card-body { @apply p-4 md:p-5; }
+      .sidebar-link { @apply flex items-center gap-3 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white; }
+      .sidebar-link-active { @apply bg-slate-900 text-white dark:bg-white dark:text-slate-900; }
+    }
+  </style>
+
+  <script>
+    // Dark mode toggle + persist
+    (function(){
+      const key = 'brandible.dark';
+      const saved = localStorage.getItem(key);
+      if (saved === '1') document.documentElement.classList.add('dark');
+      window.toggleDark = () => {
+        const d = document.documentElement.classList.toggle('dark');
+        localStorage.setItem(key, d ? '1' : '0');
+      }
+    })();
+  </script>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+  <div class="min-h-screen grid grid-cols-1 lg:grid-cols-[260px,1fr]">
+    <!-- Sidebar -->
+    <aside class="hidden lg:block border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 backdrop-blur">
+      <div class="p-4 flex items-center gap-3">
+        <div class="size-9 rounded-xl bg-indigo-600"></div>
+        <div>
+          <div class="font-semibold leading-tight">Brandible Hub</div>
+          <div class="text-xs text-slate-500">Client Dashboard</div>
+        </div>
+      </div>
+      <nav class="px-3 space-y-1">
+        <a href="#overview" class="sidebar-link sidebar-link-active"><span>Overview</span></a>
+        <a href="#projects" class="sidebar-link"><span>Projects</span></a>
+        <a href="#files" class="sidebar-link"><span>Files</span></a>
+        <a href="#invoices" class="sidebar-link"><span>Invoices</span></a>
+        <a href="#support" class="sidebar-link"><span>Support</span></a>
+      </nav>
+      <div class="mt-6 px-3">
+        <button onclick="toggleDark()" class="w-full btn-ghost">Toggle dark mode</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex flex-col min-h-screen">
+      <!-- Topbar -->
+      <header class="bg-white/80 dark:bg-slate-900/60 backdrop-blur border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3 justify-between">
+          <div class="flex items-center gap-2 lg:hidden">
+            <div class="size-9 rounded-xl bg-indigo-600"></div>
+            <span class="font-semibold">Brandible Hub</span>
+          </div>
+          <div class="hidden md:flex items-center gap-2 flex-1 max-w-xl">
+            <input id="globalSearch" placeholder="Search projects, files, invoices…" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="userEmail" class="hidden sm:inline text-sm text-slate-500"></span>
+            <button onclick="toggleDark()" class="btn-ghost" title="Dark mode">🌗</button>
+            <button id="logoutBtn" class="btn-ghost">Log out</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6 space-y-8">
+        <!-- KPIs -->
+        <section id="overview">
+          <div id="kpis" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="panels">
+          <!-- Projects / Kanban -->
+          <div class="lg:col-span-2 space-y-6">
+            <div class="card">
+              <div class="card-header flex items-center justify-between">
+                <span>Projects</span>
+                <div class="flex items-center gap-2">
+                  <button class="btn-ghost text-sm" id="filterActive">Active</button>
+                  <button class="btn-ghost text-sm" id="filterAll">All</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban">
+                  <div>
+                    <div class="text-sm font-semibold mb-2">In Progress</div>
+                    <div class="space-y-3" id="col-progress"></div>
+                  </div>
+                  <div>
+                    <div class="text-sm font-semibold mb-2">Review</div>
+                    <div class="space-y-3" id="col-review"></div>
+                  </div>
+                  <div>
+                    <div class="text-sm font-semibold mb-2">Done</div>
+                    <div class="space-y-3" id="col-done"></div>
+                  </div>
+                </div>
+                <!-- Fallback list for existing portal.js renderer -->
+                <div id="projects" class="divide-y mt-4"></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">Recent Activity</div>
+              <ul id="activity" class="card-body space-y-3"></ul>
+            </div>
+          </div>
+
+          <!-- Side column -->
+          <aside class="space-y-6">
+            <div class="card" id="filesCard">
+              <div class="card-header flex items-center justify-between">
+                <span>Files</span>
+                <button class="btn-ghost text-sm" onclick="document.getElementById('fileInput').click()">Upload</button>
+              </div>
+              <div class="card-body">
+                <input id="fileInput" type="file" class="hidden" />
+                <ul id="files" class="space-y-2"></ul>
+              </div>
+            </div>
+
+            <div class="card" id="invoicesCard">
+              <div class="card-header">Invoices</div>
+              <div class="card-body overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="text-slate-500">
+                    <tr>
+                      <th class="text-left py-2">#</th>
+                      <th class="text-left py-2">Date</th>
+                      <th class="text-left py-2">Amount</th>
+                      <th class="text-left py-2">Status</th>
+                      <th class="text-right py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="invoicesTable"></tbody>
+                </table>
+                <!-- Fallback list used by portal.js -->
+                <div id="invoices" class="hidden"></div>
+              </div>
+            </div>
+
+            <div class="card" id="support">
+              <div class="card-header">Need help?</div>
+              <div class="card-body space-y-3">
+                <p class="text-sm text-slate-600 dark:text-slate-300">Create a quick support request and we’ll get back to you.</p>
+                <form name="hub-support" method="POST" data-netlify="true" class="space-y-3">
+                  <input type="hidden" name="form-name" value="hub-support" />
+                  <input name="email" placeholder="Your email" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2" />
+                  <textarea name="message" placeholder="How can we help?" rows="3" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 px-3 py-2"></textarea>
+                  <button class="btn-primary w-full">Submit</button>
+                </form>
+              </div>
+            </div>
+<div class="card" id="updatesCard">
+  <div class="card-header">Updates</div>
+  <ul id="updates" class="p-4 space-y-3"></ul>
+</div>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="px-4 py-6 text-center text-xs text-slate-500">
+        © <span id="year"></span> Brandible. All rights reserved.
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    function toMoney(n){ return `$${Number(n).toFixed(2)}` }
+
+    // Hydrate after portal.js data render
+    const hydrate = () => {
+      const invDiv = document.getElementById('invoices');
+      const invTable = document.getElementById('invoicesTable');
+      if (invDiv && invDiv.children.length && invTable && !invTable.dataset.hydrated) {
+        const rows = Array.from(invDiv.querySelectorAll(':scope > div')).map(div => {
+          const num = div.querySelector('.font-medium')?.textContent?.replace('#','') || '';
+          const date = div.querySelector('.text-xs.text-slate-500')?.textContent || '';
+          const amount = div.querySelector('.font-semibold')?.textContent?.replace('$','') || '0';
+          const status = div.querySelector('.text-xs')?.textContent || 'Open';
+          return { num, date, amount: parseFloat(amount), status };
+        });
+        invTable.innerHTML = rows.map(r => `
+          <tr class="border-t border-slate-200 dark:border-slate-800">
+            <td class="py-2">${r.num}</td>
+            <td class="py-2">${r.date}</td>
+            <td class="py-2">${toMoney(r.amount)}</td>
+            <td class="py-2">${r.status === 'Paid' ? '<span class="pill-green">Paid</span>' : '<span class="pill-amber">Open</span>'}</td>
+            <td class="py-2 text-right">${r.status === 'Paid' ? '<button class="btn-ghost">View</button>' : '<button class="btn-primary">Pay</button>'}</td>
+          </tr>
+        `).join('');
+        invTable.dataset.hydrated = '1';
+      }
+
+      // Kanban mapping from projects list
+      const list = document.getElementById('projects');
+      if (list && list.children.length && !document.getElementById('kanban').dataset.hydrated) {
+        const items = Array.from(list.children).map(row => ({
+          name: row.querySelector('h3')?.textContent || 'Project',
+          status: row.querySelector('span.text-xs')?.textContent || 'In Progress',
+          summary: row.querySelector('p')?.textContent || ''
+        }));
+        const col = (id) => document.getElementById(id);
+        items.forEach(p => {
+          const pill = p.status === 'Completed' ? 'pill-green' : (p.status.includes('Review') ? 'pill-slate' : 'pill-amber');
+          const target = p.status === 'Completed' ? col('col-done') : (p.status.includes('Review') ? col('col-review') : col('col-progress'));
+          target.insertAdjacentHTML('beforeend', `
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
+              <div class="flex items-center justify-between">
+                <div class="font-medium">${p.name}</div>
+                <span class="${pill}">${p.status}</span>
+              </div>
+              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">${p.summary}</div>
+            </div>
+          `);
+        });
+        document.getElementById('kanban').dataset.hydrated = '1';
+      }
+    };
+    const mo = new MutationObserver(hydrate);
+    mo.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('load', hydrate);
+  </script>
+<!-- Loading Spinner -->
+<div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 z-[1000]">
+  <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+</div>
+<script>
+document.addEventListener("submit", function(e) {
+  if (e.target && e.target.name === "hub-support") {
+    e.preventDefault();
+    const form = e.target;
+    const data = new FormData(form);
+    fetch("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(data).toString()
+    })
+      .then(() => {
+        alert("✅ Support request sent! We'll get back to you shortly.");
+        form.reset();
+      })
+      .catch(() => alert("⚠️ Something went wrong. Please try again later."));
+  }
+});
+</script>
+</body>
+</html>

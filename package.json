@@ -1,0 +1,21 @@
+{
+  "name": "brandible-hub",
+  "version": "1.0.0",
+  "description": "Brandible Client Hub - A client portal for managing projects, files, and invoices",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step required - static site'",
+    "deploy": "netlify deploy --prod"
+  },
+  "keywords": [
+    "client-portal",
+    "netlify",
+    "identity"
+  ],
+  "author": "Brandible",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {}
+}
+

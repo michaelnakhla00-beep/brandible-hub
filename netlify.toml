@@ -1,0 +1,15 @@
+[build]
+  publish = "."
+
+[functions]
+  included_files = ["data/clients.json"]
+  directory = "netlify/functions"
+  
+[dev]
+  command = "netlify dev"
+  
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin"]}

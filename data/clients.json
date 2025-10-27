@@ -1,0 +1,45 @@
+{
+  "clients": [
+    {
+      "id": "clt_demo_001",
+      "name": "Mike",
+      "email": "michaelnakhla00@gmail.com",
+      "kpis": { "activeProjects": 2, "files": 3, "openInvoices": 1, "lastUpdate": "Oct 3, 2025" },
+      "projects": [
+        {
+          "name": "Website Redesign",
+          "status": "In Progress",
+          "summary": "Migrating to Netlify + Tailwind, optimizing performance and SEO.",
+          "links": [
+            { "label": "Staging Site", "url": "https://example.netlify.app" },
+            { "label": "Figma", "url": "https://figma.com/file/abc123" }
+          ]
+        },
+        {
+          "name": "Google Ads Sprint",
+          "status": "Completed",
+          "summary": "Launched localized search campaigns with sitelinks and callouts.",
+          "links": [{ "label": "Google Ads Dashboard", "url": "https://ads.google.com" }]
+        }
+      ],
+      "files": [
+        { "name": "Brand Guide v1.pdf", "url": "https://files.example.com/brand-guide.pdf", "updated": "Sep 26, 2025" },
+        { "name": "Campaign Report Q3.pdf", "url": "https://files.example.com/q3-report.pdf", "updated": "Oct 1, 2025" },
+        { "name": "Invoice Template.docx", "url": "https://files.example.com/invoice-template.docx", "updated": "Sep 15, 2025" }
+      ],
+      "invoices": [
+        { "number": "INV-1", "date": "2025-09-25", "amount": 1800, "status": "Open" },
+        { "number": "INV-2", "date": "2025-08-15", "amount": 1200, "status": "Paid" }
+      ],
+      "activity": [
+        { "type": "file", "text": "Uploaded Campaign Report Q3.pdf", "when": "2 days ago" },
+        { "type": "project", "text": "Updated sitemap for Website Redesign", "when": "5 days ago" },
+        { "type": "invoice", "text": "Invoice INV-1082 issued", "when": "1 week ago" }
+      ],
+      "updates": [
+        { "title": "Q4 launch approved", "body": "We’ll begin the ad build next week.", "when": "2025-10-04", "type": "milestone" },
+        { "title": "New creative uploaded", "body": "Carousel v3 now in Files.", "when": "2025-10-02", "type": "file" }
+      ]
+    }
+  ]
+}
