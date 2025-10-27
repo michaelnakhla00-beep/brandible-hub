@@ -103,9 +103,7 @@ exports.handler = async (event, context) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Prepare update data matching Supabase schema
-    const updateData = {
-      updated_at: new Date().toISOString()
-    };
+    const updateData = {};
     
     // Parse and add kpis if provided
     if (kpis) {
