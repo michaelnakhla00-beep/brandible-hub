@@ -146,21 +146,36 @@ function sanitizeEmail(email) {
 
 async function initSupabase() {
   if (!window.supabase) {
-    console.error('Supabase client not loaded');
+    console.error('❌ Supabase client library not loaded');
     return false;
   }
   
   try {
     // Get JWT token from Netlify Identity for authenticated access
+    console.log('🔍 Checking for Netlify Identity user...');
     const token = await new Promise((resolve) => {
       const id = window.netlifyIdentity;
       const user = id && id.currentUser();
-      if (!user) return resolve(null);
-      user.jwt().then(resolve).catch(() => resolve(null));
+      console.log('User found:', !!user, user?.email);
+      if (!user) {
+        console.warn('⚠️ No user logged in to Netlify Identity');
+        return resolve(null);
+      }
+      user.jwt().then(resolve).catch(() => {
+        console.warn('⚠️ Failed to get JWT token');
+        resolve(null);
+      });
     });
+    
+    console.log('🔑 JWT token retrieved:', token ? 'Yes (length: ' + token.length + ')' : 'No');
     
     const res = await fetch('/.netlify/functions/get-storage-config');
     const config = await res.json();
+    
+    console.log('📦 Supabase config retrieved:', {
+      url: config.url ? 'Yes' : 'No',
+      anonKey: config.anonKey ? 'Yes' : 'No'
+    });
     
     if (config.url && config.anonKey) {
       // Initialize Supabase client with auth token for authenticated access
@@ -170,11 +185,19 @@ async function initSupabase() {
         }
       });
       
-      console.log('✓ Supabase Storage initialized with auth');
+      console.log('✅ Supabase Storage initialized with auth');
+      console.log('📝 Supabase client created:', {
+        hasClient: !!supabaseClient,
+        hasAuth: !!token,
+        authLength: token ? token.length : 0
+      });
       return true;
+    } else {
+      console.error('❌ Missing Supabase config (url or anonKey)');
     }
   } catch (err) {
-    console.warn('Failed to initialize Supabase Storage:', err);
+    console.error('❌ Failed to initialize Supabase Storage:', err);
+    console.error('Error stack:', err.stack);
     return false;
   }
   
@@ -279,12 +302,16 @@ function formatFileSize(bytes) {
 // Log client activity to Supabase
 async function logClientActivity(clientEmail, activity, type = 'upload') {
   try {
+    console.log('🔍 logClientActivity called with:', { clientEmail, activity, type });
+    
     if (!supabaseClient) {
+      console.error('❌ Supabase client is null/undefined!');
       console.warn('Supabase not initialized, skipping activity log');
       return;
     }
     
-    console.log('📝 Logging client activity:', { clientEmail, activity, type });
+    console.log('📝 Supabase client exists, preparing insert...');
+    console.log('📝 Insert payload:', { client_email: clientEmail, activity, type });
     
     const { data, error } = await supabaseClient
       .from('client_activity')
@@ -296,12 +323,19 @@ async function logClientActivity(clientEmail, activity, type = 'upload') {
       .select();
     
     if (error) {
-      console.error('❌ Error logging activity:', error);
+      console.error('❌ Supabase insert error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
     } else {
-      console.log('✅ Activity logged successfully:', data);
+      console.log('✅ Activity logged successfully!', data);
     }
   } catch (err) {
-    console.error('❌ Failed to log client activity:', err);
+    console.error('❌ Exception in logClientActivity:', err);
+    console.error('Error stack:', err.stack);
   }
 }
 
@@ -644,10 +678,18 @@ window.hideToast = hideToast;
             uploadStatus.textContent = `Uploading ${file.name}...`;
             progressBar.style.width = '0%';
             
+            console.log('📤 Starting file upload...', { filename: file.name, userEmail });
+            
             await uploadFileToSupabase(file, userEmail);
+            console.log('✅ File upload successful:', file.name);
             
             // Log client activity
+            console.log('📝 Attempting to log client activity...');
+            console.log('Supabase client available:', !!supabaseClient);
+            console.log('Supabase client type:', typeof supabaseClient);
+            
             await logClientActivity(userEmail, `Uploaded ${file.name}`, 'upload');
+            console.log('📝 Activity logging attempt completed');
             
             progressBar.style.width = '100%';
             showToast('File uploaded', 'success', `${file.name} uploaded successfully`);
