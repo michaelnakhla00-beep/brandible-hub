@@ -262,6 +262,38 @@ function renderModalProjects(client) {
   }).join("");
 }
 
+function renderEditableProjects(client) {
+  const container = document.getElementById("modalProjects");
+  if (!container) return;
+  
+  if (!client.projects || !client.projects.length) {
+    container.innerHTML = '<p class="text-slate-500">No projects - click "Add Project" to create one</p>';
+    return;
+  }
+  
+  container.innerHTML = client.projects.map((p, idx) => {
+    const projectId = `project-${idx}-${Date.now()}`;
+    
+    return `
+      <div class="project-edit-card card p-4" data-project-id="${projectId}">
+        <div class="flex items-start justify-between mb-3">
+          <input type="text" placeholder="Project Name" class="project-name-input font-semibold bg-transparent border-none outline-none focus:ring-2 focus:ring-purple-500/50 rounded px-2 w-full" value="${p.name || ''}" />
+        </div>
+        <textarea placeholder="Description (optional)" class="project-desc-input w-full text-sm text-slate-600 dark:text-slate-300 bg-transparent border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500/50 resize-none" rows="2">${p.summary || p.description || ''}</textarea>
+        <div class="flex items-center justify-between mt-3">
+          <select class="project-status-select border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm bg-white dark:bg-slate-900">
+            <option value="New" ${p.status === 'New' ? 'selected' : ''}>New</option>
+            <option value="In Progress" ${p.status === 'In Progress' || !p.status ? 'selected' : ''}>In Progress</option>
+            <option value="Review" ${p.status === 'Review' || p.status?.includes('review') ? 'selected' : ''}>Review</option>
+            <option value="Complete" ${p.status === 'Complete' || p.status === 'Completed' || p.status === 'Done' ? 'selected' : ''}>Complete</option>
+          </select>
+          <button onclick="removeProjectCard('${projectId}')" class="btn-ghost text-sm text-red-500">Remove</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
 // Admin Supabase Storage
 let adminSupabaseClient = null;
 
@@ -768,6 +800,19 @@ window.toggleEditMode = function() {
   document.getElementById("editKPIsSection").classList.toggle("hidden");
   document.getElementById("editActivitySection").classList.toggle("hidden");
   
+  // Toggle "Add Project" button
+  const addProjectBtn = document.getElementById("addProjectBtn");
+  if (addProjectBtn) {
+    addProjectBtn.classList.toggle("hidden", !editMode);
+  }
+  
+  // Re-render projects in edit mode
+  if (editMode) {
+    renderEditableProjects(originalClientData);
+  } else {
+    renderModalProjects(originalClientData);
+  }
+  
   // Update edit button
   const editBtn = document.getElementById("editBtn");
   if (editBtn) {
@@ -871,6 +916,24 @@ window.saveClientChanges = async function() {
     
     // Update original data
     originalClientData.kpis = updatedKPIs;
+    
+    // Save project changes to Supabase
+    if (adminSupabaseClient && currentClientEmail) {
+      const projectCards = document.querySelectorAll('.project-edit-card');
+      for (const card of projectCards) {
+        const projectName = card.querySelector('.project-name-input')?.value;
+        const projectDesc = card.querySelector('.project-desc-input')?.value || '';
+        const projectStatus = card.querySelector('.project-status-select')?.value || 'In Progress';
+        
+        if (projectName && projectName.trim()) {
+          await upsertProject(currentClientEmail, {
+            name: projectName,
+            description: projectDesc,
+            status: projectStatus
+          });
+        }
+      }
+    }
     
     // Get current user and token
     const user = window.netlifyIdentity?.currentUser();
@@ -1633,6 +1696,92 @@ window.showAdminSection = function(section) {
       if (tbody) tbody.innerHTML = '';
       if (empty) empty.classList.remove('hidden');
     });
+  }
+}
+
+/* ---------------------------
+   Dynamic Project Management Functions
+---------------------------- */
+
+// Add a new project card in edit mode
+window.addNewProjectCard = function() {
+  if (!currentClientEmail) return;
+  
+  const modalProjects = document.getElementById("modalProjects");
+  if (!modalProjects) return;
+  
+  const projectId = `project-${Date.now()}`;
+  const newProjectHTML = `
+    <div class="project-edit-card card p-4" data-project-id="${projectId}">
+      <div class="flex items-start justify-between mb-3">
+        <input type="text" placeholder="Project Name" class="project-name-input font-semibold bg-transparent border-none outline-none focus:ring-2 focus:ring-purple-500/50 rounded px-2" value="" />
+      </div>
+      <textarea placeholder="Description (optional)" class="project-desc-input w-full text-sm text-slate-600 dark:text-slate-300 bg-transparent border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:ring-2 focus:ring-purple-500/50 resize-none" rows="2"></textarea>
+      <div class="flex items-center justify-between mt-3">
+        <select class="project-status-select border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm bg-white dark:bg-slate-900">
+          <option value="New">New</option>
+          <option value="In Progress" selected>In Progress</option>
+          <option value="Review">Review</option>
+          <option value="Complete">Complete</option>
+        </select>
+        <button onclick="removeProjectCard('${projectId}')" class="btn-ghost text-sm text-red-500">Remove</button>
+      </div>
+    </div>
+  `;
+  
+  modalProjects.insertAdjacentHTML("beforeend", newProjectHTML);
+};
+
+// Remove a project card
+window.removeProjectCard = function(projectId) {
+  const card = document.querySelector(`[data-project-id="${projectId}"]`);
+  if (card && confirm("Remove this project?")) {
+    card.remove();
+  }
+};
+
+// Update or create project in Supabase
+async function upsertProject(clientEmail, project) {
+  if (!adminSupabaseClient || !clientEmail) return;
+  
+  try {
+    const { data, error } = await adminSupabaseClient
+      .from('projects')
+      .upsert({
+        client_email: clientEmail,
+        title: project.name || project.title,
+        description: project.description || project.summary || '',
+        status: project.status || 'In Progress',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'client_email,title' });
+    
+    if (error) throw error;
+    
+    // Log activity
+    await logAdminActivity(clientEmail, `Updated project "${project.name || project.title}"`, 'project');
+    
+    return data;
+  } catch (err) {
+    console.error('Error upserting project:', err);
+    throw err;
+  }
+}
+
+// Log admin activity to Supabase
+async function logAdminActivity(clientEmail, description, type = 'other') {
+  if (!adminSupabaseClient) return;
+  
+  try {
+    await adminSupabaseClient
+      .from('client_activity')
+      .insert({
+        client_email: clientEmail,
+        activity: description,
+        type: type,
+        timestamp: new Date().toISOString()
+      });
+  } catch (err) {
+    console.error('Error logging activity:', err);
   }
 }
 
