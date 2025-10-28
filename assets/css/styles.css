@@ -157,38 +157,47 @@
     
     /* Card sections for portal */
     .card-section {
-      background: white;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(147, 51, 234, 0.05) 50%, rgba(236, 72, 153, 0.05) 100%);
       border-radius: 1rem;
       padding: 2rem;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
       margin-bottom: 2.5rem;
       transition: all 0.2s ease-in-out;
+      border: 1px solid rgba(99, 102, 241, 0.1);
     }
     
     .card-section:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15);
     }
     
     .dark .card-section {
-      background: #1e1e1e;
-      box-shadow: 0 2px 10px rgba(255,255,255,0.05);
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(147, 51, 234, 0.1) 50%, rgba(236, 72, 153, 0.1) 100%);
+      box-shadow: 0 2px 10px rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.2);
     }
     
     .dark .card-section:hover {
-      box-shadow: 0 4px 20px rgba(255,255,255,0.1);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
     }
     
     .card-section-header {
       font-weight: 600;
       font-size: 1.25rem;
       margin-bottom: 1rem;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
       padding-bottom: 0.5rem;
     }
     
     .dark .card-section-header {
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+    }
+    
+    .card-section-header-gradient {
+      background: linear-gradient(135deg, #635BFF 0%, #8A7AFF 50%, #EC4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
   }
   
