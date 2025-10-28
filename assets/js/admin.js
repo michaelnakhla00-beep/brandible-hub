@@ -824,7 +824,9 @@ window.viewClient = function (email) {
         if (res.ok) {
           const data = await res.json();
           console.log('📞 Response data:', data);
+          console.log('📞 Projects array:', data.projects);
           const supabaseProjects = data.projects || [];
+          console.log('📞 Supabase projects length:', supabaseProjects.length);
           if (supabaseProjects.length > 0) {
             console.log('📦 Loaded projects from Supabase:', supabaseProjects.length, 'projects');
             // Convert Supabase format to client format
