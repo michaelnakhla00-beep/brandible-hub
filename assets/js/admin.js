@@ -317,33 +317,23 @@ async function initAdminSupabase() {
         }
       });
       
-      // Get fresh JWT token and set it in the client
-      const updateAuthToken = async () => {
-        try {
-          const id = window.netlifyIdentity;
-          const user = id && id.currentUser();
-          if (user) {
-            const token = await user.jwt();
-            if (token && adminSupabaseClient) {
-              adminSupabaseClient.rest.headers = new Headers({
-                'Authorization': `Bearer ${token}`,
-                'apikey': config.anonKey,
-                'Content-Type': 'application/json'
-              });
-              console.log('✓ Admin Supabase auth token updated');
-            }
+      // Get JWT token and set auth headers
+      try {
+        const id = window.netlifyIdentity;
+        const user = id && id.currentUser();
+        if (user) {
+          const token = await user.jwt();
+          if (token) {
+            console.log('✓ Got JWT token, setting auth headers');
+            adminSupabaseClient.rest.headers = {
+              'Authorization': `Bearer ${token}`,
+              'apikey': config.anonKey,
+              'Content-Type': 'application/json'
+            };
           }
-        } catch (err) {
-          console.warn('Failed to update auth token:', err);
         }
-      };
-      
-      // Update token immediately and on auth state change
-      await updateAuthToken();
-      
-      if (window.netlifyIdentity) {
-        window.netlifyIdentity.on('login', updateAuthToken);
-        window.netlifyIdentity.on('token-updated', updateAuthToken);
+      } catch (err) {
+        console.warn('Could not get JWT token:', err);
       }
       
       console.log('✓ Admin Supabase initialized with auth');
