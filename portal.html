@@ -132,14 +132,14 @@
       <main class="flex-1 max-w-[1200px] mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
         <!-- KPIs -->
         <section id="overview" class="card-section">
-          <div class="card-section-header card-section-header-gradient">Overview</div>
+          <h2 class="section-title gradient-header">Overview</h2>
           <div id="kpis" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"></div>
         </section>
 
         <!-- Projects / Kanban -->
         <div class="card-section">
-            <div class="card-section-header flex items-center justify-between">
-              <span class="card-section-header-gradient">Projects</span>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title gradient-header">Projects</h2>
               <div class="flex items-center gap-2">
                 <button class="btn-ghost text-sm" id="filterActive">Active</button>
                 <button class="btn-ghost text-sm" id="filterAll">All</button>
@@ -165,14 +165,14 @@
 
           <!-- Recent Activity -->
           <div class="card-section">
-            <div class="card-section-header card-section-header-gradient">Recent Activity</div>
+            <h2 class="section-title gradient-header">Recent Activity</h2>
             <ul id="activity" class="space-y-3"></ul>
           </div>
 
           <!-- Files Section -->
           <div class="card-section" id="filesCard">
-            <div class="card-section-header flex items-center justify-between">
-              <span class="card-section-header-gradient">Files</span>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title gradient-header">Files</h2>
                 <label class="btn-primary text-sm cursor-pointer">
                   <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -207,7 +207,7 @@
 
           <!-- Invoices Section -->
           <div class="card-section" id="invoicesCard">
-            <div class="card-section-header card-section-header-gradient">Invoices</div>
+            <h2 class="section-title gradient-header">Invoices</h2>
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead class="text-slate-500">
@@ -228,7 +228,7 @@
 
           <!-- Support Section -->
           <div class="card-section" id="support">
-            <div class="card-section-header card-section-header-gradient">Need help?</div>
+            <h2 class="section-title gradient-header">Need help?</h2>
             <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Create a quick support request and we'll get back to you.</p>
             <form name="hub-support" method="POST" data-netlify="true" class="space-y-4">
               <input type="hidden" name="form-name" value="hub-support" />
@@ -240,7 +240,7 @@
 
           <!-- Updates Section -->
           <div class="card-section" id="updatesCard">
-            <div class="card-section-header card-section-header-gradient">Updates</div>
+            <h2 class="section-title gradient-header">Updates</h2>
             <ul id="updates" class="space-y-3"></ul>
           </div>
       </main>
