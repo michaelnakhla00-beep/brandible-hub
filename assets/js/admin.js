@@ -1416,13 +1416,13 @@ async function fetchBookings() {
   }
 }
 
-function getStatusColor(status) {
+function getStatusColorClass(status) {
   switch(status) {
-    case 'New': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
-    case 'Contacted': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
-    case 'In Progress': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
-    case 'Closed': return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300';
-    default: return 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300';
+    case 'New': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700';
+    case 'Contacted': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700';
+    case 'In Progress': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700';
+    case 'Closed': return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+    default: return 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300 border-slate-200 dark:border-slate-700';
   }
 }
 
@@ -1482,7 +1482,10 @@ function renderBookingsTable(leads = [], searchTerm = '', sortOrder = 'newest') 
       <td class="py-3 px-4 max-w-[320px] truncate" title="${safe(lead.message)}">${safe(lead.message)}</td>
       <td class="py-3 px-4 text-sm text-slate-500">${lead.created_at ? new Date(lead.created_at).toLocaleString() : (lead.date || '') + ' ' + (lead.time || '')}</td>
       <td class="py-3 px-4" onclick="event.stopPropagation()">
-        <select onchange="updateLeadStatus(${lead.id}, this.value)" class="px-2 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 ${getStatusColor(lead.status || 'New')}">
+        <select 
+          onchange="updateLeadStatus(${lead.id}, this.value)"
+          data-status="${lead.status || 'New'}"
+          class="status-select px-3 py-2 rounded-lg text-xs font-semibold border-2 ${getStatusColorClass(lead.status || 'New')} hover:opacity-80 transition-all">
           <option value="New" ${lead.status === 'New' ? 'selected' : ''}>New</option>
           <option value="Contacted" ${lead.status === 'Contacted' ? 'selected' : ''}>Contacted</option>
           <option value="In Progress" ${lead.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
@@ -1524,6 +1527,13 @@ async function updateLeadStatus(leadId, newStatus) {
       // Update local data
       const lead = allBookingsGlobal.find(l => l.id === leadId);
       if (lead) lead.status = newStatus;
+      
+      // Re-render table to show updated colors
+      const search = document.getElementById('bookingsSearch');
+      const sortDropdown = document.getElementById('sortLeadsDropdown');
+      const term = search ? search.value.trim() : '';
+      const sortOrder = sortDropdown ? sortDropdown.value : 'newest';
+      renderBookingsTable(allBookingsGlobal, term, sortOrder);
     } else {
       const errorText = await res.text();
       console.error('❌ Update failed:', res.status, errorText);
