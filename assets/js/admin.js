@@ -1345,6 +1345,7 @@ function renderAnalytics(clients = []) {
 ---------------------------- */
 
 async function fetchBookings() {
+  console.log('🔍 fetchBookings called');
   try {
     if (!window.supabase) throw new Error('Supabase client not loaded');
 
@@ -1356,18 +1357,28 @@ async function fetchBookings() {
     const sb = adminSupabaseClient;
     if (!sb) throw new Error('Supabase not initialized');
 
+    console.log('📋 Querying leads table from Supabase...');
     const { data, error } = await sb
       .from('leads')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('❌ Error fetching leads:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return [];
     }
+    
+    console.log('✅ Fetched leads:', data?.length || 0, 'records');
+    console.log('Lead data:', data);
     return data || [];
   } catch (err) {
-    console.error('Failed to fetch bookings:', err);
+    console.error('❌ Failed to fetch leads:', err);
     return [];
   }
 }
