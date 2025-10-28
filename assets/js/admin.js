@@ -304,12 +304,25 @@ async function initAdminSupabase() {
   }
   
   try {
+    // Get JWT token from Netlify Identity
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
     const res = await fetch('/.netlify/functions/get-storage-config');
     const config = await res.json();
     
     if (config.url && config.anonKey) {
-      adminSupabaseClient = window.supabase.createClient(config.url, config.anonKey);
-      console.log('✓ Admin Supabase Storage initialized');
+      // Create Supabase client with auth headers for database operations
+      adminSupabaseClient = window.supabase.createClient(config.url, config.anonKey, {
+        global: {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }
+      });
+      console.log('✓ Admin Supabase initialized with auth');
       return true;
     }
   } catch (err) {
