@@ -304,24 +304,48 @@ async function initAdminSupabase() {
   }
   
   try {
-    // Get JWT token from Netlify Identity
-    const token = await new Promise((resolve) => {
-      const id = window.netlifyIdentity;
-      const user = id && id.currentUser();
-      if (!user) return resolve(null);
-      user.jwt().then(resolve).catch(() => resolve(null));
-    });
-    
     const res = await fetch('/.netlify/functions/get-storage-config');
     const config = await res.json();
     
     if (config.url && config.anonKey) {
       // Create Supabase client with auth headers for database operations
       adminSupabaseClient = window.supabase.createClient(config.url, config.anonKey, {
-        global: {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
         }
       });
+      
+      // Get fresh JWT token and set it in the client
+      const updateAuthToken = async () => {
+        try {
+          const id = window.netlifyIdentity;
+          const user = id && id.currentUser();
+          if (user) {
+            const token = await user.jwt();
+            if (token && adminSupabaseClient) {
+              adminSupabaseClient.rest.headers = new Headers({
+                'Authorization': `Bearer ${token}`,
+                'apikey': config.anonKey,
+                'Content-Type': 'application/json'
+              });
+              console.log('✓ Admin Supabase auth token updated');
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to update auth token:', err);
+        }
+      };
+      
+      // Update token immediately and on auth state change
+      await updateAuthToken();
+      
+      if (window.netlifyIdentity) {
+        window.netlifyIdentity.on('login', updateAuthToken);
+        window.netlifyIdentity.on('token-updated', updateAuthToken);
+      }
+      
       console.log('✓ Admin Supabase initialized with auth');
       return true;
     }
