@@ -1372,18 +1372,18 @@ async function fetchBookings() {
   }
 }
 
-function renderBookingsTable(bookings = [], searchTerm = '') {
+function renderBookingsTable(leads = [], searchTerm = '') {
   const tbody = document.getElementById('bookingsTable');
   const empty = document.getElementById('bookingsEmpty');
   if (!tbody) return;
 
-  let filtered = bookings;
+  let filtered = leads;
   if (searchTerm.trim()) {
     const t = searchTerm.toLowerCase();
-    filtered = bookings.filter(b =>
-      (b.full_name || b.name || '').toLowerCase().includes(t) ||
-      (b.email || '').toLowerCase().includes(t) ||
-      (b.service || b.service_type || '').toLowerCase().includes(t)
+    filtered = leads.filter(l =>
+      (l.name || '').toLowerCase().includes(t) ||
+      (l.email || '').toLowerCase().includes(t) ||
+      (l.service || '').toLowerCase().includes(t)
     );
   }
 
@@ -1396,16 +1396,14 @@ function renderBookingsTable(bookings = [], searchTerm = '') {
 
   const safe = (v) => (v == null ? '' : v);
 
-  tbody.innerHTML = filtered.map((b, idx) => `
+  tbody.innerHTML = filtered.map((lead, idx) => `
     <tr class="${idx % 2 === 0 ? 'bg-gray-50/40 dark:bg-slate-800/20' : ''} hover:bg-white/70 dark:hover:bg-slate-800/40 transition-colors">
-      <td class="py-3 px-4 font-medium">${safe(b.full_name || b.name)}</td>
-      <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${safe(b.email)}</td>
-      <td class="py-3 px-4">${safe(b.phone)}</td>
-      <td class="py-3 px-4">${safe(b.service_type || b.service)}</td>
-      <td class="py-3 px-4">${safe(b.date)}</td>
-      <td class="py-3 px-4">${safe(b.time)}</td>
-      <td class="py-3 px-4 max-w-[320px] truncate" title="${safe(b.message)}">${safe(b.message)}</td>
-      <td class="py-3 px-4 text-sm text-slate-500">${b.created_at ? new Date(b.created_at).toLocaleString() : ''}</td>
+      <td class="py-3 px-4 font-medium">${safe(lead.name)}</td>
+      <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${safe(lead.email)}</td>
+      <td class="py-3 px-4">${safe(lead.phone)}</td>
+      <td class="py-3 px-4">${safe(lead.service)}</td>
+      <td class="py-3 px-4 max-w-[320px] truncate" title="${safe(lead.message)}">${safe(lead.message)}</td>
+      <td class="py-3 px-4 text-sm text-slate-500">${lead.created_at ? new Date(lead.created_at).toLocaleString() : ''}</td>
     </tr>
   `).join('');
 }
