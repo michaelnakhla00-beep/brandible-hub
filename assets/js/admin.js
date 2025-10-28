@@ -837,6 +837,9 @@ window.viewClient = function (email) {
       console.error('Error fetching projects from Supabase:', err);
     }
     
+    // Update original data after fetching Supabase projects
+    originalClientData = { ...fullClient };
+    
     renderModalKPIs(fullClient);
     renderModalProjects(fullClient);
     renderModalFiles(fullClient);
