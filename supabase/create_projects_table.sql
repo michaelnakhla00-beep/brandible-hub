@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
   status TEXT DEFAULT 'In Progress',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(client_email, title)
+  CONSTRAINT projects_client_email_title_key UNIQUE (client_email, title)
 );
 
 -- Create index on client_email for fast lookups

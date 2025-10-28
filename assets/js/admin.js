@@ -1760,15 +1760,21 @@ async function upsertProject(clientEmail, project) {
       return;
     }
     
+    console.log('💾 Attempting to save project:', { clientEmail, project });
+    
     const { data, error } = await adminSupabaseClient
       .from('projects')
       .upsert({
         client_email: clientEmail,
         title: project.name || project.title,
         description: project.description || project.summary || '',
-        status: project.status || 'In Progress',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'client_email,title' });
+        status: project.status || 'In Progress'
+      }, { 
+        onConflict: 'client_email,title',
+        ignoreDuplicates: false
+      });
+    
+    console.log('💾 Upsert result:', { data, error });
     
     if (error) {
       console.error('Error upserting project:', error);
