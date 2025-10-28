@@ -272,10 +272,10 @@ function renderEditableProjects(client) {
   }
   
   container.innerHTML = client.projects.map((p, idx) => {
-    const projectId = `project-${idx}-${Date.now()}`;
+    const projectId = p.id || `project-${idx}-${Date.now()}`;
     
     return `
-      <div class="project-edit-card card p-4" data-project-id="${projectId}">
+      <div class="project-edit-card card p-4" data-project-id="${projectId}" data-supabase-id="${p.id || ''}">
         <div class="flex items-start justify-between mb-3">
           <input type="text" placeholder="Project Name" class="project-name-input font-semibold bg-transparent border-none outline-none focus:ring-2 focus:ring-purple-500/50 rounded px-2 w-full" value="${p.name || ''}" />
         </div>
@@ -831,6 +831,7 @@ window.viewClient = function (email) {
             console.log('📦 Loaded projects from Supabase:', supabaseProjects.length, 'projects');
             // Convert Supabase format to client format
             const formattedProjects = supabaseProjects.map(p => ({
+              id: p.id,
               name: p.title,
               summary: p.description || '',
               status: p.status || 'In Progress'
@@ -1034,12 +1035,14 @@ window.saveClientChanges = async function() {
         const projectName = card.querySelector('.project-name-input')?.value;
         const projectDesc = card.querySelector('.project-desc-input')?.value || '';
         const projectStatus = card.querySelector('.project-status-select')?.value || 'In Progress';
+        const supabaseId = card.getAttribute('data-supabase-id');
         
-        console.log('📝 Project data:', { projectName, projectDesc, projectStatus });
+        console.log('📝 Project data:', { projectName, projectDesc, projectStatus, supabaseId });
         
         if (projectName && projectName.trim()) {
           try {
             const result = await upsertProject(currentClientEmail, {
+              id: supabaseId, // Send ID if it exists (for updates)
               name: projectName,
               description: projectDesc,
               status: projectStatus

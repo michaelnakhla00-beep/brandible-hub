@@ -41,28 +41,15 @@ exports.handler = async (event, context) => {
       status: project.status || 'In Progress'
     };
 
-    // Check if project exists
-    const checkUrl = `${supabaseUrl}/rest/v1/projects?client_email=eq.${encodeURIComponent(clientEmail)}&title=eq.${encodeURIComponent(project.name)}&select=id&limit=1`;
+    // Check if project ID was provided (for updates)
+    const projectId = project.id;
     
-    const checkRes = await fetch(checkUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': supabaseServiceKey,
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      }
-    });
-
-    const existingProjects = await checkRes.json();
-    const existing = existingProjects && existingProjects.length > 0 ? existingProjects[0] : null;
-
     let result, error;
     
-    if (existing) {
-      // Update existing project
-      console.log('Updating existing project:', existing.id);
-      const updateUrl = `${supabaseUrl}/rest/v1/projects?id=eq.${existing.id}`;
+    if (projectId) {
+      // Update existing project by ID
+      console.log('Updating existing project:', projectId);
+      const updateUrl = `${supabaseUrl}/rest/v1/projects?id=eq.${projectId}`;
       const updateRes = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
@@ -78,7 +65,7 @@ exports.handler = async (event, context) => {
         error = { message: 'Failed to update project' };
       }
     } else {
-      // Insert new project
+      // Always insert new project (don't check for duplicates by title)
       console.log('Inserting new project');
       const insertUrl = `${supabaseUrl}/rest/v1/projects`;
       const insertRes = await fetch(insertUrl, {
