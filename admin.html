@@ -173,12 +173,19 @@
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-2xl font-bold">Leads</h2>
           <div class="flex items-center gap-3">
+            <button onclick="exportLeadsToCSV()" class="btn-ghost text-sm whitespace-nowrap" title="Export to CSV">
+              📥 Export CSV
+            </button>
             <div class="relative flex-1 max-w-md">
               <input id="bookingsSearch" placeholder="Search by name, email, or service..." class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-2.5 pl-10 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all" />
               <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
               </svg>
             </div>
+            <select id="sortLeadsDropdown" class="rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-sm">
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+            </select>
             <button id="refreshBookingsBtn" class="btn-ghost text-sm" title="Refresh">
               🔄
             </button>
@@ -196,6 +203,7 @@
                   <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Service</th>
                   <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Message</th>
                   <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Date</th>
+                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Status</th>
                 </tr>
               </thead>
               <tbody id="bookingsTable"></tbody>
@@ -561,6 +569,82 @@
     // Make functions globally available
     window.showToast = showToast;
     window.hideToast = hideToast;
+  </script>
+
+  <!-- Lead Details Modal -->
+  <div id="leadDetailsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[3000] hidden transition-all duration-300" onclick="closeLeadDetailsModalOnBackdrop(event)">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="card-header flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/20 dark:to-pink-950/20">
+        <div>
+          <h3 id="modalLeadName" class="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Lead Details</h3>
+        </div>
+        <button onclick="closeLeadDetailsModal()" class="btn-ghost text-xl hover:rotate-90 transition-transform duration-200">✕</button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-4">
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Name</label>
+            <p id="modalDetailName" class="text-slate-900 dark:text-white font-medium"></p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</label>
+            <p id="modalDetailEmail" class="text-slate-900 dark:text-white font-medium"></p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Phone</label>
+            <p id="modalDetailPhone" class="text-slate-900 dark:text-white font-medium"></p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Service</label>
+            <p id="modalDetailService" class="text-slate-900 dark:text-white font-medium"></p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Message</label>
+            <p id="modalDetailMessage" class="text-slate-900 dark:text-white font-medium whitespace-pre-wrap"></p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</label>
+            <p id="modalDetailDate" class="text-slate-900 dark:text-white font-medium"></p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="card-header border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+        <button onclick="closeLeadDetailsModal()" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Lead details modal functions
+    function openLeadDetailsModal(lead) {
+      document.getElementById('modalLeadName').textContent = lead.name || 'Lead Details';
+      document.getElementById('modalDetailName').textContent = lead.name || 'N/A';
+      document.getElementById('modalDetailEmail').textContent = lead.email || 'N/A';
+      document.getElementById('modalDetailPhone').textContent = lead.phone || 'N/A';
+      document.getElementById('modalDetailService').textContent = lead.service || 'N/A';
+      document.getElementById('modalDetailMessage').textContent = lead.message || 'N/A';
+      document.getElementById('modalDetailDate').textContent = lead.created_at ? new Date(lead.created_at).toLocaleString() : 'N/A';
+      document.getElementById('leadDetailsModal').classList.remove('hidden');
+    }
+    
+    function closeLeadDetailsModal() {
+      document.getElementById('leadDetailsModal').classList.add('hidden');
+    }
+    
+    function closeLeadDetailsModalOnBackdrop(event) {
+      if (event.target === event.currentTarget) {
+        closeLeadDetailsModal();
+      }
+    }
+    
+    window.openLeadDetailsModal = openLeadDetailsModal;
+    window.closeLeadDetailsModal = closeLeadDetailsModal;
+    window.closeLeadDetailsModalOnBackdrop = closeLeadDetailsModalOnBackdrop;
   </script>
 </body>
 </html>

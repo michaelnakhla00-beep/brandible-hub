@@ -166,7 +166,19 @@ function wireSearch(allClients) {
   if (bookingsSearch) {
     bookingsSearch.addEventListener("input", () => {
       const term = bookingsSearch.value.trim();
-      renderBookingsTable(allBookingsGlobal, term);
+      const sortDropdown = document.getElementById('sortLeadsDropdown');
+      const sortOrder = sortDropdown ? sortDropdown.value : 'newest';
+      renderBookingsTable(allBookingsGlobal, term, sortOrder);
+    });
+  }
+  
+  // Leads sort dropdown
+  const sortLeadsDropdown = document.getElementById("sortLeadsDropdown");
+  if (sortLeadsDropdown) {
+    sortLeadsDropdown.addEventListener("change", () => {
+      const term = bookingsSearch ? bookingsSearch.value.trim() : '';
+      const sortOrder = sortLeadsDropdown.value;
+      renderBookingsTable(allBookingsGlobal, term, sortOrder);
     });
   }
 }
@@ -1388,18 +1400,27 @@ async function fetchBookings() {
   }
 }
 
-function renderBookingsTable(leads = [], searchTerm = '') {
+function getStatusColor(status) {
+  switch(status) {
+    case 'New': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+    case 'Contacted': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+    case 'In Progress': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+    case 'Closed': return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300';
+    default: return 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300';
+  }
+}
+
+function renderBookingsTable(leads = [], searchTerm = '', sortOrder = 'newest') {
   console.log('🎨 renderBookingsTable called with', leads.length, 'leads, searchTerm:', searchTerm);
   const tbody = document.getElementById('bookingsTable');
   const empty = document.getElementById('bookingsEmpty');
-  
-  console.log('🔍 Table elements:', { tbody: !!tbody, empty: !!empty });
   
   if (!tbody) {
     console.error('❌ bookingsTable element not found!');
     return;
   }
 
+  // Filter leads
   let filtered = leads;
   if (searchTerm.trim()) {
     const t = searchTerm.toLowerCase();
@@ -1410,7 +1431,12 @@ function renderBookingsTable(leads = [], searchTerm = '') {
     );
   }
 
-  console.log('🔍 Filtered to', filtered.length, 'leads');
+  // Sort leads
+  if (sortOrder === 'newest') {
+    filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  } else {
+    filtered.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+  }
 
   if (!filtered.length) {
     console.log('⚠️ No filtered results, showing empty state');
@@ -1425,22 +1451,106 @@ function renderBookingsTable(leads = [], searchTerm = '') {
   const safe = (v) => (v == null ? '' : v);
   
   const html = filtered.map((lead, idx) => `
-    <tr class="${idx % 2 === 0 ? 'bg-gray-50/40 dark:bg-slate-800/20' : ''} hover:bg-white/70 dark:hover:bg-slate-800/40 transition-colors">
+    <tr class="cursor-pointer transition-all ${idx % 2 === 0 ? 'bg-gray-50/40 dark:bg-slate-800/20' : ''} hover:bg-white/70 dark:hover:bg-slate-800/40" onclick='openLeadDetailsModal(${JSON.stringify(lead).replace(/'/g, "&#39;")})'>
       <td class="py-3 px-4 font-medium">${safe(lead.name)}</td>
-      <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${safe(lead.email)}</td>
+      <td class="py-3 px-4 text-slate-600 dark:text-slate-300">
+        <a href="mailto:${safe(lead.email)}?subject=Follow-up from Brandible Marketing Group" class="flex items-center gap-1 hover:text-purple-600 dark:hover:text-purple-400" onclick="event.stopPropagation()">
+          ${safe(lead.email)}
+          <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+          </svg>
+        </a>
+      </td>
       <td class="py-3 px-4">${safe(lead.phone)}</td>
       <td class="py-3 px-4">${safe(lead.service)}</td>
       <td class="py-3 px-4 max-w-[320px] truncate" title="${safe(lead.message)}">${safe(lead.message)}</td>
       <td class="py-3 px-4 text-sm text-slate-500">${lead.created_at ? new Date(lead.created_at).toLocaleString() : (lead.date || '') + ' ' + (lead.time || '')}</td>
+      <td class="py-3 px-4" onclick="event.stopPropagation()">
+        <select onchange="updateLeadStatus(${lead.id}, this.value)" class="px-2 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 ${getStatusColor(lead.status || 'New')}">
+          <option value="New" ${lead.status === 'New' ? 'selected' : ''}>New</option>
+          <option value="Contacted" ${lead.status === 'Contacted' ? 'selected' : ''}>Contacted</option>
+          <option value="In Progress" ${lead.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+          <option value="Closed" ${lead.status === 'Closed' ? 'selected' : ''}>Closed</option>
+        </select>
+      </td>
     </tr>
   `).join('');
   
-  console.log('📝 Generated HTML length:', html.length);
-  console.log('📝 First row sample:', html.substring(0, 200));
-  
   tbody.innerHTML = html;
-  console.log('✅ Table rendered successfully');
 }
+
+async function updateLeadStatus(leadId, newStatus) {
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+
+    const res = await fetch('/.netlify/functions/update-lead-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ leadId, status: newStatus })
+    });
+
+    if (res.ok) {
+      showToast('Status updated', 'success');
+      // Update local data
+      const lead = allBookingsGlobal.find(l => l.id === leadId);
+      if (lead) lead.status = newStatus;
+    } else {
+      showToast('Failed to update status', 'error');
+    }
+  } catch (err) {
+    console.error('Error updating status:', err);
+    showToast('Failed to update status', 'error');
+  }
+}
+
+window.exportLeadsToCSV = function() {
+  const leads = allBookingsGlobal;
+  if (!leads || leads.length === 0) {
+    showToast('No leads to export', 'error');
+    return;
+  }
+
+  // CSV headers
+  const headers = ['Name', 'Email', 'Phone', 'Service', 'Message', 'Date', 'Status'];
+  
+  // CSV rows
+  const rows = leads.map(lead => [
+    lead.name || '',
+    lead.email || '',
+    lead.phone || '',
+    lead.service || '',
+    (lead.message || '').replace(/"/g, '""'),
+    lead.created_at ? new Date(lead.created_at).toLocaleString() : '',
+    lead.status || 'New'
+  ]);
+  
+  // Build CSV content
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+  ].join('\n');
+  
+  // Download
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'brandible-leads.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showToast('CSV exported successfully', 'success');
+}
+
+window.updateLeadStatus = updateLeadStatus;
 
 async function refreshBookings() {
   console.log('🔄 refreshBookings called');
@@ -1448,9 +1558,11 @@ async function refreshBookings() {
   console.log('📦 Received data:', data);
   allBookingsGlobal = data;
   const search = document.getElementById('bookingsSearch');
+  const sortDropdown = document.getElementById('sortLeadsDropdown');
   const term = search ? search.value.trim() : '';
+  const sortOrder = sortDropdown ? sortDropdown.value : 'newest';
   console.log('🎨 Rendering table with', data.length, 'leads');
-  renderBookingsTable(allBookingsGlobal, term);
+  renderBookingsTable(allBookingsGlobal, term, sortOrder);
 }
 
 // Simple section router for tabs
