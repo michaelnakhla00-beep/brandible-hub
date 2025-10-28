@@ -1478,8 +1478,10 @@ window.showAdminSection = function(section) {
   // lazy load bookings when first opened
   if (section === 'bookings') {
     console.log('📖 Bookings section opened, loading data...');
+    console.log('📖 All bookings global:', allBookingsGlobal);
+    console.log('📖 Calling refreshBookings now...');
     refreshBookings().catch(err => {
-      console.error('Error loading bookings:', err);
+      console.error('❌ Error loading bookings:', err);
       const tbody = document.getElementById('bookingsTable');
       const empty = document.getElementById('bookingsEmpty');
       if (tbody) tbody.innerHTML = '';
