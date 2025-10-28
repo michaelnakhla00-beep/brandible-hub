@@ -56,14 +56,20 @@
 
   <script>
     // Dark mode toggle + persist
+    function toggleDark() {
+      const key = 'brandible.dark';
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem(key, isDark ? '1' : '0');
+      console.log('Dark mode toggled:', isDark);
+    }
+    
+    // Initialize dark mode on page load
     (function(){
       const key = 'brandible.dark';
       const saved = localStorage.getItem(key);
       if (saved === '1') document.documentElement.classList.add('dark');
-      window.toggleDark = () => {
-        const d = document.documentElement.classList.toggle('dark');
-        localStorage.setItem(key, d ? '1' : '0');
-      }
+      // Make toggleDark globally available
+      window.toggleDark = toggleDark;
     })();
   </script>
 </head>
