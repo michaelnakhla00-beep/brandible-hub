@@ -1,5 +1,4 @@
 // netlify/functions/upsert-project.js
-const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
   // Only allow POST
@@ -22,55 +21,80 @@ exports.handler = async (event, context) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
 
-    // Initialize Supabase with service role key (bypasses RLS)
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    // Get Supabase URL from environment
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://yjjjpduroyivrdbgmnqo.supabase.co';
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseServiceKey) {
+      console.error('Missing SUPABASE_SERVICE_ROLE_KEY');
       return { 
         statusCode: 500, 
-        body: JSON.stringify({ error: 'Supabase configuration missing' }) 
+        body: JSON.stringify({ error: 'Server configuration missing' }) 
       };
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Use fetch to call Supabase REST API directly
+    const projectData = {
+      client_email: clientEmail,
+      title: project.name,
+      description: project.description || project.summary || '',
+      status: project.status || 'In Progress'
+    };
 
     // Check if project exists
-    const { data: existing, error: selectError } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('client_email', clientEmail)
-      .eq('title', project.name)
-      .maybeSingle();
+    const checkUrl = `${supabaseUrl}/rest/v1/projects?client_email=eq.${encodeURIComponent(clientEmail)}&title=eq.${encodeURIComponent(project.name)}&select=id&limit=1`;
+    
+    const checkRes = await fetch(checkUrl, {
+      method: 'GET',
+      headers: {
+        'apikey': supabaseServiceKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      }
+    });
 
-    if (selectError && selectError.code !== 'PGRST301') {
-      console.error('Select error:', selectError);
-    }
+    const existingProjects = await checkRes.json();
+    const existing = existingProjects && existingProjects.length > 0 ? existingProjects[0] : null;
 
     let result, error;
     
     if (existing) {
       // Update existing project
       console.log('Updating existing project:', existing.id);
-      ({ data: result, error } = await supabase
-        .from('projects')
-        .update({
-          title: project.name,
-          description: project.description || project.summary || '',
-          status: project.status || 'In Progress'
-        })
-        .eq('id', existing.id));
+      const updateUrl = `${supabaseUrl}/rest/v1/projects?id=eq.${existing.id}`;
+      const updateRes = await fetch(updateUrl, {
+        method: 'PATCH',
+        headers: {
+          'apikey': supabaseServiceKey,
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(projectData)
+      });
+      result = await updateRes.json();
+      if (!updateRes.ok) {
+        error = { message: 'Failed to update project' };
+      }
     } else {
       // Insert new project
       console.log('Inserting new project');
-      ({ data: result, error } = await supabase
-        .from('projects')
-        .insert({
-          client_email: clientEmail,
-          title: project.name,
-          description: project.description || project.summary || '',
-          status: project.status || 'In Progress'
-        }));
+      const insertUrl = `${supabaseUrl}/rest/v1/projects`;
+      const insertRes = await fetch(insertUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': supabaseServiceKey,
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(projectData)
+      });
+      result = await insertRes.json();
+      if (!insertRes.ok) {
+        error = { message: 'Failed to insert project' };
+      }
     }
 
     if (error) {
@@ -80,14 +104,6 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({ error: error.message || 'Failed to save project' }) 
       };
     }
-
-    // Log activity
-    await supabase.from('client_activity').insert({
-      client_email: clientEmail,
-      activity: `Updated project "${project.name}"`,
-      type: 'project',
-      timestamp: new Date().toISOString()
-    });
 
     return {
       statusCode: 200,
@@ -102,4 +118,3 @@ exports.handler = async (event, context) => {
     };
   }
 };
-
