@@ -317,46 +317,28 @@ async function initAdminSupabase() {
         }
       });
       
-      // Get JWT token and set auth headers
+      // Get JWT token and authenticate Supabase client
       try {
         const id = window.netlifyIdentity;
         const user = id && id.currentUser();
         if (user) {
           const token = await user.jwt();
           if (token) {
-            console.log('✓ Got JWT token, setting auth headers');
-            // Create a custom fetch function that adds auth headers
-            adminSupabaseClient.rest.fetch = function(url, options = {}) {
-              const headers = new Headers();
-              
-              // Add existing headers from options
-              if (options.headers) {
-                const existingHeaders = options.headers;
-                if (existingHeaders instanceof Headers) {
-                  existingHeaders.forEach((value, key) => headers.append(key, value));
-                } else {
-                  Object.entries(existingHeaders).forEach(([key, value]) => {
-                    headers.append(key, value);
-                  });
-                }
+            console.log('✓ Got JWT token, authenticating Supabase client');
+            // Set the session with the JWT token
+            await adminSupabaseClient.auth.setSession({
+              access_token: token,
+              refresh_token: token,
+              expires_in: 3600,
+              user: {
+                id: user.id,
+                email: user.email
               }
-              
-              // Set auth headers
-              headers.set('Authorization', `Bearer ${token}`);
-              headers.set('apikey', config.anonKey);
-              headers.set('Content-Type', 'application/json');
-              
-              console.log('📤 Fetching with auth:', url, { headers });
-              
-              return fetch(url, {
-                ...options,
-                headers
-              });
-            };
+            });
           }
         }
       } catch (err) {
-        console.warn('Could not get JWT token:', err);
+        console.warn('Could not authenticate Supabase:', err);
       }
       
       console.log('✓ Admin Supabase initialized with auth');
