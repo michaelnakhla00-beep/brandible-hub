@@ -245,19 +245,18 @@
     .section-title,
     .card-section h2,
     .card-section h3 {
-      font-weight: 600;
+      font-weight: 700;
       font-size: 1.25rem;
-      color: var(--brandible-text-dark);
+      color: #1F1F1F;
       letter-spacing: 0.3px;
       margin-bottom: 1rem;
-      text-shadow: 0 1px 1px rgba(0,0,0,0.05);
     }
     
     .dark .section-title,
     .dark .card-section h2,
     .dark .card-section h3 {
-      color: var(--brandible-text-light);
-      text-shadow: none;
+      color: #EDEDED;
+      font-weight: 700;
     }
     
     /* Gradient header text */
