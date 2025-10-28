@@ -1817,17 +1817,37 @@ async function upsertProject(clientEmail, project) {
     
     console.log('💾 Attempting to save project:', { clientEmail, project });
     
-    const { data, error } = await adminSupabaseClient
+    // First, try to find existing project
+    const { data: existing } = await adminSupabaseClient
       .from('projects')
-      .upsert({
-        client_email: clientEmail,
-        title: project.name || project.title,
-        description: project.description || project.summary || '',
-        status: project.status || 'In Progress'
-      }, { 
-        onConflict: 'client_email,title',
-        ignoreDuplicates: false
-      });
+      .select('*')
+      .eq('client_email', clientEmail)
+      .eq('title', project.name || project.title)
+      .maybeSingle();
+    
+    const projectData = {
+      client_email: clientEmail,
+      title: project.name || project.title,
+      description: project.description || project.summary || '',
+      status: project.status || 'In Progress'
+    };
+    
+    let data, error;
+    
+    if (existing) {
+      // Update existing project
+      console.log('📝 Updating existing project:', existing.id);
+      ({ data, error } = await adminSupabaseClient
+        .from('projects')
+        .update(projectData)
+        .eq('id', existing.id));
+    } else {
+      // Insert new project
+      console.log('➕ Inserting new project');
+      ({ data, error } = await adminSupabaseClient
+        .from('projects')
+        .insert(projectData));
+    }
     
     console.log('💾 Upsert result:', { data, error });
     
