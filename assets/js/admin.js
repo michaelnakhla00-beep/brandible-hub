@@ -35,29 +35,45 @@ let allBookingsGlobal = [];
 
 function renderAdminKPIs(clients = []) {
   const container = document.getElementById("adminKPIs");
-  if (!container) return;
-
+  
   const totalProjects = clients.reduce((sum, c) => sum + (c.kpis?.activeProjects || 0), 0);
   const totalInvoices = clients.reduce((sum, c) => sum + (c.kpis?.openInvoices || 0), 0);
   const totalClients = clients.length;
   const totalFiles = clients.reduce((sum, c) => sum + (c.files?.length || 0), 0);
+  
+  // Get new leads count
+  const newLeadsCount = allBookingsGlobal.filter(l => !l.status || l.status === 'New').length;
 
-  const entries = [
-    { label: "Total Clients", value: totalClients },
-    { label: "Active Projects", value: totalProjects },
-    { label: "Open Invoices", value: totalInvoices },
-    { label: "Files Shared", value: totalFiles },
-  ];
+  // Update Quick Stats cards
+  const statTotalClients = document.getElementById('statTotalClients');
+  const statNewLeads = document.getElementById('statNewLeads');
+  const statActiveProjects = document.getElementById('statActiveProjects');
+  const statOpenInvoices = document.getElementById('statOpenInvoices');
+  
+  if (statTotalClients) statTotalClients.textContent = totalClients;
+  if (statNewLeads) statNewLeads.textContent = newLeadsCount;
+  if (statActiveProjects) statActiveProjects.textContent = totalProjects;
+  if (statOpenInvoices) statOpenInvoices.textContent = totalInvoices;
+  
+  // Legacy KPI rendering for backward compatibility
+  if (container) {
+    const entries = [
+      { label: "Total Clients", value: totalClients },
+      { label: "Active Projects", value: totalProjects },
+      { label: "Open Invoices", value: totalInvoices },
+      { label: "Files Shared", value: totalFiles },
+    ];
 
-  container.innerHTML = entries
-    .map(
-      (e) => `
-      <div class="card p-5">
-        <div class="text-2xl font-semibold">${e.value}</div>
-        <div class="text-slate-500">${e.label}</div>
-      </div>`
-    )
-    .join("");
+    container.innerHTML = entries
+      .map(
+        (e) => `
+        <div class="card p-5">
+          <div class="text-2xl font-semibold">${e.value}</div>
+          <div class="text-slate-500">${e.label}</div>
+        </div>`
+      )
+      .join("");
+  }
 }
 
 function renderClientsTable(clients = [], searchTerm = "") {
