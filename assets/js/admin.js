@@ -27,6 +27,7 @@ let allClientsGlobal = [];
 let currentClientEmail = null;
 let editMode = false;
 let originalClientData = null;
+let allBookingsGlobal = [];
 
 /* ---------------------------
    2) Render helpers
@@ -157,6 +158,15 @@ function wireSearch(allClients) {
     search.addEventListener("input", () => {
       const term = search.value.trim();
       renderClientsTable(allClients, term);
+    });
+  }
+
+  // Bookings search
+  const bookingsSearch = document.getElementById("bookingsSearch");
+  if (bookingsSearch) {
+    bookingsSearch.addEventListener("input", () => {
+      const term = bookingsSearch.value.trim();
+      renderBookingsTable(allBookingsGlobal, term);
     });
   }
 }
@@ -1313,6 +1323,15 @@ function renderAnalytics(clients = []) {
     renderAllActivity(clients);
     renderAnalytics(clients);
     wireSearch(clients);
+
+    // Wire bookings refresh
+    const refreshBtn = document.getElementById('refreshBookingsBtn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        await refreshBookings();
+        showToast('Bookings refreshed', 'success');
+      });
+    }
   } catch (e) {
     console.error(e);
     alert("Failed to load admin dashboard. If this persists, contact support.");
@@ -1320,4 +1339,110 @@ function renderAnalytics(clients = []) {
     if (overlay) overlay.style.display = "none";
   }
 })();
+
+/* ---------------------------
+   9) Bookings (Leads) Tab
+---------------------------- */
+
+async function fetchBookings() {
+  try {
+    if (!window.supabase) throw new Error('Supabase client not loaded');
+
+    // Reuse storage client config to init a supabase client if needed
+    if (!adminSupabaseClient) {
+      await initAdminSupabase();
+    }
+
+    const sb = adminSupabaseClient;
+    if (!sb) throw new Error('Supabase not initialized');
+
+    const { data, error } = await sb
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching bookings:', error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('Failed to fetch bookings:', err);
+    return [];
+  }
+}
+
+function renderBookingsTable(bookings = [], searchTerm = '') {
+  const tbody = document.getElementById('bookingsTable');
+  const empty = document.getElementById('bookingsEmpty');
+  if (!tbody) return;
+
+  let filtered = bookings;
+  if (searchTerm.trim()) {
+    const t = searchTerm.toLowerCase();
+    filtered = bookings.filter(b =>
+      (b.full_name || b.name || '').toLowerCase().includes(t) ||
+      (b.email || '').toLowerCase().includes(t) ||
+      (b.service || b.service_type || '').toLowerCase().includes(t)
+    );
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  const safe = (v) => (v == null ? '' : v);
+
+  tbody.innerHTML = filtered.map((b, idx) => `
+    <tr class="${idx % 2 === 0 ? 'bg-gray-50/40 dark:bg-slate-800/20' : ''} hover:bg-white/70 dark:hover:bg-slate-800/40 transition-colors">
+      <td class="py-3 px-4 font-medium">${safe(b.full_name || b.name)}</td>
+      <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${safe(b.email)}</td>
+      <td class="py-3 px-4">${safe(b.phone)}</td>
+      <td class="py-3 px-4">${safe(b.service_type || b.service)}</td>
+      <td class="py-3 px-4">${safe(b.date)}</td>
+      <td class="py-3 px-4">${safe(b.time)}</td>
+      <td class="py-3 px-4 max-w-[320px] truncate" title="${safe(b.message)}">${safe(b.message)}</td>
+      <td class="py-3 px-4 text-sm text-slate-500">${b.created_at ? new Date(b.created_at).toLocaleString() : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function refreshBookings() {
+  const data = await fetchBookings();
+  allBookingsGlobal = data;
+  const search = document.getElementById('bookingsSearch');
+  const term = search ? search.value.trim() : '';
+  renderBookingsTable(allBookingsGlobal, term);
+}
+
+// Simple section router for tabs
+window.showAdminSection = function(section) {
+  const sections = {
+    overview: document.getElementById('overviewSection'),
+    analytics: document.getElementById('analyticsSection'),
+    clients: document.getElementById('clientsSection'),
+    bookings: document.getElementById('bookingsSection'),
+  };
+
+  Object.values(sections).forEach(el => el && el.classList.add('hidden'));
+  if (sections[section]) sections[section].classList.remove('hidden');
+
+  // active tab styles
+  const tabs = {
+    overview: document.getElementById('tabOverview'),
+    analytics: document.getElementById('tabAnalytics'),
+    clients: document.getElementById('tabClients'),
+    bookings: document.getElementById('tabBookings'),
+  };
+  Object.values(tabs).forEach(btn => btn && btn.classList.remove('sidebar-link-active'));
+  if (tabs[section]) tabs[section].classList.add('sidebar-link-active');
+
+  // lazy load bookings when first opened
+  if (section === 'bookings' && allBookingsGlobal.length === 0) {
+    refreshBookings();
+  }
+}
 
