@@ -1817,13 +1817,26 @@ async function upsertProject(clientEmail, project) {
     
     console.log('💾 Attempting to save project:', { clientEmail, project });
     
+    // Check if we're authenticated
+    if (!adminSupabaseClient) {
+      console.warn('⚠️ Supabase client not initialized');
+      return;
+    }
+    
     // First, try to find existing project
-    const { data: existing } = await adminSupabaseClient
-      .from('projects')
-      .select('*')
-      .eq('client_email', clientEmail)
-      .eq('title', project.name || project.title)
-      .maybeSingle();
+    let existing = null;
+    try {
+      const { data } = await adminSupabaseClient
+        .from('projects')
+        .select('*')
+        .eq('client_email', clientEmail)
+        .eq('title', project.name || project.title)
+        .maybeSingle();
+      existing = data;
+    } catch (err) {
+      console.error('Error checking existing project:', err);
+      // Continue without existing check
+    }
     
     const projectData = {
       client_email: clientEmail,
