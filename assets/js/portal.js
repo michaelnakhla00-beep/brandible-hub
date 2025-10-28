@@ -357,7 +357,7 @@ window.testActivityLog = async function() {
 // Log client activity to Supabase
 async function logClientActivity(clientEmail, activity, type = 'upload') {
   try {
-    console.log("Logging activity:", clientEmail, activity, type);
+    console.log("Attempting to log activity:", clientEmail, activity, type);
     
     // Get authenticated Supabase client
     const supabase = await getAuthenticatedSupabaseClient();
@@ -367,20 +367,38 @@ async function logClientActivity(clientEmail, activity, type = 'upload') {
       return;
     }
     
-    console.log('📝 Inserting activity into client_activity table...');
-    console.log('Insert payload:', { client_email: clientEmail, activity, type });
+    // Check current user
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      console.log("Current user for insert:", userData);
+      if (userError) {
+        console.warn("Error getting user:", userError);
+      }
+    } catch (e) {
+      console.warn("Could not get user info:", e);
+    }
     
-    // Insert activity using Supabase client
+    console.log('📝 Inserting activity into client_activity table...');
+    const timestamp = new Date().toISOString();
+    console.log('Insert payload:', { 
+      client_email: clientEmail, 
+      activity, 
+      type,
+      timestamp
+    });
+    
+    // Insert activity using Supabase client with explicit timestamp
     const { data, error } = await supabase
       .from('client_activity')
       .insert([{ 
         client_email: clientEmail, 
         activity: activity, 
-        type: type 
+        type: type,
+        timestamp: timestamp
       }]);
     
     if (error) {
-      console.error("Activity insert error:", error);
+      console.error("Activity insert error:", error.message);
       console.error('Error details:', {
         message: error.message,
         details: error.details,
