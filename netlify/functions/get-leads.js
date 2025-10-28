@@ -35,19 +35,23 @@ exports.handler = async (event, context) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Query leads from Supabase
+    console.log("Querying leads table...");
     const { data: leads, error } = await supabase
       .from('leads')
       .select('*')
       .order('created_at', { ascending: false });
 
+    console.log("Query result:", { leads: leads?.length || 0, error });
+
     if (error) {
       console.error("Supabase error:", error);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Database error: " + error.message })
+        body: JSON.stringify({ error: "Database error: " + error.message, details: error })
       };
     }
 
+    console.log("Returning leads:", leads);
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
