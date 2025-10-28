@@ -1431,7 +1431,7 @@ function renderBookingsTable(leads = [], searchTerm = '') {
       <td class="py-3 px-4">${safe(lead.phone)}</td>
       <td class="py-3 px-4">${safe(lead.service)}</td>
       <td class="py-3 px-4 max-w-[320px] truncate" title="${safe(lead.message)}">${safe(lead.message)}</td>
-      <td class="py-3 px-4 text-sm text-slate-500">${lead.date || ''} ${lead.time || ''}</td>
+      <td class="py-3 px-4 text-sm text-slate-500">${lead.created_at ? new Date(lead.created_at).toLocaleString() : (lead.date || '') + ' ' + (lead.time || '')}</td>
     </tr>
   `).join('');
   
