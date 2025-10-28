@@ -327,14 +327,30 @@ async function initAdminSupabase() {
             console.log('✓ Got JWT token, setting auth headers');
             // Create a custom fetch function that adds auth headers
             adminSupabaseClient.rest.fetch = function(url, options = {}) {
+              const headers = new Headers();
+              
+              // Add existing headers from options
+              if (options.headers) {
+                const existingHeaders = options.headers;
+                if (existingHeaders instanceof Headers) {
+                  existingHeaders.forEach((value, key) => headers.append(key, value));
+                } else {
+                  Object.entries(existingHeaders).forEach(([key, value]) => {
+                    headers.append(key, value);
+                  });
+                }
+              }
+              
+              // Set auth headers
+              headers.set('Authorization', `Bearer ${token}`);
+              headers.set('apikey', config.anonKey);
+              headers.set('Content-Type', 'application/json');
+              
+              console.log('📤 Fetching with auth:', url, { headers });
+              
               return fetch(url, {
                 ...options,
-                headers: {
-                  ...options.headers,
-                  'Authorization': `Bearer ${token}`,
-                  'apikey': config.anonKey,
-                  'Content-Type': 'application/json'
-                }
+                headers
               });
             };
           }
