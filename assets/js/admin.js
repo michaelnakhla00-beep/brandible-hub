@@ -1445,8 +1445,15 @@ window.showAdminSection = function(section) {
   if (tabs[section]) tabs[section].classList.add('sidebar-link-active');
 
   // lazy load bookings when first opened
-  if (section === 'bookings' && allBookingsGlobal.length === 0) {
-    refreshBookings();
+  if (section === 'bookings') {
+    console.log('📖 Bookings section opened, loading data...');
+    refreshBookings().catch(err => {
+      console.error('Error loading bookings:', err);
+      const tbody = document.getElementById('bookingsTable');
+      const empty = document.getElementById('bookingsEmpty');
+      if (tbody) tbody.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+    });
   }
 }
 
