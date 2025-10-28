@@ -92,18 +92,18 @@
             <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Admin Dashboard</p>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <span id="userEmail" class="hidden md:inline text-sm font-medium text-slate-600 dark:text-slate-400"></span>
-          <span class="pill-blue font-semibold">Admin</span>
-          <button onclick="toggleDark()" class="btn-ghost p-2" title="Toggle dark mode">
-            <span class="text-xl">🌗</span>
+        <div class="flex items-center gap-2 sm:gap-3">
+          <span id="userEmail" class="hidden lg:inline text-sm font-medium text-slate-600 dark:text-slate-400"></span>
+          <span class="pill-blue font-semibold hidden sm:inline">Admin</span>
+          <button onclick="toggleDark()" class="btn-ghost p-2 sm:p-3" title="Toggle dark mode">
+            <span class="text-lg sm:text-xl">🌗</span>
           </button>
-          <button id="logoutBtn" class="btn-ghost text-sm font-medium">Log out</button>
+          <button id="logoutBtn" class="btn-ghost text-xs sm:text-sm font-medium px-2 sm:px-4">Log out</button>
         </div>
       </div>
     </header>
 
-    <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6 space-y-8">
+    <main class="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-4 py-4 sm:py-6 space-y-6 sm:space-y-8">
       <!-- Section Tabs -->
       <nav class="flex items-center gap-2 overflow-x-auto pb-2">
         <button id="tabOverview" class="sidebar-link sidebar-link-active" onclick="showAdminSection('overview')">Overview</button>
@@ -117,53 +117,53 @@
           <h2 class="text-3xl font-bold mb-8">Overview</h2>
           
           <!-- Quick Stats Cards -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
             <div class="quick-stat-card">
-              <div class="flex items-center justify-between mb-3">
-                <div class="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex items-center justify-between mb-2 sm:mb-3">
+                <div class="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                  <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                   </svg>
                 </div>
               </div>
-              <div class="text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statTotalClients">0</div>
-              <div class="text-sm text-slate-600 dark:text-slate-400">Total Clients</div>
+              <div class="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statTotalClients">0</div>
+              <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Total Clients</div>
             </div>
             
             <div class="quick-stat-card">
-              <div class="flex items-center justify-between mb-3">
-                <div class="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex items-center justify-between mb-2 sm:mb-3">
+                <div class="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                  <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                   </svg>
                 </div>
               </div>
-              <div class="text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statNewLeads">0</div>
-              <div class="text-sm text-slate-600 dark:text-slate-400">New Leads</div>
+              <div class="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statNewLeads">0</div>
+              <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">New Leads</div>
             </div>
             
             <div class="quick-stat-card">
-              <div class="flex items-center justify-between mb-3">
-                <div class="p-3 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex items-center justify-between mb-2 sm:mb-3">
+                <div class="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
+                  <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </div>
               </div>
-              <div class="text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statActiveProjects">0</div>
-              <div class="text-sm text-slate-600 dark:text-slate-400">Active Projects</div>
+              <div class="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statActiveProjects">0</div>
+              <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Active Projects</div>
             </div>
             
             <div class="quick-stat-card">
-              <div class="flex items-center justify-between mb-3">
-                <div class="p-3 rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex items-center justify-between mb-2 sm:mb-3">
+                <div class="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white">
+                  <svg class="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                   </svg>
                 </div>
               </div>
-              <div class="text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statOpenInvoices">0</div>
-              <div class="text-sm text-slate-600 dark:text-slate-400">Open Invoices</div>
+              <div class="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1" id="statOpenInvoices">0</div>
+              <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Open Invoices</div>
             </div>
           </div>
         </div>
@@ -236,23 +236,23 @@
 
       <!-- Leads -->
       <section id="bookingsSection" class="hidden">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-2xl font-bold">Leads</h2>
-          <div class="flex items-center gap-3">
-            <button onclick="exportLeadsToCSV()" class="btn-ghost text-sm whitespace-nowrap" title="Export to CSV">
+        <div class="mb-4 sm:mb-6">
+          <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Leads</h2>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <button onclick="exportLeadsToCSV()" class="btn-ghost text-xs sm:text-sm whitespace-nowrap px-3 py-2" title="Export to CSV">
               📥 Export CSV
             </button>
-            <div class="relative flex-1 max-w-md">
-              <input id="bookingsSearch" placeholder="Search by name, email, or service..." class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-2.5 pl-10 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all" />
-              <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="relative flex-1">
+              <input id="bookingsSearch" placeholder="Search leads..." class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-3 sm:px-4 py-2 sm:py-2.5 pl-8 sm:pl-10 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all text-sm" />
+              <svg class="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
               </svg>
             </div>
-            <select id="sortLeadsDropdown" class="rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-sm">
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
+            <select id="sortLeadsDropdown" class="rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-3 sm:px-4 py-2 sm:py-2.5 outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-xs sm:text-sm">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
             </select>
-            <button id="refreshBookingsBtn" class="btn-ghost text-sm" title="Refresh">
+            <button id="refreshBookingsBtn" class="btn-ghost text-sm p-2 sm:p-3" title="Refresh">
               🔄
             </button>
           </div>
@@ -639,18 +639,18 @@
 
   <!-- Lead Details Modal -->
   <div id="leadDetailsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[3000] hidden transition-all duration-300" onclick="closeLeadDetailsModalOnBackdrop(event)">
-    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col modal-slide-in" onclick="event.stopPropagation()">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-2xl w-full mx-2 sm:mx-4 max-h-[95vh] overflow-hidden flex flex-col modal-slide-in" onclick="event.stopPropagation()">
       <!-- Modal Header -->
-      <div class="modal-header-gradient flex items-center justify-between px-8 py-6">
+      <div class="modal-header-gradient flex items-center justify-between px-4 sm:px-8 py-4 sm:py-6">
         <div>
-          <h3 id="modalLeadName" class="text-xl font-bold text-white">Lead Details</h3>
+          <h3 id="modalLeadName" class="text-lg sm:text-xl font-bold text-white">Lead Details</h3>
         </div>
-        <button onclick="closeLeadDetailsModal()" class="text-white/80 hover:text-white hover:rotate-90 transition-transform duration-200 text-2xl">✕</button>
+        <button onclick="closeLeadDetailsModal()" class="text-white/80 hover:text-white hover:rotate-90 transition-transform duration-200 text-xl sm:text-2xl">✕</button>
       </div>
       
       <!-- Modal Body -->
-      <div class="flex-1 overflow-y-auto p-8 space-y-6">
-        <div class="grid grid-cols-1 gap-6">
+      <div class="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-6">
+        <div class="grid grid-cols-1 gap-4 sm:gap-6">
           <div>
             <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Name</label>
             <p id="modalDetailName" class="text-slate-900 dark:text-white font-medium"></p>
