@@ -44,12 +44,12 @@ exports.handler = async (event, context) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Update lead status
+    console.log("Updating lead", leadId, "to status", status);
     const { data, error } = await supabase
       .from('leads')
       .update({ status })
       .eq('id', leadId)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error("Supabase error:", error);
@@ -58,6 +58,8 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({ error: "Database error: " + error.message })
       };
     }
+    
+    console.log("Update result:", data);
 
     return {
       statusCode: 200,
