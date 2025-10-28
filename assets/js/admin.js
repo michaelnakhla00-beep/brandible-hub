@@ -804,21 +804,37 @@ window.viewClient = function (email) {
     // Store original data
     originalClientData = { ...fullClient };
     
-    // Fetch projects from Supabase and merge with existing data
-    if (adminSupabaseClient) {
-      const supabaseProjects = await fetchProjectsFromSupabase(email);
-      if (supabaseProjects && supabaseProjects.length > 0) {
-        console.log('📦 Loaded projects from Supabase:', supabaseProjects);
-        // Merge Supabase projects with existing projects
-        const existingProjects = fullClient.projects || [];
-        // Convert Supabase format to client format
-        const formattedProjects = supabaseProjects.map(p => ({
-          name: p.title,
-          summary: p.description || '',
-          status: p.status || 'In Progress'
-        }));
-        fullClient.projects = [...existingProjects, ...formattedProjects];
+    // Fetch projects from Supabase via Netlify function
+    try {
+      const token = await new Promise((resolve) => {
+        const id = window.netlifyIdentity;
+        const user = id && id.currentUser();
+        if (!user) return resolve(null);
+        user.jwt().then(resolve).catch(() => resolve(null));
+      });
+      
+      if (token) {
+        const res = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(email)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        
+        if (res.ok) {
+          const { projects: supabaseProjects } = await res.json();
+          if (supabaseProjects && supabaseProjects.length > 0) {
+            console.log('📦 Loaded projects from Supabase:', supabaseProjects);
+            // Convert Supabase format to client format
+            const formattedProjects = supabaseProjects.map(p => ({
+              name: p.title,
+              summary: p.description || '',
+              status: p.status || 'In Progress'
+            }));
+            // Add Supabase projects to the client data
+            fullClient.projects = formattedProjects;
+          }
+        }
       }
+    } catch (err) {
+      console.error('Error fetching projects from Supabase:', err);
     }
     
     renderModalKPIs(fullClient);
