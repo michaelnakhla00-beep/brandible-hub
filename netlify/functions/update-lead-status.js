@@ -60,6 +60,15 @@ exports.handler = async (event, context) => {
     }
     
     console.log("Update result:", data);
+    console.log("Updated lead count:", data?.length);
+    
+    if (!data || data.length === 0) {
+      console.error("No rows updated");
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "Lead not found or not updated" })
+      };
+    }
 
     return {
       statusCode: 200,
