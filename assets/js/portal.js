@@ -574,8 +574,17 @@ function renderUpdates({ updates = [] }) {
 function wireFilters(fullData) {
   const btnActive = document.getElementById("filterActive");
   const btnAll = document.getElementById("filterAll");
+  
   if (btnActive) {
     btnActive.addEventListener("click", () => {
+      // Add active state styling
+      btnActive.classList.add("bg-indigo-100", "dark:bg-indigo-900/30", "text-indigo-700", "dark:text-indigo-300");
+      btnActive.classList.remove("hover:bg-slate-100/50", "dark:hover:bg-slate-800/50");
+      if (btnAll) {
+        btnAll.classList.remove("bg-indigo-100", "dark:bg-indigo-900/30", "text-indigo-700", "dark:text-indigo-300");
+        btnAll.classList.add("hover:bg-slate-100/50", "dark:hover:bg-slate-800/50");
+      }
+      
       const active = (fullData.projects || []).filter(
         (p) =>
           !String(p.status || "").toLowerCase().includes("done") &&
@@ -586,8 +595,21 @@ function wireFilters(fullData) {
   }
   if (btnAll) {
     btnAll.addEventListener("click", () => {
+      // Add active state styling
+      btnAll.classList.add("bg-indigo-100", "dark:bg-indigo-900/30", "text-indigo-700", "dark:text-indigo-300");
+      btnAll.classList.remove("hover:bg-slate-100/50", "dark:hover:bg-slate-800/50");
+      if (btnActive) {
+        btnActive.classList.remove("bg-indigo-100", "dark:bg-indigo-900/30", "text-indigo-700", "dark:text-indigo-300");
+        btnActive.classList.add("hover:bg-slate-100/50", "dark:hover:bg-slate-800/50");
+      }
+      
       renderProjects({ projects: fullData.projects || [] });
     });
+  }
+  
+  // Set "All" as default active on load
+  if (btnAll) {
+    btnAll.click();
   }
 
   const search = document.getElementById("globalSearch");
