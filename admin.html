@@ -573,18 +573,18 @@
 
   <!-- Lead Details Modal -->
   <div id="leadDetailsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[3000] hidden transition-all duration-300" onclick="closeLeadDetailsModalOnBackdrop(event)">
-    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
+    <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col modal-slide-in" onclick="event.stopPropagation()">
       <!-- Modal Header -->
-      <div class="card-header flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/20 dark:to-pink-950/20">
+      <div class="modal-header-gradient flex items-center justify-between px-8 py-6">
         <div>
-          <h3 id="modalLeadName" class="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Lead Details</h3>
+          <h3 id="modalLeadName" class="text-xl font-bold text-white">Lead Details</h3>
         </div>
-        <button onclick="closeLeadDetailsModal()" class="btn-ghost text-xl hover:rotate-90 transition-transform duration-200">✕</button>
+        <button onclick="closeLeadDetailsModal()" class="text-white/80 hover:text-white hover:rotate-90 transition-transform duration-200 text-2xl">✕</button>
       </div>
       
       <!-- Modal Body -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-4">
-        <div class="grid grid-cols-1 gap-4">
+      <div class="flex-1 overflow-y-auto p-8 space-y-6">
+        <div class="grid grid-cols-1 gap-6">
           <div>
             <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Name</label>
             <p id="modalDetailName" class="text-slate-900 dark:text-white font-medium"></p>
@@ -622,6 +622,10 @@
   <script>
     // Lead details modal functions
     function openLeadDetailsModal(lead) {
+      const modal = document.getElementById('leadDetailsModal');
+      const modalContent = modal.querySelector('.modal-slide-in');
+      
+      // Populate data
       document.getElementById('modalLeadName').textContent = lead.name || 'Lead Details';
       document.getElementById('modalDetailName').textContent = lead.name || 'N/A';
       document.getElementById('modalDetailEmail').textContent = lead.email || 'N/A';
@@ -629,11 +633,23 @@
       document.getElementById('modalDetailService').textContent = lead.service || 'N/A';
       document.getElementById('modalDetailMessage').textContent = lead.message || 'N/A';
       document.getElementById('modalDetailDate').textContent = lead.created_at ? new Date(lead.created_at).toLocaleString() : 'N/A';
-      document.getElementById('leadDetailsModal').classList.remove('hidden');
+      
+      // Show modal with animation
+      modal.classList.remove('hidden');
+      modalContent.classList.add('modal-slide-in');
     }
     
     function closeLeadDetailsModal() {
-      document.getElementById('leadDetailsModal').classList.add('hidden');
+      const modal = document.getElementById('leadDetailsModal');
+      const modalContent = modal.querySelector('.modal-slide-in');
+      
+      // Add fade-out animation
+      modalContent.classList.add('modal-slide-out');
+      
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modalContent.classList.remove('modal-slide-out');
+      }, 300);
     }
     
     function closeLeadDetailsModalOnBackdrop(event) {

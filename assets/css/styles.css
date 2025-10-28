@@ -99,8 +99,60 @@
       to { opacity: 1; transform: translateY(0); }
     }
     
+    /* Modal animations */
+    @keyframes modalSlideIn {
+      from { opacity: 0; transform: scale(0.95) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    
+    @keyframes modalSlideOut {
+      from { opacity: 1; transform: scale(1) translateY(0); }
+      to { opacity: 0; transform: scale(0.95) translateY(20px); }
+    }
+    
+    /* Brandible gradient header */
+    .brandible-gradient {
+      background: linear-gradient(135deg, #635BFF 0%, #8A7AFF 100%);
+    }
+    
+    .modal-header-gradient {
+      @apply bg-gradient-to-r from-[#635BFF] via-[#8A7AFF] to-[#635BFF]
+             text-white font-bold;
+    }
+    
+    /* Quick stats cards */
+    .quick-stat-card {
+      @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl
+             rounded-2xl shadow-lg hover:shadow-xl
+             border border-slate-200/50 dark:border-slate-800/50
+             p-6 transition-all duration-300 hover:scale-[1.02];
+    }
+    
+    /* Status badges */
+    .status-badge {
+      @apply px-3 py-1.5 rounded-full text-xs font-semibold;
+    }
+    
+    .status-new { @apply bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300; }
+    .status-contacted { @apply bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300; }
+    .status-in-progress { @apply bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300; }
+    .status-closed { @apply bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300; }
+    
+    /* Loading skeleton */
+    .skeleton {
+      @apply animate-pulse bg-slate-200 dark:bg-slate-800 rounded;
+    }
+    
     .fade-in {
       animation: fadeIn 0.4s ease-out;
+    }
+    
+    .modal-slide-in {
+      animation: modalSlideIn 0.3s ease-out;
+    }
+    
+    .modal-slide-out {
+      animation: modalSlideOut 0.3s ease-in;
     }
   }
   
