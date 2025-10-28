@@ -320,11 +320,8 @@ window.testActivityLog = async function() {
   
   console.log('🧪 Testing activity log...', { userEmail });
   
-  // Get authenticated Supabase client
-  const supabase = await getAuthenticatedSupabaseClient();
-  
-  if (!supabase) {
-    console.error('❌ Failed to get authenticated Supabase client');
+  if (!supabaseClient) {
+    console.error('❌ Supabase client not initialized');
     return;
   }
   
@@ -333,7 +330,7 @@ window.testActivityLog = async function() {
   
   console.log('📝 Inserting test activity...', { client_email: userEmail, activity: testActivity, type: 'test' });
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('client_activity')
     .insert([{ 
       client_email: userEmail, 
@@ -359,23 +356,10 @@ async function logClientActivity(clientEmail, activity, type = 'upload') {
   try {
     console.log("Attempting to log activity:", clientEmail, activity, type);
     
-    // Get authenticated Supabase client
-    const supabase = await getAuthenticatedSupabaseClient();
-    
-    if (!supabase) {
-      console.error('❌ Failed to get authenticated Supabase client');
+    // Use non-authenticated Supabase client (with public policy)
+    if (!supabaseClient) {
+      console.error('❌ Supabase client not initialized');
       return;
-    }
-    
-    // Check current user
-    try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      console.log("Current user for insert:", userData);
-      if (userError) {
-        console.warn("Error getting user:", userError);
-      }
-    } catch (e) {
-      console.warn("Could not get user info:", e);
     }
     
     console.log('📝 Inserting activity into client_activity table...');
@@ -387,8 +371,8 @@ async function logClientActivity(clientEmail, activity, type = 'upload') {
       timestamp
     });
     
-    // Insert activity using Supabase client with explicit timestamp
-    const { data, error } = await supabase
+    // Insert activity using non-authenticated Supabase client
+    const { data, error } = await supabaseClient
       .from('client_activity')
       .insert([{ 
         client_email: clientEmail, 
