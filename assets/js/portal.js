@@ -55,22 +55,32 @@ function renderProjects({ projects = [] }) {
   const colReview   = document.getElementById("col-review");
   const colDone     = document.getElementById("col-done");
 
-  const cardHTML = (p) => `
-    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
+  const cardHTML = (p) => {
+    // Determine status badge class
+    let statusClass = "status-inprogress";
+    let statusText = p.status || "In Progress";
+    
+    if (p.status && (p.status.toLowerCase().includes("done") || p.status.toLowerCase().includes("complete"))) {
+      statusClass = "status-done";
+      statusText = "Done";
+    } else if (p.status && p.status.toLowerCase().includes("review")) {
+      statusClass = "status-review";
+      statusText = "Review";
+    } else {
+      statusClass = "status-inprogress";
+      statusText = "In Progress";
+    }
+    
+    return `
+      <div class="project-card">
+        <div class="project-title">${p.name}</div>
+        ${p.summary ? `<div class="project-desc">${p.summary}</div>` : ""}
       <div class="flex items-center justify-between">
-        <div class="font-medium">${p.name}</div>
-        <span class="${
-          p.status === "Completed" || p.status === "Done"
-            ? "pill-green"
-            : p.status.toLowerCase().includes("review")
-            ? "pill-slate"
-            : "pill-amber"
-        }">${p.status}</span>
+          <span class="status-badge ${statusClass}">${statusText}</span>
       </div>
-      <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">${p.summary || ""}</div>
       ${
         p.links?.length
-          ? `<div class="mt-3 flex flex-wrap gap-2">${p.links
+            ? `<div class="mt-2 flex flex-wrap gap-2">${p.links
               .map(
                 (l) =>
                   `<a class="chip" href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`
@@ -80,6 +90,7 @@ function renderProjects({ projects = [] }) {
       }
     </div>
   `;
+  };
 
   if (colProgress && colReview && colDone) {
     colProgress.innerHTML = "";

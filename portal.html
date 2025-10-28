@@ -136,7 +136,7 @@
           <div id="kpis" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"></div>
         </section>
 
-        <!-- Projects / Kanban -->
+        <!-- Projects Section -->
         <div class="card-section">
             <div class="flex items-center justify-between mb-4">
               <h2 class="section-title">Projects</h2>
@@ -145,22 +145,22 @@
                 <button class="btn-ghost text-sm" id="filterAll">All</button>
               </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban">
-              <div>
-                <div class="text-sm font-semibold mb-2">In Progress</div>
-                <div class="space-y-3" id="col-progress"></div>
+            <div class="projects-grid" id="kanban">
+              <div class="project-column">
+                <h3>In Progress</h3>
+                <div class="space-y-2" id="col-progress"></div>
               </div>
-              <div>
-                <div class="text-sm font-semibold mb-2">Review</div>
-                <div class="space-y-3" id="col-review"></div>
+              <div class="project-column">
+                <h3>Review</h3>
+                <div class="space-y-2" id="col-review"></div>
               </div>
-              <div>
-                <div class="text-sm font-semibold mb-2">Done</div>
-                <div class="space-y-3" id="col-done"></div>
+              <div class="project-column">
+                <h3>Done</h3>
+                <div class="space-y-2" id="col-done"></div>
               </div>
             </div>
             <!-- Fallback list for existing portal.js renderer -->
-            <div id="projects" class="divide-y mt-4"></div>
+            <div id="projects" class="hidden"></div>
           </div>
 
           <!-- Recent Activity -->

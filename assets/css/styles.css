@@ -281,6 +281,121 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+    
+    /* Projects grid layout */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    
+    .project-column h3 {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: var(--brandible-primary);
+    }
+    
+    .dark .project-column h3 {
+      color: var(--brandible-secondary);
+    }
+    
+    .project-card {
+      background: white;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      transition: all 0.2s ease;
+      cursor: pointer;
+      margin-bottom: 1rem;
+    }
+    
+    .project-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(99,91,255,0.12);
+    }
+    
+    .dark .project-card {
+      background: #1c1c20;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    
+    .dark .project-card:hover {
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+    }
+    
+    .project-title {
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: var(--brandible-text-dark);
+    }
+    
+    .dark .project-title {
+      color: var(--brandible-text-light);
+    }
+    
+    .project-desc {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 0.75rem;
+    }
+    
+    .dark .project-desc {
+      color: #bbb;
+    }
+    
+    .project-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #888;
+    }
+    
+    .dark .project-meta {
+      color: #aaa;
+    }
+    
+    /* Status badges */
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 1rem;
+      font-weight: 500;
+      display: inline-block;
+    }
+    
+    .status-inprogress {
+      background: rgba(99,91,255,0.15);
+      color: #635BFF;
+    }
+    
+    .dark .status-inprogress {
+      background: rgba(99, 102, 241, 0.3);
+      color: #818cf8;
+    }
+    
+    .status-review {
+      background: rgba(255,213,79,0.2);
+      color: #FFD54F;
+    }
+    
+    .dark .status-review {
+      background: rgba(255, 213, 79, 0.3);
+      color: #FFE082;
+    }
+    
+    .status-done {
+      background: rgba(76,175,80,0.2);
+      color: #4CAF50;
+    }
+    
+    .dark .status-done {
+      background: rgba(76, 175, 80, 0.3);
+      color: #66BB6A;
+    }
   }
   
   /* Custom scrollbar */
