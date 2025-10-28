@@ -21,15 +21,15 @@ exports.handler = async (event, context) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
 
-    // Get Supabase URL from environment
-    const supabaseUrl = process.env.SUPABASE_URL || 'https://yjjjpduroyivrdbgmnqo.supabase.co';
+    // Get Supabase URL and service key from environment
+    const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    if (!supabaseServiceKey) {
-      console.error('Missing SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase configuration');
       return { 
         statusCode: 500, 
-        body: JSON.stringify({ error: 'Server configuration missing' }) 
+        body: JSON.stringify({ error: 'Server configuration missing. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' }) 
       };
     }
 
