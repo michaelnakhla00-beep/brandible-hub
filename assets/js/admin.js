@@ -733,6 +733,31 @@ function renderClientActivity(activities, clientEmail, clientName) {
   `).join("");
 }
 
+// Fetch projects from Supabase
+async function fetchProjectsFromSupabase(clientEmail) {
+  if (!adminSupabaseClient || !clientEmail) {
+    return [];
+  }
+  
+  try {
+    const { data, error } = await adminSupabaseClient
+      .from('projects')
+      .select('*')
+      .eq('client_email', clientEmail)
+      .order('updated_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching projects:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error('Error fetching projects from Supabase:', err);
+    return [];
+  }
+}
+
 /* ---------------------------
    5) View client modal
 ---------------------------- */
@@ -759,6 +784,23 @@ window.viewClient = function (email) {
   fetchClientFullData(email).then(async fullClient => {
     // Store original data
     originalClientData = { ...fullClient };
+    
+    // Fetch projects from Supabase and merge with existing data
+    if (adminSupabaseClient) {
+      const supabaseProjects = await fetchProjectsFromSupabase(email);
+      if (supabaseProjects && supabaseProjects.length > 0) {
+        console.log('📦 Loaded projects from Supabase:', supabaseProjects);
+        // Merge Supabase projects with existing projects
+        const existingProjects = fullClient.projects || [];
+        // Convert Supabase format to client format
+        const formattedProjects = supabaseProjects.map(p => ({
+          name: p.title,
+          summary: p.description || '',
+          status: p.status || 'In Progress'
+        }));
+        fullClient.projects = [...existingProjects, ...formattedProjects];
+      }
+    }
     
     renderModalKPIs(fullClient);
     renderModalProjects(fullClient);
