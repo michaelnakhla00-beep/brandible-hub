@@ -988,20 +988,38 @@ window.saveClientChanges = async function() {
     
     // Save project changes to Supabase
     if (adminSupabaseClient && currentClientEmail) {
+      console.log('📝 Starting to save projects to Supabase...');
       const projectCards = document.querySelectorAll('.project-edit-card');
+      console.log(`📝 Found ${projectCards.length} project cards to save`);
+      
       for (const card of projectCards) {
         const projectName = card.querySelector('.project-name-input')?.value;
         const projectDesc = card.querySelector('.project-desc-input')?.value || '';
         const projectStatus = card.querySelector('.project-status-select')?.value || 'In Progress';
         
+        console.log('📝 Project data:', { projectName, projectDesc, projectStatus });
+        
         if (projectName && projectName.trim()) {
-          await upsertProject(currentClientEmail, {
-            name: projectName,
-            description: projectDesc,
-            status: projectStatus
-          });
+          try {
+            const result = await upsertProject(currentClientEmail, {
+              name: projectName,
+              description: projectDesc,
+              status: projectStatus
+            });
+            console.log('✅ Project saved successfully:', result);
+          } catch (err) {
+            console.error('❌ Failed to save project:', err);
+          }
+        } else {
+          console.warn('⚠️ Skipping empty project name');
         }
       }
+      console.log('📝 Finished saving all projects');
+    } else {
+      console.warn('⚠️ Cannot save projects:', { 
+        hasClient: !!adminSupabaseClient, 
+        hasEmail: !!currentClientEmail 
+      });
     }
     
     // Get current user and token
