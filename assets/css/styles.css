@@ -1,4 +1,7 @@
 <style type="text/tailwindcss">
+  /* TailwindCSS file – @apply directives are valid */
+  /* stylelint-disable css-lcurlyexpected, css-ruleorselectorexpected, at-rule-no-unknown */
+  
   /* Brandible Color Variables */
   :root {
     --brandible-primary: #635BFF;
