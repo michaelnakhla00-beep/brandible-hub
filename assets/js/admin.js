@@ -814,27 +814,39 @@ window.viewClient = function (email) {
       });
       
       if (token) {
+        console.log('📞 Fetching projects from get-projects function for:', email);
         const res = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(email)}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
         
+        console.log('📞 Response status:', res.status, res.ok);
+        
         if (res.ok) {
-          const { projects: supabaseProjects } = await res.json();
-          if (supabaseProjects && supabaseProjects.length > 0) {
-            console.log('📦 Loaded projects from Supabase:', supabaseProjects);
+          const data = await res.json();
+          console.log('📞 Response data:', data);
+          const supabaseProjects = data.projects || [];
+          if (supabaseProjects.length > 0) {
+            console.log('📦 Loaded projects from Supabase:', supabaseProjects.length, 'projects');
             // Convert Supabase format to client format
             const formattedProjects = supabaseProjects.map(p => ({
               name: p.title,
               summary: p.description || '',
               status: p.status || 'In Progress'
             }));
-            // Add Supabase projects to the client data
+            // Replace projects with Supabase data
             fullClient.projects = formattedProjects;
+          } else {
+            console.log('⚠️ No projects found in Supabase for', email);
           }
+        } else {
+          const errorText = await res.text();
+          console.error('❌ Failed to fetch projects:', res.status, errorText);
         }
+      } else {
+        console.warn('⚠️ No auth token available');
       }
     } catch (err) {
-      console.error('Error fetching projects from Supabase:', err);
+      console.error('❌ Error fetching projects from Supabase:', err);
     }
     
     // Update original data after fetching Supabase projects
