@@ -566,6 +566,8 @@ async function fetchClientActivity(clientEmail) {
     return [];
   }
   
+  console.log('🔍 Fetching client activity for:', clientEmail);
+  
   try {
     const { data, error } = await adminSupabaseClient
       .from('client_activity')
@@ -575,13 +577,22 @@ async function fetchClientActivity(clientEmail) {
       .limit(10);
     
     if (error) {
-      console.error('Error fetching client activity:', error);
+      console.error('❌ Error fetching client activity:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return [];
     }
     
+    console.log('✅ Fetched client activity:', data?.length || 0, 'records');
+    console.log('Activity data:', data);
+    
     return data || [];
   } catch (err) {
-    console.error('Failed to fetch client activity:', err);
+    console.error('❌ Failed to fetch client activity:', err);
     return [];
   }
 }
