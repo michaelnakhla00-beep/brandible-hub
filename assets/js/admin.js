@@ -325,10 +325,17 @@ async function initAdminSupabase() {
           const token = await user.jwt();
           if (token) {
             console.log('✓ Got JWT token, setting auth headers');
-            adminSupabaseClient.rest.headers = {
-              'Authorization': `Bearer ${token}`,
-              'apikey': config.anonKey,
-              'Content-Type': 'application/json'
+            // Create a custom fetch function that adds auth headers
+            adminSupabaseClient.rest.fetch = function(url, options = {}) {
+              return fetch(url, {
+                ...options,
+                headers: {
+                  ...options.headers,
+                  'Authorization': `Bearer ${token}`,
+                  'apikey': config.anonKey,
+                  'Content-Type': 'application/json'
+                }
+              });
             };
           }
         }
