@@ -29,7 +29,7 @@ exports.handler = async (event, context) => {
 
     // Initialize Supabase client
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
       console.error("Supabase credentials not configured");
@@ -42,17 +42,17 @@ exports.handler = async (event, context) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Query Supabase for client data
-    const { data: client, error } = await supabase
+    const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('*')
       .eq('email', email)
       .single();
 
-    if (error) {
-      console.error("Supabase error:", error);
+    if (clientError) {
+      console.error("Supabase error:", clientError);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Database error: " + error.message })
+        body: JSON.stringify({ error: "Database error: " + clientError.message })
       };
     }
 
@@ -63,12 +63,44 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Also fetch projects from the projects table
+    const { data: projectsData, error: projectsError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('client_email', email)
+      .order('updated_at', { ascending: false });
+
+    if (projectsError) {
+      console.error("Supabase projects error:", projectsError);
+    }
+
+    // Convert Supabase projects format to expected format
+    const supabaseProjects = (projectsData || []).map(p => ({
+      name: p.title,
+      summary: p.description || '',
+      status: p.status || 'In Progress',
+      links: [] // Add links if needed
+    }));
+
+    // Merge Supabase projects with any existing projects from client data
+    const mergedProjects = supabaseProjects.length > 0 ? supabaseProjects : (client.projects || []);
+
     // Return client data (excluding internal fields)
-    const { id, email: e, name, kpis, projects, files, invoices, activity, updates } = client;
+    const { id, email: e, name, kpis, files, invoices, activity, updates } = client;
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, email: e, name, kpis, projects, files, invoices, activity, updates })
+      body: JSON.stringify({ 
+        id, 
+        email: e, 
+        name, 
+        kpis, 
+        projects: mergedProjects, 
+        files, 
+        invoices, 
+        activity, 
+        updates 
+      })
     };
   } catch (err) {
     console.error("Error in get-client:", err);
