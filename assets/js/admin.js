@@ -1832,92 +1832,51 @@ window.removeProjectCard = function(projectId) {
   }
 };
 
-// Update or create project in Supabase
+// Update or create project in Supabase via Netlify function
 async function upsertProject(clientEmail, project) {
-  if (!adminSupabaseClient || !clientEmail) {
-    console.warn('Supabase client not initialized, skipping project save');
+  if (!clientEmail) {
+    console.warn('No client email provided');
     return;
   }
   
   try {
-    // Check if table exists by attempting a simple query first
-    const { error: checkError } = await adminSupabaseClient
-      .from('projects')
-      .select('id')
-      .limit(0);
+    console.log('💾 Attempting to save project via Netlify function:', { clientEmail, project });
     
-    if (checkError && checkError.code === '42P01') {
-      console.error('❌ Projects table does not exist. Please run the migration SQL first.');
-      showToast('Projects table missing', 'error', 'Please run the SQL migration to create the projects table');
+    // Get JWT token
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      console.warn('No auth token available');
       return;
     }
     
-    console.log('💾 Attempting to save project:', { clientEmail, project });
+    // Call Netlify function to upsert project
+    const res = await fetch('/.netlify/functions/upsert-project', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ clientEmail, project })
+    });
     
-    // Check if we're authenticated
-    if (!adminSupabaseClient) {
-      console.warn('⚠️ Supabase client not initialized');
+    const result = await res.json();
+    
+    if (!res.ok) {
+      console.error('Error from upsert-project function:', result);
       return;
     }
     
-    // First, try to find existing project
-    let existing = null;
-    try {
-      const { data } = await adminSupabaseClient
-        .from('projects')
-        .select('*')
-        .eq('client_email', clientEmail)
-        .eq('title', project.name || project.title)
-        .maybeSingle();
-      existing = data;
-    } catch (err) {
-      console.error('Error checking existing project:', err);
-      // Continue without existing check
-    }
+    console.log('✅ Project saved successfully via Netlify function:', result);
+    return result.data;
     
-    const projectData = {
-      client_email: clientEmail,
-      title: project.name || project.title,
-      description: project.description || project.summary || '',
-      status: project.status || 'In Progress'
-    };
-    
-    let data, error;
-    
-    if (existing) {
-      // Update existing project
-      console.log('📝 Updating existing project:', existing.id);
-      ({ data, error } = await adminSupabaseClient
-        .from('projects')
-        .update(projectData)
-        .eq('id', existing.id));
-    } else {
-      // Insert new project
-      console.log('➕ Inserting new project');
-      ({ data, error } = await adminSupabaseClient
-        .from('projects')
-        .insert(projectData));
-    }
-    
-    console.log('💾 Upsert result:', { data, error });
-    
-    if (error) {
-      console.error('Error upserting project:', error);
-      // Don't throw - just log and continue
-      return;
-    }
-    
-    // Log activity
-    try {
-      await logAdminActivity(clientEmail, `Updated project "${project.name || project.title}"`, 'project');
-    } catch (logErr) {
-      console.warn('Could not log project activity:', logErr);
-    }
-    
-    return data;
   } catch (err) {
     console.error('Error upserting project:', err);
-    // Don't throw - gracefully handle missing table
     return;
   }
 }
