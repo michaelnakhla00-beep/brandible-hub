@@ -1379,9 +1379,13 @@ async function fetchBookings() {
 }
 
 function renderBookingsTable(leads = [], searchTerm = '') {
+  console.log('🎨 renderBookingsTable called with', leads.length, 'leads, searchTerm:', searchTerm);
   const tbody = document.getElementById('bookingsTable');
   const empty = document.getElementById('bookingsEmpty');
-  if (!tbody) return;
+  if (!tbody) {
+    console.error('❌ bookingsTable element not found!');
+    return;
+  }
 
   let filtered = leads;
   if (searchTerm.trim()) {
@@ -1394,10 +1398,13 @@ function renderBookingsTable(leads = [], searchTerm = '') {
   }
 
   if (!filtered.length) {
+    console.log('⚠️ No filtered results, showing empty state');
     tbody.innerHTML = '';
     if (empty) empty.classList.remove('hidden');
     return;
   }
+  
+  console.log('✅ Rendering', filtered.length, 'filtered leads');
   if (empty) empty.classList.add('hidden');
 
   const safe = (v) => (v == null ? '' : v);
@@ -1415,10 +1422,13 @@ function renderBookingsTable(leads = [], searchTerm = '') {
 }
 
 async function refreshBookings() {
+  console.log('🔄 refreshBookings called');
   const data = await fetchBookings();
+  console.log('📦 Received data:', data);
   allBookingsGlobal = data;
   const search = document.getElementById('bookingsSearch');
   const term = search ? search.value.trim() : '';
+  console.log('🎨 Rendering table with', data.length, 'leads');
   renderBookingsTable(allBookingsGlobal, term);
 }
 
