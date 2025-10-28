@@ -1347,36 +1347,31 @@ function renderAnalytics(clients = []) {
 async function fetchBookings() {
   console.log('🔍 fetchBookings called');
   try {
-    if (!window.supabase) throw new Error('Supabase client not loaded');
+    // Get JWT token for authenticated request
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
 
-    // Reuse storage client config to init a supabase client if needed
-    if (!adminSupabaseClient) {
-      await initAdminSupabase();
-    }
+    console.log('📋 Fetching leads from Netlify function...');
+    const res = await fetch("/.netlify/functions/get-leads", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
 
-    const sb = adminSupabaseClient;
-    if (!sb) throw new Error('Supabase not initialized');
-
-    console.log('📋 Querying leads table from Supabase...');
-    const { data, error } = await sb
-      .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ Error fetching leads:', error);
-      console.error('Error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-      return [];
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error('❌ Function error:', res.status, text);
+      throw new Error(`Function error ${res.status}: ${text}`);
     }
     
-    console.log('✅ Fetched leads:', data?.length || 0, 'records');
-    console.log('Lead data:', data);
-    return data || [];
+    const result = await res.json();
+    const leads = result.leads || [];
+    
+    console.log('✅ Fetched leads:', leads.length, 'records');
+    console.log('Lead data:', leads);
+    return leads;
   } catch (err) {
     console.error('❌ Failed to fetch leads:', err);
     return [];
