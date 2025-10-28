@@ -1124,6 +1124,16 @@ window.closeDeleteModal = closeDeleteModal;
 window.closeDeleteModalOnBackdrop = closeDeleteModalOnBackdrop;
 window.deleteClientConfirmed = deleteClientConfirmed;
 
+// Debug function to manually test table rendering
+window.testRenderBookings = function() {
+  const testData = [
+    {id: 1, name: "Michael Nakhla", email: "michaelnakhla0@gmail.com", phone: "2016473706", service: "SEO", message: "Test Test.", date: "2025-10-29", time: "11:30 AM"},
+    {id: 2, name: "Michael Nakhla", email: "michaelnakhla0@gmail.com", phone: "2016473706", service: "SEO", message: "TEST TEST", date: "2025-10-30", time: "11:30 AM"}
+  ];
+  console.log('🧪 Testing render with', testData);
+  renderBookingsTable(testData, '');
+};
+
 /* ---------------------------
    5.6) Analytics
 ---------------------------- */
