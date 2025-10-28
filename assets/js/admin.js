@@ -1382,6 +1382,9 @@ function renderBookingsTable(leads = [], searchTerm = '') {
   console.log('🎨 renderBookingsTable called with', leads.length, 'leads, searchTerm:', searchTerm);
   const tbody = document.getElementById('bookingsTable');
   const empty = document.getElementById('bookingsEmpty');
+  
+  console.log('🔍 Table elements:', { tbody: !!tbody, empty: !!empty });
+  
   if (!tbody) {
     console.error('❌ bookingsTable element not found!');
     return;
@@ -1397,6 +1400,8 @@ function renderBookingsTable(leads = [], searchTerm = '') {
     );
   }
 
+  console.log('🔍 Filtered to', filtered.length, 'leads');
+
   if (!filtered.length) {
     console.log('⚠️ No filtered results, showing empty state');
     tbody.innerHTML = '';
@@ -1408,8 +1413,8 @@ function renderBookingsTable(leads = [], searchTerm = '') {
   if (empty) empty.classList.add('hidden');
 
   const safe = (v) => (v == null ? '' : v);
-
-  tbody.innerHTML = filtered.map((lead, idx) => `
+  
+  const html = filtered.map((lead, idx) => `
     <tr class="${idx % 2 === 0 ? 'bg-gray-50/40 dark:bg-slate-800/20' : ''} hover:bg-white/70 dark:hover:bg-slate-800/40 transition-colors">
       <td class="py-3 px-4 font-medium">${safe(lead.name)}</td>
       <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${safe(lead.email)}</td>
@@ -1419,6 +1424,12 @@ function renderBookingsTable(leads = [], searchTerm = '') {
       <td class="py-3 px-4 text-sm text-slate-500">${lead.date || ''} ${lead.time || ''}</td>
     </tr>
   `).join('');
+  
+  console.log('📝 Generated HTML length:', html.length);
+  console.log('📝 First row sample:', html.substring(0, 200));
+  
+  tbody.innerHTML = html;
+  console.log('✅ Table rendered successfully');
 }
 
 async function refreshBookings() {
