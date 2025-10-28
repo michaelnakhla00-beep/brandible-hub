@@ -1496,6 +1496,7 @@ function renderBookingsTable(leads = [], searchTerm = '', sortOrder = 'newest') 
 }
 
 async function updateLeadStatus(leadId, newStatus) {
+  console.log('🔄 Updating lead status:', leadId, 'to', newStatus);
   try {
     const token = await new Promise((resolve) => {
       const id = window.netlifyIdentity;
@@ -1504,6 +1505,7 @@ async function updateLeadStatus(leadId, newStatus) {
       user.jwt().then(resolve).catch(() => resolve(null));
     });
 
+    console.log('📤 Sending request to update-lead-status...');
     const res = await fetch('/.netlify/functions/update-lead-status', {
       method: 'POST',
       headers: {
@@ -1513,16 +1515,22 @@ async function updateLeadStatus(leadId, newStatus) {
       body: JSON.stringify({ leadId, status: newStatus })
     });
 
+    console.log('📥 Response status:', res.status);
+
     if (res.ok) {
+      const result = await res.json();
+      console.log('✅ Update successful:', result);
       showToast('Status updated', 'success');
       // Update local data
       const lead = allBookingsGlobal.find(l => l.id === leadId);
       if (lead) lead.status = newStatus;
     } else {
+      const errorText = await res.text();
+      console.error('❌ Update failed:', res.status, errorText);
       showToast('Failed to update status', 'error');
     }
   } catch (err) {
-    console.error('Error updating status:', err);
+    console.error('❌ Error updating status:', err);
     showToast('Failed to update status', 'error');
   }
 }
