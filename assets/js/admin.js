@@ -204,6 +204,52 @@ function wireSearch(allClients) {
    4) Modal rendering functions
 ---------------------------- */
 
+function renderModalProfile(client) {
+  // View mode fields
+  const profileImg = document.getElementById("adminProfileImagePreview");
+  const nameDisplay = document.getElementById("adminClientNameDisplay");
+  const emailDisplay = document.getElementById("adminClientEmailDisplay");
+  const companyDisplay = document.getElementById("adminClientCompanyDisplay");
+  const managerDisplay = document.getElementById("adminClientManagerDisplay");
+  const phoneDisplay = document.getElementById("adminClientPhoneDisplay");
+  const websiteDisplay = document.getElementById("adminClientWebsiteDisplay");
+  
+  if (profileImg) {
+    profileImg.src = client.profile_url || '/assets/default-avatar.png';
+  }
+  if (nameDisplay) nameDisplay.textContent = client.name || "Unknown";
+  if (emailDisplay) emailDisplay.textContent = client.email || "";
+  if (companyDisplay) companyDisplay.textContent = client.company ? `Company: ${client.company}` : "";
+  if (managerDisplay) managerDisplay.textContent = client.manager ? `Manager: ${client.manager}` : "";
+  if (phoneDisplay) phoneDisplay.textContent = client.phone ? `Phone: ${client.phone}` : "";
+  if (websiteDisplay) {
+    if (client.website) {
+      websiteDisplay.innerHTML = `Website: <a href="${client.website}" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">${client.website}</a>`;
+    } else {
+      websiteDisplay.textContent = "";
+    }
+  }
+  
+  // Edit mode fields (will be populated when edit mode is toggled)
+  const nameInput = document.getElementById("adminClientName");
+  const emailInput = document.getElementById("adminClientEmail");
+  const companyInput = document.getElementById("adminClientCompany");
+  const managerInput = document.getElementById("adminClientManager");
+  const phoneInput = document.getElementById("adminClientPhone");
+  const websiteInput = document.getElementById("adminClientWebsite");
+  const profileImgEdit = document.getElementById("adminProfileImagePreviewEdit");
+  
+  if (nameInput) nameInput.value = client.name || "";
+  if (emailInput) emailInput.value = client.email || "";
+  if (companyInput) companyInput.value = client.company || "";
+  if (managerInput) managerInput.value = client.manager || "";
+  if (phoneInput) phoneInput.value = client.phone || "";
+  if (websiteInput) websiteInput.value = client.website || "";
+  if (profileImgEdit) {
+    profileImgEdit.src = client.profile_url || '/assets/default-avatar.png';
+  }
+}
+
 function renderModalKPIs(client) {
   const container = document.getElementById("modalKPIs");
   if (!container || !client.kpis) return;
@@ -475,6 +521,7 @@ window.closeProfileEditorOnBackdrop = function(e) {
 // Upload avatar and preview
 (function wireProfileUpload(){
   document.addEventListener('change', async (e) => {
+    // Handler for profile editor modal
     if (e.target && e.target.id === 'profileImageInput') {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
@@ -489,6 +536,38 @@ window.closeProfileEditorOnBackdrop = function(e) {
         profileEditorState.uploadedUrl = urlData.publicUrl;
         const img = document.getElementById('profilePreview');
         if (img) img.src = profileEditorState.uploadedUrl;
+        showToast('Profile image updated ✅');
+      } catch (err) {
+        console.error('Avatar upload failed:', err);
+        showToast('Upload failed', 'error', err.message);
+      }
+    }
+    // Handler for client modal avatar upload
+    if (e.target && e.target.id === 'adminClientAvatarUpload') {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        if (!adminSupabaseClient) await initAdminSupabase();
+        if (!adminSupabaseClient) throw new Error('Supabase not initialized');
+        if (!originalClientData || !originalClientData.id) {
+          throw new Error('No client data available');
+        }
+        const clientId = originalClientData.id;
+        const path = `${clientId}/${Date.now()}-${file.name}`;
+        const { error } = await adminSupabaseClient.storage.from('client_avatars').upload(path, file, { upsert: true });
+        if (error) throw error;
+        const { data: urlData } = await adminSupabaseClient.storage.from('client_avatars').getPublicUrl(path);
+        const publicUrl = urlData.publicUrl;
+        
+        // Update preview images
+        const imgEdit = document.getElementById('adminProfileImagePreviewEdit');
+        if (imgEdit) imgEdit.src = publicUrl;
+        
+        // Update original data
+        if (originalClientData) {
+          originalClientData.profile_url = publicUrl;
+        }
+        
         showToast('Profile image updated ✅');
       } catch (err) {
         console.error('Avatar upload failed:', err);
@@ -964,6 +1043,9 @@ window.viewClient = function (email) {
     // Update original data after fetching Supabase projects
     originalClientData = { ...fullClient };
     
+    // Render profile section first
+    renderModalProfile(fullClient);
+    
     renderModalKPIs(fullClient);
     renderModalProjects(fullClient);
     renderModalFiles(fullClient);
@@ -1013,6 +1095,12 @@ window.toggleEditMode = function() {
   // Toggle headers
   document.getElementById("editModeHeader").classList.toggle("hidden");
   
+  // Toggle profile edit/view modes
+  const profileView = document.getElementById("profileViewMode");
+  const profileEdit = document.getElementById("profileEditMode");
+  if (profileView) profileView.classList.toggle("hidden", editMode);
+  if (profileEdit) profileEdit.classList.toggle("hidden", !editMode);
+  
   // Toggle edit sections
   document.getElementById("editKPIsSection").classList.toggle("hidden");
   document.getElementById("editActivitySection").classList.toggle("hidden");
@@ -1046,6 +1134,13 @@ window.toggleEditMode = function() {
 window.cancelEditMode = function() {
   editMode = false;
   document.getElementById("editModeHeader").classList.add("hidden");
+  
+  // Reset profile view/edit modes
+  const profileView = document.getElementById("profileViewMode");
+  const profileEdit = document.getElementById("profileEditMode");
+  if (profileView) profileView.classList.remove("hidden");
+  if (profileEdit) profileEdit.classList.add("hidden");
+  
   document.getElementById("editKPIsSection").classList.add("hidden");
   document.getElementById("editActivitySection").classList.add("hidden");
   document.getElementById("editBtn").textContent = "Edit";
@@ -1134,6 +1229,64 @@ window.saveClientChanges = async function() {
     // Update original data
     originalClientData.kpis = updatedKPIs;
     
+    // Save profile changes if in edit mode
+    const nameInput = document.getElementById("adminClientName");
+    const companyInput = document.getElementById("adminClientCompany");
+    const managerInput = document.getElementById("adminClientManager");
+    const phoneInput = document.getElementById("adminClientPhone");
+    const websiteInput = document.getElementById("adminClientWebsite");
+    
+    if (nameInput && originalClientData.id) {
+      try {
+        const profileFields = {
+          name: nameInput.value.trim(),
+          company: companyInput?.value.trim() || '',
+          manager: managerInput?.value.trim() || '',
+          phone: phoneInput?.value.trim() || '',
+          website: websiteInput?.value.trim() || ''
+        };
+        
+        // Include profile_url if avatar was uploaded
+        const profileImgEdit = document.getElementById("adminProfileImagePreviewEdit");
+        if (profileImgEdit && profileImgEdit.src && !profileImgEdit.src.includes('default-avatar')) {
+          profileFields.profile_url = profileImgEdit.src;
+        }
+        
+        const token = await new Promise((resolve) => {
+          const id = window.netlifyIdentity;
+          const user = id && id.currentUser();
+          if (!user) return resolve(null);
+          user.jwt().then(resolve).catch(() => resolve(null));
+        });
+        
+        const profileRes = await fetch('/.netlify/functions/update-client-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: token ? `Bearer ${token}` : ''
+          },
+          body: JSON.stringify({
+            clientId: originalClientData.id,
+            fields: profileFields
+          })
+        });
+        
+        if (profileRes.ok) {
+          const profileResult = await profileRes.json();
+          if (profileResult.client) {
+            // Update local data with saved profile
+            Object.assign(originalClientData, profileResult.client);
+          }
+          console.log('✅ Profile saved successfully');
+        } else {
+          console.warn('⚠️ Failed to save profile:', await profileRes.text());
+        }
+      } catch (err) {
+        console.error('❌ Error saving profile:', err);
+        // Don't throw - allow other saves to continue
+      }
+    }
+    
     // Save project changes to Supabase
     if (adminSupabaseClient && currentClientEmail) {
       console.log('📝 Starting to save projects to Supabase...');
@@ -1219,6 +1372,7 @@ window.saveClientChanges = async function() {
     }
     
     // Update the display
+    renderModalProfile(originalClientData);
     renderModalKPIs(originalClientData);
     
     showToast("Changes saved", "success", "Client updated successfully!");

@@ -376,6 +376,69 @@
       
       <!-- Modal Body -->
       <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- Profile Section -->
+        <section class="pb-6 border-b border-slate-200 dark:border-slate-800">
+          <!-- View Mode -->
+          <div id="profileViewMode" class="flex items-start gap-4">
+            <img id="adminProfileImagePreview" src="/assets/default-avatar.png" alt="Profile" class="w-20 h-20 rounded-full object-cover border-2 border-slate-300 dark:border-slate-600 shadow-md flex-shrink-0" />
+            <div class="flex-1 min-w-0">
+              <h4 id="adminClientNameDisplay" class="text-lg font-semibold text-slate-900 dark:text-white mb-1"></h4>
+              <p id="adminClientEmailDisplay" class="text-sm text-slate-500 dark:text-slate-400 mb-2"></p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <div id="adminClientCompanyDisplay" class="text-slate-600 dark:text-slate-300"></div>
+                <div id="adminClientManagerDisplay" class="text-slate-600 dark:text-slate-300"></div>
+                <div id="adminClientPhoneDisplay" class="text-slate-600 dark:text-slate-300"></div>
+                <div id="adminClientWebsiteDisplay" class="text-slate-600 dark:text-slate-300"></div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Edit Mode -->
+          <div id="profileEditMode" class="hidden">
+            <div class="flex items-start gap-4 mb-4">
+              <div class="relative">
+                <img id="adminProfileImagePreviewEdit" src="/assets/default-avatar.png" alt="Profile" class="w-20 h-20 rounded-full object-cover border-2 border-indigo-500 shadow-md" />
+                <label for="adminClientAvatarUpload" class="absolute bottom-0 right-0 bg-indigo-500 text-white rounded-full p-1.5 cursor-pointer hover:bg-indigo-600 transition shadow-lg" title="Change Photo">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 001.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  </svg>
+                </label>
+                <input id="adminClientAvatarUpload" type="file" accept="image/*" class="hidden" />
+              </div>
+              <div class="flex-1">
+                <div class="mb-3">
+                  <label class="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1 block">Full Name</label>
+                  <input id="adminClientName" type="text" class="text-lg font-semibold w-full border-b-2 border-transparent focus:border-indigo-500 dark:focus:border-indigo-400 outline-none bg-transparent pb-1 transition-colors" placeholder="Client Name" />
+                </div>
+                <div class="mb-3">
+                  <label class="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1 block">Email</label>
+                  <input id="adminClientEmail" type="text" class="text-sm text-slate-500 dark:text-slate-400 w-full bg-transparent outline-none" disabled />
+                </div>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Company</label>
+                <input id="adminClientCompany" type="text" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Company name" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Manager</label>
+                <input id="adminClientManager" type="text" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Assigned manager" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Phone</label>
+                <input id="adminClientPhone" type="text" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Phone number" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Website</label>
+                <input id="adminClientWebsite" type="text" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Website URL" />
+              </div>
+            </div>
+          </div>
+        </section>
+        
         <!-- KPIs -->
         <section>
           <h4 class="text-lg font-semibold mb-3">Overview</h4>
