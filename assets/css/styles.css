@@ -427,4 +427,26 @@
   .dark ::-webkit-scrollbar-thumb:hover {
     background: rgb(51 65 85);
   }
+  
+  /* Responsive refinements */
+  @media (max-width: 640px) {
+    /* Tighter spacing on small screens */
+    .card-section { padding: 1rem; margin-bottom: 1.25rem; }
+    .card-section-header { font-size: 1.125rem; }
+    .section-title,
+    .card-section h2,
+    .card-section h3 { font-size: 1.125rem; margin-bottom: 0.75rem; }
+
+    /* Projects grid fits small phones */
+    .projects-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+
+    /* Improve table readability & containment */
+    table { font-size: 0.9rem; }
+    th, td { padding-left: 0.5rem; padding-right: 0.5rem; }
+  }
+
+  @media (min-width: 1536px) {
+    /* Spacious layout on very large desktops */
+    .card-section { padding: 2.25rem; }
+  }
 </style>
