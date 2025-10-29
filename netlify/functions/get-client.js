@@ -14,6 +14,10 @@ exports.handler = async (event, context) => {
     // Check if user is admin
     const isAdmin = user.app_metadata?.roles?.includes("admin");
     
+    // Identify target by id or email
+    const qs = event.queryStringParameters || {};
+    const requestedId = qs.id || null;
+    
     // Get the email to query - admin can query by param, clients get their own email
     let emailToQuery = (user.email || "").toLowerCase();
     
@@ -41,12 +45,23 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Query Supabase for client data
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('email', email)
-      .single();
+    // Query Supabase for client data by id (preferred) or email
+    let client, clientError;
+    if (requestedId) {
+      const byId = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', requestedId)
+        .single();
+      client = byId.data; clientError = byId.error;
+    } else {
+      const byEmail = await supabase
+        .from('clients')
+        .select('*')
+        .eq('email', email)
+        .single();
+      client = byEmail.data; clientError = byEmail.error;
+    }
 
     if (clientError) {
       console.error("Supabase error:", clientError);

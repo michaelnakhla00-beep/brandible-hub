@@ -1428,6 +1428,27 @@ window.saveClientChanges = async function() {
     showToast("Changes saved", "success", "Client updated successfully!");
     cancelEditMode();
     
+    // ✅ Force refresh from server for most up-to-date data
+    try {
+      const refreshRes = await fetch(`/.netlify/functions/get-client?id=${encodeURIComponent(originalClientData.id)}`);
+      if (refreshRes.ok) {
+        const latestClient = await refreshRes.json();
+        // Replace local cache and re-render
+        originalClientData = { ...latestClient };
+        renderModalProfile(latestClient);
+        renderModalKPIs(latestClient);
+        renderModalProjects(latestClient);
+        renderModalFiles(latestClient);
+        renderModalInvoices(latestClient);
+        renderModalActivity(latestClient);
+        showToast('Profile and KPIs updated successfully!');
+      } else {
+        console.warn('Refresh after save failed:', await refreshRes.text());
+      }
+    } catch (e) {
+      console.error('Error refreshing client data:', e);
+    }
+
     // Refresh the clients list
     const data = await fetchAllClients();
     const clients = data.clients || [];

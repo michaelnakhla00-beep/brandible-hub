@@ -341,6 +341,32 @@ async function getFileUrl(filePath, userEmail) {
   return data.publicUrl;
 }
 
+// Global refresh helper
+async function refreshClientData() {
+  try {
+    const user = window.netlifyIdentity?.currentUser();
+    if (!user) throw new Error('Not authenticated');
+    const res = await fetch('/.netlify/functions/get-client');
+    if (!res.ok) throw new Error(`Refresh failed ${res.status}`);
+    const latest = await res.json();
+    renderKPIs(latest);
+    renderProjects({ projects: latest.projects || [] });
+    // Prefer fresh storage list where possible
+    const userEmail = user?.email || '';
+    let storageFiles = [];
+    if (supabaseClient && userEmail) {
+      storageFiles = await fetchSupabaseFiles(userEmail);
+    }
+    renderFiles({ files: storageFiles.length > 0 ? storageFiles : (latest.files || []), userEmail });
+    renderInvoices({ invoices: latest.invoices || [] });
+    renderActivity({ activity: latest.activity || [] });
+    showToast('Client data refreshed!');
+  } catch (err) {
+    console.error('Manual refresh failed:', err);
+  }
+}
+window.refreshClientData = refreshClientData;
+
 // Format file size
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -862,8 +888,7 @@ window.hideToast = hideToast;
             
             // Refresh file list
             setTimeout(async () => {
-              const newFiles = await fetchSupabaseFiles(userEmail);
-              renderFiles({ files: newFiles, userEmail });
+              await refreshClientData();
             }, 500);
           } catch (err) {
             console.error('Upload error:', err);
