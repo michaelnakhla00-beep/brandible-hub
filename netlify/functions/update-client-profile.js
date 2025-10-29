@@ -47,69 +47,85 @@ exports.handler = async (event, context) => {
       return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
     }
 
-    // 🔄 Recalculate KPIs directly from the client's own JSON fields
+    // 🔄 Recalculate KPIs from actual data sources (matching what UI displays)
     try {
-      const { data: updatedClient, error: fetchError } = await supabase
-        .from('clients')
-        .select('projects, files, invoices')
-        .eq('id', clientId)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching client for KPI recalculation:', fetchError);
-      } else if (updatedClient) {
-        // Safe parsing with fallback for malformed or null values
+      const clientEmail = data.email;
+      
+      // Count active projects from projects table (matches UI)
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('status')
+        .eq('client_email', clientEmail);
+      
+      let activeProjects = 0;
+      if (!projectsError && projectsData) {
+        activeProjects = projectsData.filter(
+          p => p.status && 
+          p.status.toLowerCase() !== 'done' && 
+          p.status.toLowerCase() !== 'complete'
+        ).length;
+      }
+      
+      // Count files from Supabase Storage (matches UI)
+      let totalFiles = 0;
+      try {
+        const sanitizedEmail = clientEmail.replace(/[^a-zA-Z0-9]/g, '_');
+        const { data: filesList, error: filesError } = await supabase.storage
+          .from('client_files')
+          .list(sanitizedEmail);
+        
+        if (!filesError && filesList) {
+          totalFiles = filesList.length;
+        }
+      } catch (fileCountError) {
+        console.error('Error counting files from storage:', fileCountError);
+        // Fallback to JSON if storage fails
         const parseJSON = (str) => {
           try {
-            // If it's already an array/object, return it
-            if (Array.isArray(str) || (typeof str === 'object' && str !== null)) {
-              return str;
-            }
-            // If it's a string, parse it
-            if (typeof str === 'string') {
-              return JSON.parse(str || '[]');
-            }
-            // Default to empty array
+            if (Array.isArray(str)) return str;
+            if (typeof str === 'string') return JSON.parse(str || '[]');
             return [];
           } catch {
             return [];
           }
         };
-
-        const projects = parseJSON(updatedClient.projects);
-        const files = parseJSON(updatedClient.files);
-        const invoices = parseJSON(updatedClient.invoices);
-
-        // Count active projects (exclude Done/Complete)
-        const activeProjects = projects.filter(
-          p => p.status && !['Done', 'Complete'].includes(p.status)
-        ).length;
-
-        // Count files and open invoices
-        const totalFiles = files.length;
-        const openInvoices = invoices.filter(i => i.status === 'Open').length;
-
-        // Build new KPI object
-        const kpis = {
-          files: totalFiles,
-          activeProjects,
-          openInvoices,
-          lastUpdate: new Date().toISOString().split('T')[0],
-        };
-
-        console.log('✅ Recalculated KPIs:', kpis);
-
-        const { error: kpiError } = await supabase
-          .from('clients')
-          .update({ kpis })
-          .eq('id', clientId);
-
-        if (kpiError) {
-          console.error('Error updating KPIs:', kpiError);
-        } else {
-          // Update the returned data with new KPIs
-          data.kpis = kpis;
+        totalFiles = parseJSON(data.files).length;
+      }
+      
+      // Count open invoices from JSON (matches UI)
+      let openInvoices = 0;
+      const parseJSON = (str) => {
+        try {
+          if (Array.isArray(str)) return str;
+          if (typeof str === 'string') return JSON.parse(str || '[]');
+          return [];
+        } catch {
+          return [];
         }
+      };
+      const invoices = parseJSON(data.invoices);
+      openInvoices = invoices.filter(i => i.status && i.status.toLowerCase() === 'open').length;
+      
+      // Build new KPI object
+      const kpis = {
+        files: totalFiles,
+        activeProjects,
+        openInvoices,
+        lastUpdate: new Date().toISOString().split('T')[0],
+      };
+
+      console.log('✅ Recalculated KPIs from actual sources:', kpis);
+
+      const { error: kpiError } = await supabase
+        .from('clients')
+        .update({ kpis })
+        .eq('id', clientId);
+
+      if (kpiError) {
+        console.error('Error updating KPIs:', kpiError);
+      } else {
+        // Update the returned data with new KPIs
+        data.kpis = kpis;
       }
     } catch (err) {
       console.error('Unexpected error recalculating KPIs:', err);
