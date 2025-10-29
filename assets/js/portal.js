@@ -57,12 +57,12 @@ function renderProfile({ id, name, email, company = '', manager = '', phone = ''
 
   const avatar = profile_url || 'https://ui-avatars.com/api/?background=635BFF&color=fff&name=' + encodeURIComponent(name || email || 'User');
   wrap.innerHTML = `
-    <img src="${avatar}" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-indigo-500 shadow"/>
-    <div class="flex-1">
+    <img src="${avatar}" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-indigo-500 shadow flex-shrink-0"/>
+    <div class="flex-1 text-center sm:text-left w-full sm:w-auto">
       <div class="text-lg font-semibold">${name || ''}${company ? ' • ' + company : ''}</div>
       <div class="text-sm text-slate-500 dark:text-slate-400">${manager ? 'Manager: ' + manager + ' · ' : ''}${email}${phone ? ' · ' + phone : ''}${website ? ' · <a class=\"underline\" href=\"' + website + '\" target=\"_blank\">Website</a>' : ''}</div>
     </div>
-    <button id="changePhotoBtn" class="btn-primary text-sm">Change Photo</button>
+    <button id="changePhotoBtn" class="btn-primary text-sm w-full sm:w-auto">Change Photo</button>
   `;
 
   const changeBtn = document.getElementById('changePhotoBtn');
