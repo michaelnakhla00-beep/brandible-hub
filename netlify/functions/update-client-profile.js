@@ -27,7 +27,7 @@ exports.handler = async (event, context) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Whitelist of fields that can be updated via this function
-    const allowed = ['name', 'company', 'manager', 'phone', 'website', 'profile_url'];
+    const allowed = ['name', 'company', 'manager', 'phone', 'website', 'profile_url', 'activity'];
     const payload = {};
     for (const k of allowed) {
       if (k in fields) payload[k] = fields[k];

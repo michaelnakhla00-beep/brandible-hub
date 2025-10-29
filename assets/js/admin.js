@@ -1278,6 +1278,55 @@ window.saveClientChanges = async function() {
             Object.assign(originalClientData, profileResult.client);
           }
           console.log('✅ Profile saved successfully');
+          
+          // Add activity log entry
+          try {
+            const user = window.netlifyIdentity?.currentUser();
+            const adminEmail = user?.email || '';
+            // Extract name from email (before @) or use email
+            const adminName = adminEmail.split('@')[0]
+              .split('.')
+              .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(' ') || 'Admin';
+            
+            const now = new Date();
+            const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const formattedDate = now.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+            
+            const newActivity = {
+              text: "Profile updated",
+              type: "update",
+              when: `${formattedTime} · ${formattedDate} (edited by ${adminName})`
+            };
+            
+            // Get existing activity array or initialize
+            const currentActivity = originalClientData.activity || [];
+            const updatedActivity = [newActivity, ...currentActivity];
+            
+            // Update activity in Supabase
+            const activityUpdateRes = await fetch('/.netlify/functions/update-client-profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: token ? `Bearer ${token}` : ''
+              },
+              body: JSON.stringify({
+                clientId: originalClientData.id,
+                fields: { activity: updatedActivity }
+              })
+            });
+            
+            if (activityUpdateRes.ok) {
+              // Update local data with new activity
+              originalClientData.activity = updatedActivity;
+              console.log('✅ Activity logged successfully');
+            } else {
+              console.warn('⚠️ Failed to log activity:', await activityUpdateRes.text());
+            }
+          } catch (activityErr) {
+            console.error('❌ Error logging activity:', activityErr);
+            // Non-blocking - don't fail the whole save
+          }
         } else {
           console.warn('⚠️ Failed to save profile:', await profileRes.text());
         }
@@ -1374,6 +1423,7 @@ window.saveClientChanges = async function() {
     // Update the display
     renderModalProfile(originalClientData);
     renderModalKPIs(originalClientData);
+    renderModalActivity(originalClientData);
     
     showToast("Changes saved", "success", "Client updated successfully!");
     cancelEditMode();
