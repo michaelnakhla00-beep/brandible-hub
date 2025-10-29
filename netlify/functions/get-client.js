@@ -86,7 +86,7 @@ exports.handler = async (event, context) => {
     const mergedProjects = supabaseProjects.length > 0 ? supabaseProjects : (client.projects || []);
 
     // Return client data (excluding internal fields)
-    const { id, email: e, name, kpis, files, invoices, activity, updates } = client;
+    const { id, email: e, name, kpis, files, invoices, activity, updates, company, manager, phone, website, profile_url } = client;
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
@@ -99,7 +99,12 @@ exports.handler = async (event, context) => {
         files, 
         invoices, 
         activity, 
-        updates 
+        updates,
+        company: company || null,
+        manager: manager || null,
+        phone: phone || null,
+        website: website || null,
+        profile_url: profile_url || null
       })
     };
   } catch (err) {

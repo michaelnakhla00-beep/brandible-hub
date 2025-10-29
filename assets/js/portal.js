@@ -48,6 +48,32 @@ function renderKPIs({ kpis = {} }) {
     .join("");
 }
 
+// Profile card
+function renderProfile({ id, name, email, company = '', manager = '', phone = '', website = '', profile_url = '' }) {
+  const wrap = document.getElementById('profileCard');
+  const emailEl = document.getElementById('userEmail');
+  if (emailEl) emailEl.textContent = email || '';
+  if (!wrap) return;
+
+  const avatar = profile_url || 'https://ui-avatars.com/api/?background=635BFF&color=fff&name=' + encodeURIComponent(name || email || 'User');
+  wrap.innerHTML = `
+    <img src="${avatar}" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-indigo-500 shadow"/>
+    <div class="flex-1">
+      <div class="text-lg font-semibold">${name || ''}${company ? ' • ' + company : ''}</div>
+      <div class="text-sm text-slate-500 dark:text-slate-400">${manager ? 'Manager: ' + manager + ' · ' : ''}${email}${phone ? ' · ' + phone : ''}${website ? ' · <a class=\"underline\" href=\"' + website + '\" target=\"_blank\">Website</a>' : ''}</div>
+    </div>
+    <button id="changePhotoBtn" class="btn-primary text-sm">Change Photo</button>
+  `;
+
+  const changeBtn = document.getElementById('changePhotoBtn');
+  if (changeBtn) {
+    changeBtn.onclick = () => {
+      const modal = document.getElementById('avatarModal');
+      if (modal) modal.classList.remove('hidden');
+    };
+  }
+}
+
 // Projects → Kanban columns; also mirrors a simple list if #projects exists
 function renderProjects({ projects = [] }) {
   // Advanced columns
@@ -730,6 +756,16 @@ window.hideToast = hideToast;
     // Initialize Supabase Storage
     await initSupabase();
 
+    renderProfile({
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      company: data.company,
+      manager: data.manager,
+      phone: data.phone,
+      website: data.website,
+      profile_url: data.profile_url
+    });
     renderKPIs(data);
     renderProjects({ projects: data.projects || [] });
     
@@ -745,6 +781,44 @@ window.hideToast = hideToast;
     renderUpdates({ updates: data.updates || [] });
 
     wireFilters(data);
+
+    // Wire avatar modal
+    const modal = document.getElementById('avatarModal');
+    const btnUpload = document.getElementById('avatarUpload');
+    const btnCancel = document.getElementById('avatarCancel');
+    const input = document.getElementById('avatarInput');
+    if (btnCancel && modal) btnCancel.onclick = () => modal.classList.add('hidden');
+    if (btnUpload && input && modal) {
+      btnUpload.onclick = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        try {
+          if (!supabaseClient) throw new Error('Supabase not initialized');
+          const path = `${data.id}/${Date.now()}-${file.name}`;
+          const { error } = await supabaseClient.storage.from('client_avatars').upload(path, file, { upsert: true });
+          if (error) throw error;
+          const { data: urlData } = await supabaseClient.storage.from('client_avatars').getPublicUrl(path);
+          const publicUrl = urlData.publicUrl;
+          // Update client record via secure function
+          const token = await new Promise((resolve) => {
+            const id = window.netlifyIdentity; const user = id && id.currentUser();
+            if (!user) return resolve(null); user.jwt().then(resolve).catch(() => resolve(null));
+          });
+          await fetch('/.netlify/functions/update-client-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+            body: JSON.stringify({ clientId: data.id, fields: { profile_url: publicUrl } })
+          });
+          modal.classList.add('hidden');
+          // Refresh avatar in UI
+          renderProfile({ ...data, profile_url: publicUrl });
+          showToast('Profile updated successfully!');
+        } catch (e) {
+          console.error('Avatar upload failed', e);
+          showToast('Upload failed', 'error', e.message);
+        }
+      };
+    }
     
     // Wire up file upload handler
     const fileInput = document.getElementById('fileInput');

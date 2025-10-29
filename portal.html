@@ -130,6 +130,12 @@
       </header>
 
       <main class="flex-1 max-w-[1200px] mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
+        <!-- Profile -->
+        <section id="profile" class="card-section">
+          <h2 class="section-title">Profile</h2>
+          <div id="profileCard" class="flex items-center gap-4"></div>
+        </section>
+
         <!-- KPIs -->
         <section id="overview" class="card-section">
           <h2 class="section-title">Overview</h2>
@@ -308,6 +314,17 @@
     mo.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('load', hydrate);
   </script>
+  <!-- Change Photo Modal -->
+  <div id="avatarModal" class="hidden fixed inset-0 z-[2000] bg-black/40 flex items-center justify-center">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <h3 class="text-lg font-semibold mb-3">Change Profile Photo</h3>
+      <input id="avatarInput" type="file" accept="image/*" class="w-full" />
+      <div class="mt-4 flex justify-end gap-2">
+        <button id="avatarCancel" class="btn-ghost">Cancel</button>
+        <button id="avatarUpload" class="btn-primary">Upload</button>
+      </div>
+    </div>
+  </div>
 <!-- Loading Spinner -->
 <div id="loadingOverlay" class="fixed inset-0 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm z-[1000]">
   <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl">
