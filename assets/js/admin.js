@@ -518,6 +518,65 @@ window.closeProfileEditorOnBackdrop = function(e) {
   if (e.target === e.currentTarget) closeProfileEditor();
 };
 
+// Helper function to upload avatar via secure Netlify function
+async function uploadAvatarViaFunction(file, clientId) {
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Only images are allowed.');
+  }
+  
+  // Validate file size (5MB max)
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('File too large. Maximum size is 5MB.');
+  }
+  
+  // Convert file to base64
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const base64Data = reader.result.split(',')[1]; // Remove data URL prefix
+        
+        // Get auth token
+        const token = await new Promise((tokenResolve) => {
+          const id = window.netlifyIdentity;
+          const user = id && id.currentUser();
+          if (!user) return tokenResolve(null);
+          user.jwt().then(tokenResolve).catch(() => tokenResolve(null));
+        });
+        
+        // Upload via secure Netlify function
+        const res = await fetch('/.netlify/functions/upload-avatar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: token ? `Bearer ${token}` : ''
+          },
+          body: JSON.stringify({
+            clientId: clientId,
+            fileData: base64Data,
+            fileName: file.name,
+            fileType: file.type
+          })
+        });
+        
+        const result = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(result.error || 'Upload failed');
+        }
+        
+        resolve(result.profile_url);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 // Upload avatar and preview
 (function wireProfileUpload(){
   document.addEventListener('change', async (e) => {
@@ -526,16 +585,13 @@ window.closeProfileEditorOnBackdrop = function(e) {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       try {
-        if (!adminSupabaseClient) await initAdminSupabase();
-        if (!adminSupabaseClient) throw new Error('Supabase not initialized');
         const client = profileEditorState.client;
-        const path = `${client.id}/${Date.now()}-${file.name}`;
-        const { error } = await adminSupabaseClient.storage.from('client_avatars').upload(path, file, { upsert: true });
-        if (error) throw error;
-        const { data: urlData } = await adminSupabaseClient.storage.from('client_avatars').getPublicUrl(path);
-        profileEditorState.uploadedUrl = urlData.publicUrl;
+        if (!client || !client.id) throw new Error('No client data available');
+        
+        const publicUrl = await uploadAvatarViaFunction(file, client.id);
+        profileEditorState.uploadedUrl = publicUrl;
         const img = document.getElementById('profilePreview');
-        if (img) img.src = profileEditorState.uploadedUrl;
+        if (img) img.src = publicUrl;
         showToast('Profile image updated ✅');
       } catch (err) {
         console.error('Avatar upload failed:', err);
@@ -547,17 +603,11 @@ window.closeProfileEditorOnBackdrop = function(e) {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       try {
-        if (!adminSupabaseClient) await initAdminSupabase();
-        if (!adminSupabaseClient) throw new Error('Supabase not initialized');
         if (!originalClientData || !originalClientData.id) {
           throw new Error('No client data available');
         }
-        const clientId = originalClientData.id;
-        const path = `${clientId}/${Date.now()}-${file.name}`;
-        const { error } = await adminSupabaseClient.storage.from('client_avatars').upload(path, file, { upsert: true });
-        if (error) throw error;
-        const { data: urlData } = await adminSupabaseClient.storage.from('client_avatars').getPublicUrl(path);
-        const publicUrl = urlData.publicUrl;
+        
+        const publicUrl = await uploadAvatarViaFunction(file, originalClientData.id);
         
         // Update preview images
         const imgEdit = document.getElementById('adminProfileImagePreviewEdit');

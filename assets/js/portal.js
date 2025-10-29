@@ -341,6 +341,14 @@ async function getFileUrl(filePath, userEmail) {
   return data.publicUrl;
 }
 
+// Make a storage-safe key (strip unsupported chars, compress whitespace)
+function makeSafeStorageKey(name) {
+  return String(name)
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '');
+}
+
 // Global refresh helper
 async function refreshClientData() {
   try {
@@ -818,27 +826,72 @@ window.hideToast = hideToast;
       btnUpload.onclick = async () => {
         const file = input.files && input.files[0];
         if (!file) return;
+        
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          showToast('Upload failed', 'error', 'Invalid file type. Only images are allowed.');
+          return;
+        }
+        
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+          showToast('Upload failed', 'error', 'File too large. Maximum size is 5MB.');
+          return;
+        }
+        
         try {
-          if (!supabaseClient) throw new Error('Supabase not initialized');
-          const path = `${data.id}/${Date.now()}-${file.name}`;
-          const { error } = await supabaseClient.storage.from('client_avatars').upload(path, file, { upsert: true });
-          if (error) throw error;
-          const { data: urlData } = await supabaseClient.storage.from('client_avatars').getPublicUrl(path);
-          const publicUrl = urlData.publicUrl;
-          // Update client record via secure function
-          const token = await new Promise((resolve) => {
-            const id = window.netlifyIdentity; const user = id && id.currentUser();
-            if (!user) return resolve(null); user.jwt().then(resolve).catch(() => resolve(null));
-          });
-          await fetch('/.netlify/functions/update-client-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-            body: JSON.stringify({ clientId: data.id, fields: { profile_url: publicUrl } })
-          });
-          modal.classList.add('hidden');
-          // Refresh avatar in UI
-          renderProfile({ ...data, profile_url: publicUrl });
-          showToast('Profile updated successfully!');
+          // Convert file to base64 for server upload
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            try {
+              const base64Data = reader.result.split(',')[1]; // Remove data:image/...;base64, prefix
+              
+              // Get auth token
+              const token = await new Promise((resolve) => {
+                const id = window.netlifyIdentity;
+                const user = id && id.currentUser();
+                if (!user) return resolve(null);
+                user.jwt().then(resolve).catch(() => resolve(null));
+              });
+              
+              // Upload via secure Netlify function
+              const res = await fetch('/.netlify/functions/upload-avatar', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: token ? `Bearer ${token}` : ''
+                },
+                body: JSON.stringify({
+                  clientId: data.id,
+                  fileData: base64Data,
+                  fileName: file.name,
+                  fileType: file.type
+                })
+              });
+              
+              const result = await res.json();
+              
+              if (!res.ok) {
+                throw new Error(result.error || 'Upload failed');
+              }
+              
+              modal.classList.add('hidden');
+              // Refresh avatar in UI
+              renderProfile({ ...data, profile_url: result.profile_url });
+              showToast('Profile updated successfully!');
+              
+              // Refresh full client data
+              await refreshClientData();
+            } catch (e) {
+              console.error('Avatar upload failed', e);
+              showToast('Upload failed', 'error', e.message || 'Unknown error');
+            }
+          };
+          reader.onerror = () => {
+            showToast('Upload failed', 'error', 'Failed to read file');
+          };
+          reader.readAsDataURL(file);
         } catch (e) {
           console.error('Avatar upload failed', e);
           showToast('Upload failed', 'error', e.message);
