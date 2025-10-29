@@ -100,6 +100,71 @@ exports.handler = async (event, context) => {
     // Merge Supabase projects with any existing projects from client data
     const mergedProjects = supabaseProjects.length > 0 ? supabaseProjects : (client.projects || []);
 
+    // 🔄 Auto-recalculate KPIs from actual data sources (always fresh)
+    try {
+      // Count active projects from projects table
+      let activeProjects = 0;
+      if (projectsData) {
+        activeProjects = projectsData.filter(
+          p => p.status && 
+          p.status.toLowerCase() !== 'done' && 
+          p.status.toLowerCase() !== 'complete'
+        ).length;
+      }
+      
+      // Count files from Supabase Storage
+      let totalFiles = 0;
+      try {
+        const sanitizedEmail = email.replace(/[^a-zA-Z0-9]/g, '_');
+        const { data: filesList, error: filesError } = await supabase.storage
+          .from('client_files')
+          .list(sanitizedEmail);
+        
+        if (!filesError && filesList) {
+          totalFiles = filesList.length;
+        }
+      } catch (fileCountError) {
+        console.error('Error counting files from storage:', fileCountError);
+      }
+      
+      // Count open invoices from JSON
+      const parseJSON = (str) => {
+        try {
+          if (Array.isArray(str)) return str;
+          if (typeof str === 'string') return JSON.parse(str || '[]');
+          return [];
+        } catch {
+          return [];
+        }
+      };
+      const invoices = parseJSON(client.invoices);
+      const openInvoices = invoices.filter(i => i.status && i.status.toLowerCase() === 'open').length;
+      
+      // Build updated KPIs
+      const updatedKPIs = {
+        files: totalFiles,
+        activeProjects,
+        openInvoices,
+        lastUpdate: new Date().toISOString().split('T')[0],
+      };
+      
+      // Update KPIs in database (async, non-blocking for response)
+      const { error: kpiUpdateError } = await supabase
+        .from('clients')
+        .update({ kpis: updatedKPIs })
+        .eq('id', client.id);
+      
+      if (kpiUpdateError) {
+        console.error('Error updating KPIs in get-client:', kpiUpdateError);
+      }
+      
+      // Use fresh KPIs for response
+      client.kpis = updatedKPIs;
+    } catch (kpiError) {
+      console.error('Error recalculating KPIs in get-client:', kpiError);
+      // Continue with existing KPIs if calculation fails
+    }
+
     // Return client data (excluding internal fields)
     const { id, email: e, name, kpis, files, invoices, activity, updates, company, manager, phone, website, profile_url } = client;
     return {
