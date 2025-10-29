@@ -297,6 +297,55 @@
     document.getElementById('year').textContent = new Date().getFullYear();
   </script>
 
+  <!-- Admin Profile Editor Modal -->
+  <div id="profileEditorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[2600] hidden transition-all duration-300" onclick="closeProfileEditorOnBackdrop(event)">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/50 dark:border-slate-800/50 w-full max-w-lg mx-4 overflow-hidden" onclick="event.stopPropagation()">
+      <div class="p-6 border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between">
+        <h3 class="text-lg font-semibold">Edit Client Profile</h3>
+        <button onclick="closeProfileEditor()" class="btn-ghost text-xl">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="flex items-center gap-4">
+          <img id="profilePreview" src="/assets/default-avatar.png" class="w-24 h-24 rounded-full object-cover border-2 border-indigo-500 shadow" />
+          <div>
+            <input id="profileImageInput" type="file" accept="image/*" class="block text-sm" />
+            <p class="text-xs text-slate-500 mt-1">Upload a square image for best results.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="text-sm font-medium">Full Name</label>
+            <input id="profileName" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Company</label>
+            <input id="profileCompany" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Manager</label>
+            <input id="profileManager" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Email</label>
+            <input id="profileEmail" readonly class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Phone</label>
+            <input id="profilePhone" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Website</label>
+            <input id="profileWebsite" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+      </div>
+      <div class="p-6 border-t border-slate-200/50 dark:border-slate-800/50 flex justify-end gap-2">
+        <button onclick="closeProfileEditor()" class="btn-ghost">Cancel</button>
+        <button id="profileSaveBtn" onclick="saveAdminProfileChanges()" class="btn-primary"><span id="profileSaveBtnText">Save Changes</span></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Client Profile Modal -->
   <div id="clientModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[2000] hidden transition-all duration-300" onclick="closeModalOnBackdrop(event)">
     <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">

@@ -104,6 +104,7 @@ function renderClientsTable(clients = [], searchTerm = "") {
             <button onclick="viewClient('${client.email}')" class="btn-primary text-sm">
               View
             </button>
+            <button onclick="openProfileEditor('${client.email}')" class="btn-ghost text-sm">Edit Profile</button>
             <button onclick="confirmDeleteClient('${client.email}', '${client.name || 'this client'}')" 
                     class="inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transition-all">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -430,6 +431,114 @@ function getFileTypeIcon(filename) {
       </svg>`;
   }
 }
+
+// -------------------------
+// Admin Profile Editor
+// -------------------------
+let profileEditorState = { client: null, uploadedUrl: null };
+
+window.openProfileEditor = function(email) {
+  // Find client from cached list
+  const client = (window.allClients || []).find(c => (c.email || '').toLowerCase() === (email || '').toLowerCase());
+  if (!client) return;
+  profileEditorState.client = client;
+  profileEditorState.uploadedUrl = null;
+  // Populate fields
+  const modal = document.getElementById('profileEditorModal');
+  if (!modal) return;
+  const img = document.getElementById('profilePreview');
+  const name = document.getElementById('profileName');
+  const company = document.getElementById('profileCompany');
+  const manager = document.getElementById('profileManager');
+  const emailEl = document.getElementById('profileEmail');
+  const phone = document.getElementById('profilePhone');
+  const website = document.getElementById('profileWebsite');
+  img.src = client.profile_url || '/assets/default-avatar.png';
+  name.value = client.name || '';
+  company.value = client.company || '';
+  manager.value = client.manager || '';
+  emailEl.value = client.email || '';
+  phone.value = client.phone || '';
+  website.value = client.website || '';
+  modal.classList.remove('hidden');
+};
+
+window.closeProfileEditor = function() {
+  const modal = document.getElementById('profileEditorModal');
+  if (modal) modal.classList.add('hidden');
+};
+
+window.closeProfileEditorOnBackdrop = function(e) {
+  if (e.target === e.currentTarget) closeProfileEditor();
+};
+
+// Upload avatar and preview
+(function wireProfileUpload(){
+  document.addEventListener('change', async (e) => {
+    if (e.target && e.target.id === 'profileImageInput') {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        if (!adminSupabaseClient) await initAdminSupabase();
+        if (!adminSupabaseClient) throw new Error('Supabase not initialized');
+        const client = profileEditorState.client;
+        const path = `${client.id}/${Date.now()}-${file.name}`;
+        const { error } = await adminSupabaseClient.storage.from('client_avatars').upload(path, file, { upsert: true });
+        if (error) throw error;
+        const { data: urlData } = await adminSupabaseClient.storage.from('client_avatars').getPublicUrl(path);
+        profileEditorState.uploadedUrl = urlData.publicUrl;
+        const img = document.getElementById('profilePreview');
+        if (img) img.src = profileEditorState.uploadedUrl;
+        showToast('Profile image updated ✅');
+      } catch (err) {
+        console.error('Avatar upload failed:', err);
+        showToast('Upload failed', 'error', err.message);
+      }
+    }
+  });
+})();
+
+window.saveAdminProfileChanges = async function() {
+  const btn = document.getElementById('profileSaveBtn');
+  const btnText = document.getElementById('profileSaveBtnText');
+  if (btn && btnText) { btn.disabled = true; btnText.textContent = 'Saving...'; }
+  try {
+    const client = profileEditorState.client;
+    if (!client) return;
+    const payload = {
+      clientId: client.id,
+      fields: {
+        name: document.getElementById('profileName').value.trim(),
+        company: document.getElementById('profileCompany').value.trim(),
+        manager: document.getElementById('profileManager').value.trim(),
+        phone: document.getElementById('profilePhone').value.trim(),
+        website: document.getElementById('profileWebsite').value.trim(),
+      }
+    };
+    if (profileEditorState.uploadedUrl) payload.fields.profile_url = profileEditorState.uploadedUrl;
+    const res = await fetch('/.netlify/functions/update-client-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`Save failed (${res.status})`);
+    const result = await res.json();
+    // Update local cache if present
+    if (result.client) {
+      const idx = (window.allClients || []).findIndex(c => c.id === result.client.id);
+      if (idx >= 0) window.allClients[idx] = { ...(window.allClients[idx] || {}), ...result.client };
+    }
+    closeProfileEditor();
+    showToast('Profile updated successfully!');
+    // Optionally refresh clients table
+    if (typeof loadClients === 'function') loadClients();
+  } catch (err) {
+    console.error(err);
+    showToast('Save failed', 'error', err.message);
+  } finally {
+    if (btn && btnText) { btn.disabled = false; btnText.textContent = 'Save Changes'; }
+  }
+};
 
 async function renderModalFiles(client) {
   const container = document.getElementById("modalFiles");
