@@ -20,14 +20,7 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Parse multipart/form-data
-    const contentType = event.headers['content-type'] || '';
-    if (!contentType.includes('multipart/form-data')) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Expected multipart/form-data' }) };
-    }
-
-    // For Netlify, we need to parse the body differently
-    // The file comes in as base64 encoded in the body
+    // Parse JSON body (file comes as base64 encoded)
     const body = JSON.parse(event.body || '{}');
     const { clientId, fileData, fileName, fileType } = body;
 
