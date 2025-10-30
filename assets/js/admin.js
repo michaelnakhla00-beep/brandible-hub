@@ -1085,14 +1085,27 @@ window.viewClient = function (email) {
           if (supabaseProjects.length > 0) {
             console.log('📦 Loaded projects from Supabase:', supabaseProjects.length, 'projects');
             // Convert Supabase format to client format
-            const formattedProjects = supabaseProjects.map(p => ({
+            const formatted = supabaseProjects.map(p => ({
               id: p.id,
               name: p.title,
               summary: p.description || '',
-              status: p.status || 'In Progress'
+              status: p.status || 'In Progress',
+              deadline: p.deadline || '',
             }));
-            // Replace projects with Supabase data
-            fullClient.projects = formattedProjects;
+            // Merge with existing JSON projects (preserve activity/comments by name match)
+            const existing = Array.isArray(fullClient.projects) ? fullClient.projects : [];
+            const byName = new Map(existing.map(ep => [String(ep.name || '').toLowerCase(), ep]));
+            const merged = formatted.map(fp => {
+              const key = String(fp.name || '').toLowerCase();
+              const extra = byName.get(key) || {};
+              return { ...fp, activity: Array.isArray(extra.activity) ? extra.activity : [] };
+            });
+            // Include any JSON-only projects not in Supabase
+            existing.forEach(ep => {
+              const key = String(ep.name || '').toLowerCase();
+              if (!merged.find(m => String(m.name || '').toLowerCase() === key)) merged.push(ep);
+            });
+            fullClient.projects = merged;
           } else {
             console.log('⚠️ No projects found in Supabase for', email);
           }
@@ -2613,6 +2626,19 @@ if (pmSave) pmSave.onclick = async () => {
     });
     if (!res.ok) throw new Error('Save failed');
     if (window.showToast) window.showToast('✅ Project updated successfully!');
+    // Persist to projects table too (keeps Admin list consistent after reload)
+    try {
+      await upsertProject(activeClient.email, {
+        id: project.id,
+        name: project.name,
+        description: project.summary,
+        status: project.status,
+      });
+    } catch (e) { console.warn('Upsert to projects table failed', e); }
+    // Log to client activity feed
+    try { await logAdminActivity(activeClient.email, `Updated project: ${project.name}`, 'project'); } catch {}
+    // Keep modal open and reflect activity immediately
+    renderProjectActivity(project.activity);
   } catch (e) {
     console.error('Project save failed', e);
     if (window.showToast) window.showToast('Save failed', 'error');
