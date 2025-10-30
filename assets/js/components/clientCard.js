@@ -101,7 +101,7 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 
 		const expandBtn = document.createElement('button');
 		expandBtn.className = 'ml-1 text-xs px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700';
-		expandBtn.textContent = 'Details';
+		expandBtn.textContent = 'Hide';
 
 		right.appendChild(statusBadge);
 		right.appendChild(expandBtn);
@@ -127,7 +127,7 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 		`;
 
 		const details = document.createElement('div');
-		details.className = 'mt-3 hidden';
+		details.className = 'mt-3';
 		details.innerHTML = `
 			<div class="rounded-lg border border-slate-100 dark:border-slate-800 p-3">
 				<div class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">Projects</div>
@@ -150,6 +150,7 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 
 		expandBtn.addEventListener('click', async () => {
 			details.classList.toggle('hidden');
+			expandBtn.textContent = details.classList.contains('hidden') ? 'Details' : 'Hide';
 			if (!details.classList.contains('hidden') && details.getAttribute('data-loaded') !== '1') {
 				const listWrap = details.querySelector('[data-projects]');
 				if (listWrap) {
