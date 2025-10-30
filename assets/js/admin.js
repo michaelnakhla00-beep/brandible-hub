@@ -1,4 +1,10 @@
 // assets/js/admin.js
+import { renderKPICards } from './components/kpiCard.js';
+import { renderChartSection } from './components/chartSection.js';
+import { renderClientCards } from './components/clientCard.js';
+import { renderLeads } from './components/leadsCard.js';
+import { renderActivityFeed } from './components/activityFeed.js';
+import { fetchClients as fetchClientsFn, fetchLeads as fetchLeadsFn, fetchProjects as fetchProjectsFn, computeKPIs, buildRevenueDataset, buildLeadSourceDataset, parseJSON } from './components/data.js';
 
 /* ---------------------------
    1) Fetch all clients data
@@ -1935,6 +1941,83 @@ function renderAnalytics(clients = []) {
     renderClientsTable(clients);
     renderAllActivity(clients);
     renderAnalytics(clients);
+
+    // New: Enhanced Overview KPIs
+    try {
+      const projects = await fetchProjectsFn().catch(() => []);
+      const invoicesFromClients = clients.flatMap((c) => parseJSON(c.invoices || []));
+      const kpiContainer = document.getElementById('kpiContainer');
+      if (kpiContainer) renderKPICards(kpiContainer, computeKPIs({ clients, projects, invoices: invoicesFromClients }));
+    } catch {}
+
+    // New: Charts
+    try {
+      const revenueContainer = document.getElementById('revenueChartContainer');
+      if (revenueContainer) {
+        const revenueDataset = buildRevenueDataset('month');
+        renderChartSection(revenueContainer, {
+          title: 'Monthly Revenue',
+          description: 'Mock data – updates by range',
+          dataset: revenueDataset,
+          initialRange: 'month',
+          onRangeChange: (r) => buildRevenueDataset(r),
+        });
+      }
+      const leadsData = await fetchLeadsFn().catch(() => []);
+      allBookingsGlobal = leadsData;
+      const leadSourceContainer = document.getElementById('leadSourceChartContainer');
+      if (leadSourceContainer) {
+        const ds = buildLeadSourceDataset(leadsData);
+        renderChartSection(leadSourceContainer, {
+          title: 'Lead Sources',
+          description: 'Distribution by source',
+          dataset: ds,
+          initialRange: 'month',
+          onRangeChange: () => buildLeadSourceDataset(leadsData),
+        });
+      }
+    } catch {}
+
+    // New: Clients as expandable cards
+    try {
+      const clientCardsContainer = document.getElementById('clientCardsContainer');
+      if (clientCardsContainer) {
+        renderClientCards(clientCardsContainer, clients, {
+          onView: (c) => c?.email && window.viewClient && window.viewClient(c.email),
+          onEdit: (c) => c?.email && window.openProfileEditor && window.openProfileEditor(c.email),
+          onArchive: (c) => window.showToast && window.showToast('Archived', 'success', c?.name || c?.email || ''),
+          onSearch: () => {},
+        });
+      }
+    } catch {}
+
+    // New: Leads enhanced list
+    try {
+      const leadsContainer = document.getElementById('leadsContainer');
+      if (leadsContainer && Array.isArray(allBookingsGlobal)) {
+        renderLeads(leadsContainer, allBookingsGlobal, {
+          onChange: (lead) => {
+            const idx = allBookingsGlobal.findIndex((l) => l.id === lead.id);
+            if (idx >= 0) allBookingsGlobal[idx] = { ...allBookingsGlobal[idx], ...lead };
+          },
+          onExportCSV: () => window.exportLeadsToCSV && window.exportLeadsToCSV(),
+        });
+      }
+    } catch {}
+
+    // New: Activity feed
+    try {
+      const items = [];
+      clients.forEach((c) => (c.activity || []).forEach((a) => items.push({
+        type: a.type || 'project',
+        title: a.text || 'Update',
+        subtitle: c.name || c.email || '',
+        timestamp: a.when ? new Date(a.when) : new Date(),
+        client: c,
+      })));
+      const container = document.getElementById('activityFeedContainer');
+      if (container) renderActivityFeed(container, items, { onClick: (it) => it?.client?.email && window.viewClient && window.viewClient(it.client.email) });
+    } catch {}
     wireSearch(clients);
 
     // Wire bookings refresh

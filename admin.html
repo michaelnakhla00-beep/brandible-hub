@@ -43,7 +43,7 @@
   </script>
   <link rel="stylesheet" href="/assets/css/styles.css" />
   <script defer src="/assets/js/auth.js"></script>
-  <script defer src="/assets/js/admin.js"></script>
+  <script type="module" defer src="/assets/js/admin.js"></script>
 
   <!-- Tailwind component layer -->
   <style type="text/tailwindcss">
@@ -166,6 +166,8 @@
               <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Open Invoices</div>
             </div>
           </div>
+          <!-- New KPI Cards Container -->
+          <div id="kpiContainer" class="mb-6"></div>
         </div>
         
         <!-- Keep existing KPIs for backward compatibility -->
@@ -176,25 +178,12 @@
       <section id="analyticsSection">
         <h2 class="text-2xl font-bold mb-6">Analytics</h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Projects vs Invoices Doughnut Chart -->
-          <div class="card fade-in">
-            <div class="card-header">Project vs. Invoice Ratio</div>
-            <div class="card-body p-6">
-              <canvas id="doughnutChart" height="300"></canvas>
-            </div>
-          </div>
-          
-          <!-- Clients vs Active Projects Bar Chart -->
-          <div class="card fade-in">
-            <div class="card-header">Activity Distribution</div>
-            <div class="card-body p-6">
-              <canvas id="barChart" height="300"></canvas>
-            </div>
-          </div>
+          <div id="revenueChartContainer"></div>
+          <div id="leadSourceChartContainer"></div>
         </div>
       </section>
 
-      <!-- Clients List -->
+      <!-- Clients -->
       <section id="clientsSection">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-2xl font-bold">All Clients</h2>
@@ -214,24 +203,7 @@
           </div>
         </div>
         
-        <div class="card">
-          <div class="card-header">Client List</div>
-          <div class="card-body overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-slate-50/50 dark:bg-slate-800/20">
-                <tr>
-                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Name</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Email</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Active Projects</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Open Invoices</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Last Update</th>
-                  <th class="text-right py-3 px-4 font-semibold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="clientsTable"></tbody>
-            </table>
-          </div>
-        </div>
+        <div id="clientCardsContainer"></div>
       </section>
 
       <!-- Leads -->
@@ -257,34 +229,13 @@
             </button>
           </div>
         </div>
-          <div class="card">
-          <div class="card-header">Recent Lead Submissions</div>
-          <div class="card-body overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="sticky top-0 bg-slate-50/70 dark:bg-slate-800/50 backdrop-blur">
-                <tr>
-                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Name</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Email</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Phone</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Service</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Message</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Date</th>
-                  <th class="text-left py-3 px-4 font-semibold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">Status</th>
-                </tr>
-              </thead>
-              <tbody id="bookingsTable"></tbody>
-            </table>
-            <p id="bookingsEmpty" class="hidden text-sm text-slate-500 dark:text-slate-400 py-4">No leads have been received yet.</p>
-          </div>
-        </div>
+        <div id="leadsContainer"></div>
       </section>
 
       <!-- Recent Activity Across All Clients -->
       <section>
         <h2 class="text-2xl font-bold mb-6">Recent Activity</h2>
-        <div class="card">
-          <ul id="allActivity" class="card-body space-y-3"></ul>
-        </div>
+        <div id="activityFeedContainer"></div>
       </section>
     </main>
 
