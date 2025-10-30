@@ -1014,8 +1014,12 @@ if (submitProjectComment) submitProjectComment.onclick = async () => {
   p.activity = Array.isArray(p.activity) ? p.activity : [];
   p.activity.unshift({ text: comment, when: formatted, by: activeClient.name || 'Client' });
   try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity; const user = id && id.currentUser();
+      if (!user) return resolve(null); user.jwt().then(resolve).catch(() => resolve(null));
+    });
     const res = await fetch('/.netlify/functions/update-client-profile', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ clientId: activeClient.id, fields: { projects: activeClient.projects } })
     });
     if (!res.ok) throw new Error('Comment failed');
