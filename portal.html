@@ -81,12 +81,12 @@
         <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Client Portal</p>
       </div>
       <div class="px-6 pb-4 border-b border-slate-200/50 dark:border-slate-800/50"></div>
-      <nav class="px-4 py-4 space-y-1">
-        <a href="#overview" class="sidebar-link sidebar-link-active"><span>Overview</span></a>
-        <a href="#projects" class="sidebar-link"><span>Projects</span></a>
-        <a href="#files" class="sidebar-link"><span>Files</span></a>
-        <a href="#invoices" class="sidebar-link"><span>Invoices</span></a>
-        <a href="#support" class="sidebar-link"><span>Support</span></a>
+      <nav class="px-4 py-4 space-y-1" id="portalSideNav">
+        <a href="#overview" class="sidebar-link sidebar-link-active" data-target="overview"><span>Overview</span></a>
+        <a href="#projects" class="sidebar-link" data-target="projects"><span>Projects</span></a>
+        <a href="#filesCard" class="sidebar-link" data-target="filesCard"><span>Files</span></a>
+        <a href="#invoicesCard" class="sidebar-link" data-target="invoicesCard"><span>Invoices</span></a>
+        <a href="#support" class="sidebar-link" data-target="support"><span>Support</span></a>
       </nav>
       
       <div class="px-4 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
@@ -315,6 +315,18 @@
     mo.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('load', hydrate);
   </script>
+  <!-- Project Details Modal -->
+  <div id="projectModal" class="hidden fixed inset-0 z-[2100] bg-black/40 flex items-center justify-center">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-slate-200/60 dark:border-slate-800/60">
+      <div class="flex items-center justify-between mb-3">
+        <h3 id="pmTitle" class="text-lg font-semibold"></h3>
+        <button id="pmClose" class="btn-ghost text-xl">✕</button>
+      </div>
+      <div id="pmStatus" class="mb-2"></div>
+      <p id="pmSummary" class="text-sm text-slate-600 dark:text-slate-300 mb-3"></p>
+      <div id="pmLinks" class="flex flex-wrap gap-2"></div>
+    </div>
+  </div>
   <!-- Change Photo Modal -->
   <div id="avatarModal" class="hidden fixed inset-0 z-[2000] bg-black/40 flex items-center justify-center">
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-2xl">

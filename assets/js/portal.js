@@ -98,7 +98,7 @@ function renderProjects({ projects = [] }) {
     }
     
     return `
-      <div class="project-card">
+      <div class="project-card cursor-pointer" data-project='${JSON.stringify({ name: p.name, summary: p.summary || '', status: statusText, links: p.links || [] }).replace(/'/g, "&#39;")}'>
         <div class="project-title">${p.name}</div>
         ${p.summary ? `<div class="project-desc">${p.summary}</div>` : ""}
       <div class="flex items-center justify-between">
@@ -132,6 +132,24 @@ function renderProjects({ projects = [] }) {
       } else {
         colProgress.insertAdjacentHTML("beforeend", cardHTML(p));
       }
+    });
+
+    // Wire clicks to open modal
+    document.querySelectorAll('.project-card[data-project]').forEach((el) => {
+      el.addEventListener('click', () => {
+        try {
+          const data = JSON.parse(el.getAttribute('data-project').replace(/&#39;/g, "'"));
+          const modal = document.getElementById('projectModal');
+          if (!modal) return;
+          document.getElementById('pmTitle').textContent = data.name || 'Project';
+          document.getElementById('pmStatus').innerHTML = `<span class="status-badge status-inprogress">${data.status || ''}</span>`;
+          document.getElementById('pmSummary').textContent = data.summary || '';
+          const links = Array.isArray(data.links) ? data.links : [];
+          document.getElementById('pmLinks').innerHTML = links.map(l => `<a class="chip" href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`).join('');
+          modal.classList.remove('hidden');
+          document.getElementById('pmClose').onclick = () => modal.classList.add('hidden');
+        } catch {}
+      });
     });
   }
 
@@ -963,4 +981,31 @@ window.hideToast = hideToast;
   } finally {
     if (overlay) overlay.style.display = "none";
   }
+})();
+
+// Smooth scroll + active side nav
+(function wireSideNav(){
+  const nav = document.getElementById('portalSideNav');
+  if (!nav) return;
+  const links = Array.from(nav.querySelectorAll('a[data-target]'));
+  links.forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = a.getAttribute('data-target');
+      const target = document.getElementById(id);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        links.forEach((l) => l.classList.toggle('sidebar-link-active', l.getAttribute('data-target') === id));
+      }
+    });
+  }, { root: null, rootMargin: '0px 0px -70% 0px', threshold: 0.1 });
+  ['overview','kanban','filesCard','invoicesCard','support'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
 })();

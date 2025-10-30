@@ -2507,6 +2507,36 @@ async function updateLeadScore(leadId, newScore) {
 
 window.updateLeadScore = updateLeadScore;
 
+// Global admin refresh: reload clients/leads and re-render main areas
+window.refreshAdmin = async function() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  try {
+    const data = await fetchAllClients();
+    const clients = data.clients || [];
+    allClientsGlobal = clients;
+    renderAdminKPIs(clients);
+    renderClientsTable(clients);
+    renderAllActivity(clients);
+    renderAnalytics(clients);
+    // Also refresh cards-based UI if present
+    const container = document.getElementById('clientCardsContainer');
+    if (container) {
+      renderClientCards(container, clients, {
+        onView: (c) => c?.email && window.viewClient && window.viewClient(c.email),
+        onEdit: (c) => c?.email && window.openProfileEditor && window.openProfileEditor(c.email),
+        onArchive: (c) => window.showToast && window.showToast('Archived', 'success', c?.name || c?.email || ''),
+      });
+    }
+    await refreshBookings();
+    if (window.showToast) window.showToast('Admin data refreshed');
+  } catch (e) {
+    console.error('Admin refresh failed:', e);
+  } finally {
+    if (overlay) overlay.style.display = 'none';
+  }
+}
+
 async function refreshBookings() {
   console.log('🔄 refreshBookings called');
   const data = await fetchBookings();
