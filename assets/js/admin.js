@@ -1748,6 +1748,56 @@ window.testRenderBookings = function() {
 ---------------------------- */
 let doughnutChartInstance = null;
 let barChartInstance = null;
+// Global KPI/Overview chart instance per requested pattern
+window.kpiChart = window.kpiChart || null;
+
+function renderDashboardChart(dataset) {
+	// Prefer a container with id 'chartContainer' if present; fallback to 'revenueChartContainer'
+	const container = document.getElementById('chartContainer') || document.getElementById('revenueChartContainer');
+	if (!container) return;
+
+	// 1) Destroy existing chart
+	if (window.kpiChart) {
+		try { window.kpiChart.destroy(); } catch {}
+		window.kpiChart = null;
+	}
+
+	// 2) Reset container to single canvas
+	container.innerHTML = '<canvas id="kpiChart"></canvas>';
+	const canvas = document.getElementById('kpiChart');
+	const ctx = canvas.getContext('2d');
+
+	// Build Chart.js config from dataset
+	const defaultColors = ['#4C52F8', '#7B61FF', '#A68CFF', '#C7B8FF'];
+	const config = {
+		type: dataset.type || 'bar',
+		data: {
+			labels: dataset.labels || [],
+			datasets: (dataset.series || []).map((s, i) => ({
+				label: s.name,
+				data: s.data,
+				borderColor: s.color || defaultColors[i % defaultColors.length],
+				backgroundColor: (s.backgroundColor || (s.color || defaultColors[i % defaultColors.length]) + '33'),
+				tension: 0.35,
+				fill: dataset.type === 'line'
+			}))
+		},
+		options: {
+			maintainAspectRatio: false,
+			plugins: {
+				legend: { display: true, labels: { color: document.documentElement.classList.contains('dark') ? '#E5E7EB' : '#0F172A' } },
+				tooltip: { intersect: false, mode: 'index' }
+			},
+			scales: {
+				x: { ticks: { color: document.documentElement.classList.contains('dark') ? '#E5E7EB' : '#0F172A' } },
+				y: { ticks: { color: document.documentElement.classList.contains('dark') ? '#E5E7EB' : '#0F172A' }, beginAtZero: true }
+			}
+		}
+	};
+
+	// Create new chart instance and assign to global
+	window.kpiChart = new Chart(ctx, config);
+}
 
 function calculateAnalytics(clients = []) {
   const analytics = {
@@ -1952,17 +2002,8 @@ function renderAnalytics(clients = []) {
 
     // New: Charts
     try {
-      const revenueContainer = document.getElementById('revenueChartContainer');
-      if (revenueContainer) {
-        const revenueDataset = buildRevenueDataset('month');
-        renderChartSection(revenueContainer, {
-          title: 'Monthly Revenue',
-          description: 'Mock data – updates by range',
-          dataset: revenueDataset,
-          initialRange: 'month',
-          onRangeChange: (r) => buildRevenueDataset(r),
-        });
-      }
+      // Overview/KPI chart uses the requested destroy/reset pattern
+      renderDashboardChart(buildRevenueDataset('month'));
       const leadsData = await fetchLeadsFn().catch(() => []);
       allBookingsGlobal = leadsData;
       const leadSourceContainer = document.getElementById('leadSourceChartContainer');
