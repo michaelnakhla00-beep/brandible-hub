@@ -27,7 +27,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { leadId, status } = JSON.parse(event.body);
+    const { leadId, status, source, score } = JSON.parse(event.body);
 
     // Initialize Supabase client
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -43,11 +43,20 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Update lead status
-    console.log("Updating lead", leadId, "to status", status);
+    // Build update payload from provided fields
+    const updatePayload = {};
+    if (typeof status === 'string' && status.length) updatePayload.status = status;
+    if (typeof source === 'string' && source.length) updatePayload.source = source;
+    if (typeof score === 'string' && score.length) updatePayload.score = score;
+
+    if (!Object.keys(updatePayload).length) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'No fields to update' }) };
+    }
+
+    console.log("Updating lead", leadId, "with", updatePayload);
     const { data, error } = await supabase
       .from('leads')
-      .update({ status })
+      .update(updatePayload)
       .eq('id', leadId)
       .select();
 
