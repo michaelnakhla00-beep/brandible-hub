@@ -148,33 +148,40 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 			</div>
 		`;
 
+		async function loadProjectsIfNeeded() {
+			if (details.getAttribute('data-loaded') === '1') return;
+			const listWrap = details.querySelector('[data-projects]');
+			if (!listWrap) return;
+			listWrap.innerHTML = '<div class="text-xs text-slate-500">Loading projects…</div>';
+			const token = await getIdentityToken();
+			try {
+				const res = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(email || '')}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+				if (res.ok) {
+					const data = await res.json();
+					const projs = (data?.projects || []).map((p) => ({ name: p.title || p.name, status: p.status || 'In Progress' }));
+					listWrap.innerHTML = projs.length ? projs.map((p) => `
+						<div class="flex items-center justify-between text-sm">
+							<div class="text-slate-700 dark:text-slate-200">${p.name || 'Untitled'}</div>
+							<div class="text-xs text-slate-500 dark:text-slate-400">${p.status}</div>
+						</div>
+					`).join('') : '<div class="text-xs text-slate-500">No projects</div>';
+					details.setAttribute('data-loaded', '1');
+				} else {
+					listWrap.innerHTML = '<div class="text-xs text-rose-600">Failed to load projects</div>';
+				}
+			} catch {
+				listWrap.innerHTML = '<div class="text-xs text-rose-600">Failed to load projects</div>';
+			}
+		}
+
+		// Default expanded → load now
+		loadProjectsIfNeeded();
+
 		expandBtn.addEventListener('click', async () => {
 			details.classList.toggle('hidden');
 			expandBtn.textContent = details.classList.contains('hidden') ? 'Details' : 'Hide';
-			if (!details.classList.contains('hidden') && details.getAttribute('data-loaded') !== '1') {
-				const listWrap = details.querySelector('[data-projects]');
-				if (listWrap) {
-					listWrap.innerHTML = '<div class="text-xs text-slate-500">Loading projects…</div>';
-					const token = await getIdentityToken();
-					try {
-						const res = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(email || '')}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-						if (res.ok) {
-							const data = await res.json();
-							const projs = (data?.projects || []).map((p) => ({ name: p.title || p.name, status: p.status || 'In Progress' }));
-							listWrap.innerHTML = projs.length ? projs.map((p) => `
-								<div class="flex items-center justify-between text-sm">
-									<div class="text-slate-700 dark:text-slate-200">${p.name || 'Untitled'}</div>
-									<div class="text-xs text-slate-500 dark:text-slate-400">${p.status}</div>
-								</div>
-							`).join('') : '<div class="text-xs text-slate-500">No projects</div>';
-							details.setAttribute('data-loaded', '1');
-						} else {
-							listWrap.innerHTML = '<div class="text-xs text-rose-600">Failed to load projects</div>';
-						}
-					} catch {
-						listWrap.innerHTML = '<div class="text-xs text-rose-600">Failed to load projects</div>';
-					}
-				}
+			if (!details.classList.contains('hidden')) {
+				loadProjectsIfNeeded();
 			}
 		});
 
