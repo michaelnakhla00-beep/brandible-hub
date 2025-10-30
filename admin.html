@@ -589,6 +589,38 @@
     </div>
   </div>
 
+  <!-- Admin Project Workspace Modal -->
+  <div id="projectModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative transition-all duration-300">
+      <button id="closeProjectModal" class="absolute top-4 right-5 text-slate-500 hover:text-slate-900">✕</button>
+
+      <h2 id="projectTitle" class="text-xl font-semibold mb-3"></h2>
+      <span id="projectStatusBadge" class="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700"></span>
+
+      <div id="projectEditFields" class="mt-6 space-y-4">
+        <input id="editProjectTitle" type="text" placeholder="Project title" class="input-field w-full" />
+        <textarea id="editProjectDescription" placeholder="Project description..." class="input-field w-full h-24"></textarea>
+        <div class="grid grid-cols-2 gap-3">
+          <select id="editProjectStatus" class="input-field">
+            <option>In Progress</option>
+            <option>Review</option>
+            <option>Done</option>
+          </select>
+          <input id="editProjectDeadline" type="date" class="input-field" />
+        </div>
+      </div>
+
+      <div class="mt-6 border-t pt-4">
+        <h3 class="font-semibold mb-2 text-slate-700">Activity Log</h3>
+        <div id="projectActivity" class="space-y-2 max-h-48 overflow-y-auto text-sm text-slate-600"></div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <button id="cancelProjectChanges" class="px-4 py-2 text-slate-600 hover:text-slate-900">Cancel</button>
+        <button id="saveProjectChanges" class="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600/90">Save Changes</button>
+      </div>
+    </div>
+  </div>
   <script>
     // Modal functions
     function closeModal() {

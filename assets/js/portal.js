@@ -81,7 +81,7 @@ function renderProjects({ projects = [] }) {
   const colReview   = document.getElementById("col-review");
   const colDone     = document.getElementById("col-done");
 
-  const cardHTML = (p) => {
+  const cardHTML = (p, index) => {
     // Determine status badge class
     let statusClass = "status-inprogress";
     let statusText = p.status || "In Progress";
@@ -98,7 +98,7 @@ function renderProjects({ projects = [] }) {
     }
     
     return `
-      <div class="project-card cursor-pointer" data-project='${JSON.stringify({ name: p.name, summary: p.summary || '', status: statusText, links: p.links || [] }).replace(/'/g, "&#39;")}'>
+      <div class="project-card cursor-pointer" data-index='${index}' data-project='${JSON.stringify({ name: p.name, summary: p.summary || '', status: statusText, links: p.links || [] }).replace(/'/g, "&#39;")}'>
         <div class="project-title">${p.name}</div>
         ${p.summary ? `<div class="project-desc">${p.summary}</div>` : ""}
       <div class="flex items-center justify-between">
@@ -123,32 +123,24 @@ function renderProjects({ projects = [] }) {
     colReview.innerHTML = "";
     colDone.innerHTML = "";
 
-    projects.forEach((p) => {
+    projects.forEach((p, idx) => {
       const status = (p.status || "In Progress").toLowerCase();
       if (status.includes("done") || status.includes("complete")) {
-        colDone.insertAdjacentHTML("beforeend", cardHTML(p));
+        colDone.insertAdjacentHTML("beforeend", cardHTML(p, idx));
       } else if (status.includes("review")) {
-        colReview.insertAdjacentHTML("beforeend", cardHTML(p));
+        colReview.insertAdjacentHTML("beforeend", cardHTML(p, idx));
       } else {
-        colProgress.insertAdjacentHTML("beforeend", cardHTML(p));
+        colProgress.insertAdjacentHTML("beforeend", cardHTML(p, idx));
       }
     });
 
-    // Wire clicks to open modal
-    document.querySelectorAll('.project-card[data-project]').forEach((el) => {
+    // Wire clicks to open client project modal
+    document.querySelectorAll('.project-card[data-index]').forEach((el) => {
       el.addEventListener('click', () => {
-        try {
-          const data = JSON.parse(el.getAttribute('data-project').replace(/&#39;/g, "'"));
-          const modal = document.getElementById('projectModal');
-          if (!modal) return;
-          document.getElementById('pmTitle').textContent = data.name || 'Project';
-          document.getElementById('pmStatus').innerHTML = `<span class="status-badge status-inprogress">${data.status || ''}</span>`;
-          document.getElementById('pmSummary').textContent = data.summary || '';
-          const links = Array.isArray(data.links) ? data.links : [];
-          document.getElementById('pmLinks').innerHTML = links.map(l => `<a class="chip" href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`).join('');
-          modal.classList.remove('hidden');
-          document.getElementById('pmClose').onclick = () => modal.classList.add('hidden');
-        } catch {}
+        const i = Number(el.getAttribute('data-index')) || 0;
+        if (window.openClientProjectModal && window.portalClientData) {
+          window.openClientProjectModal(window.portalClientData, i);
+        }
       });
     });
   }
@@ -808,6 +800,7 @@ window.hideToast = hideToast;
     // Initialize Supabase Storage
     await initSupabase();
 
+    window.portalClientData = data;
     renderProfile({
       id: data.id,
       name: data.name,
@@ -982,6 +975,58 @@ window.hideToast = hideToast;
     if (overlay) overlay.style.display = "none";
   }
 })();
+
+// Client Project Modal logic
+let activeProjectIndex = null;
+let activeClient = null;
+
+window.openClientProjectModal = function(client, index) {
+  activeProjectIndex = index;
+  activeClient = client;
+  const p = (client.projects || [])[index] || {};
+  const m = document.getElementById('clientProjectModal');
+  if (!m) return;
+  document.getElementById('clientProjectTitle').textContent = p.name || 'Untitled Project';
+  document.getElementById('clientProjectDescription').textContent = p.summary || 'No description available.';
+  document.getElementById('clientProjectStatus').textContent = p.status || '—';
+  renderClientProjectActivity(p.activity || []);
+  m.classList.remove('hidden');
+}
+
+const cpmClose = document.getElementById('closeClientProjectModal');
+if (cpmClose) cpmClose.onclick = () => document.getElementById('clientProjectModal').classList.add('hidden');
+
+function renderClientProjectActivity(activity) {
+  const container = document.getElementById('clientProjectActivity');
+  if (!container) return;
+  container.innerHTML = (activity && activity.length)
+    ? activity.map(a => `<div>🕓 ${a.when} — ${a.text} <span class='text-slate-400'>(${a.by || 'Client'})</span></div>`).join('')
+    : `<div class="text-slate-400 italic">No activity yet.</div>`;
+}
+
+const submitProjectComment = document.getElementById('submitProjectComment');
+if (submitProjectComment) submitProjectComment.onclick = async () => {
+  const comment = document.getElementById('clientProjectComment')?.value?.trim();
+  if (!comment || !activeClient || activeProjectIndex == null) return;
+  const p = activeClient.projects[activeProjectIndex] || {};
+  const now = new Date();
+  const formatted = `${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · ${now.toLocaleDateString()}`;
+  p.activity = Array.isArray(p.activity) ? p.activity : [];
+  p.activity.unshift({ text: comment, when: formatted, by: activeClient.name || 'Client' });
+  try {
+    const res = await fetch('/.netlify/functions/update-client-profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: activeClient.id, fields: { projects: activeClient.projects } })
+    });
+    if (!res.ok) throw new Error('Comment failed');
+    document.getElementById('clientProjectComment').value = '';
+    renderClientProjectActivity(p.activity);
+    showToast('✅ Comment added!');
+  } catch (e) {
+    console.error(e);
+    showToast('❌ Failed to add comment', 'error');
+  }
+}
 
 // Smooth scroll + active side nav
 (function wireSideNav(){

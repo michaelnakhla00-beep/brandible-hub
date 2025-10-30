@@ -316,15 +316,20 @@
     window.addEventListener('load', hydrate);
   </script>
   <!-- Project Details Modal -->
-  <div id="projectModal" class="hidden fixed inset-0 z-[2100] bg-black/40 flex items-center justify-center">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-slate-200/60 dark:border-slate-800/60">
-      <div class="flex items-center justify-between mb-3">
-        <h3 id="pmTitle" class="text-lg font-semibold"></h3>
-        <button id="pmClose" class="btn-ghost text-xl">✕</button>
+  <div id="clientProjectModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative transition-all duration-300">
+      <button id="closeClientProjectModal" class="absolute top-4 right-5 text-slate-500 hover:text-slate-900">✕</button>
+      <h2 id="clientProjectTitle" class="text-xl font-semibold mb-3"></h2>
+      <span id="clientProjectStatus" class="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700"></span>
+      <p id="clientProjectDescription" class="mt-4 text-slate-700"></p>
+      <div class="mt-6 border-t pt-4">
+        <h3 class="font-semibold mb-2 text-slate-700">Activity Log</h3>
+        <div id="clientProjectActivity" class="space-y-2 max-h-48 overflow-y-auto text-sm text-slate-600"></div>
       </div>
-      <div id="pmStatus" class="mb-2"></div>
-      <p id="pmSummary" class="text-sm text-slate-600 dark:text-slate-300 mb-3"></p>
-      <div id="pmLinks" class="flex flex-wrap gap-2"></div>
+      <div class="mt-6 border-t pt-4">
+        <textarea id="clientProjectComment" placeholder="Add a comment..." class="input-field w-full h-20"></textarea>
+        <button id="submitProjectComment" class="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600/90">Post Comment</button>
+      </div>
     </div>
   </div>
   <!-- Change Photo Modal -->

@@ -313,6 +313,13 @@ function renderModalProjects(client) {
       </div>
     `;
   }).join("");
+
+  // Wire project title clicks to open Project Workspace modal
+  Array.from(container.querySelectorAll('.card .font-medium')).forEach((el, idx) => {
+    el.style.cursor = 'pointer';
+    el.title = 'Open project';
+    el.addEventListener('click', () => window.openProjectModal && window.openProjectModal(client, idx));
+  });
 }
 
 function renderEditableProjects(client) {
@@ -2534,6 +2541,79 @@ window.refreshAdmin = async function() {
     console.error('Admin refresh failed:', e);
   } finally {
     if (overlay) overlay.style.display = 'none';
+  }
+}
+
+// === PROJECT MODAL HANDLING ===
+let activeProjectIndex = null;
+let activeClient = null;
+
+function renderProjectActivity(activity) {
+  const container = document.getElementById('projectActivity');
+  if (!container) return;
+  container.innerHTML = (activity && activity.length)
+    ? activity.map(a => `<div>🕓 ${a.when} — ${a.text} <span class='text-slate-400'>(${a.by || 'Admin'})</span></div>`).join('')
+    : `<div class="text-slate-400 italic">No activity yet.</div>`;
+}
+
+function updateStatusBadge(status) {
+  const badge = document.getElementById('projectStatusBadge');
+  if (!badge) return;
+  const map = {
+    'In Progress': 'bg-blue-100 text-blue-700',
+    'Review': 'bg-yellow-100 text-yellow-700',
+    'Done': 'bg-green-100 text-green-700'
+  };
+  badge.className = `px-3 py-1 text-xs rounded-full ${map[status] || 'bg-slate-100 text-slate-700'}`;
+  badge.textContent = status || '—';
+}
+
+window.openProjectModal = function(client, index) {
+  activeProjectIndex = index;
+  activeClient = client;
+  const p = (client.projects || [])[index] || {};
+  const m = document.getElementById('projectModal');
+  if (!m) return;
+  document.getElementById('projectTitle').textContent = p.name || 'Untitled Project';
+  const t = document.getElementById('editProjectTitle'); if (t) t.value = p.name || '';
+  const d = document.getElementById('editProjectDescription'); if (d) d.value = p.summary || '';
+  const s = document.getElementById('editProjectStatus'); if (s) s.value = p.status || 'In Progress';
+  const dl = document.getElementById('editProjectDeadline'); if (dl) dl.value = p.deadline || '';
+  renderProjectActivity(p.activity || []);
+  updateStatusBadge(p.status || 'In Progress');
+  m.classList.remove('hidden');
+}
+
+const pmClose = document.getElementById('closeProjectModal');
+if (pmClose) pmClose.onclick = () => document.getElementById('projectModal').classList.add('hidden');
+const pmCancel = document.getElementById('cancelProjectChanges');
+if (pmCancel) pmCancel.onclick = () => document.getElementById('projectModal').classList.add('hidden');
+
+const pmSave = document.getElementById('saveProjectChanges');
+if (pmSave) pmSave.onclick = async () => {
+  if (!activeClient || activeProjectIndex == null) return;
+  const project = activeClient.projects[activeProjectIndex] || {};
+  const now = new Date();
+  const formatted = `${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · ${now.toLocaleDateString()}`;
+  project.name = document.getElementById('editProjectTitle')?.value?.trim() || project.name || '';
+  project.summary = document.getElementById('editProjectDescription')?.value?.trim() || project.summary || '';
+  project.status = document.getElementById('editProjectStatus')?.value || project.status || 'In Progress';
+  project.deadline = document.getElementById('editProjectDeadline')?.value || project.deadline || '';
+  project.activity = Array.isArray(project.activity) ? project.activity : [];
+  project.activity.unshift({ text: 'Project details updated', when: formatted, by: 'Admin' });
+
+  try {
+    const res = await fetch('/.netlify/functions/update-client-profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: activeClient.id, fields: { projects: activeClient.projects } })
+    });
+    if (!res.ok) throw new Error('Save failed');
+    if (window.showToast) window.showToast('✅ Project updated successfully!');
+  } catch (e) {
+    console.error('Project save failed', e);
+    if (window.showToast) window.showToast('Save failed', 'error');
+  } finally {
+    const m = document.getElementById('projectModal'); if (m) m.classList.add('hidden');
   }
 }
 
