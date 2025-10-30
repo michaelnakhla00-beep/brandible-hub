@@ -17,10 +17,20 @@ function ensureChartJs() {
 export async function renderChartSection(container, { title, description = '', dataset, initialRange = 'month', onRangeChange }) {
 	if (!container) return;
 	await ensureChartJs();
+	// Destroy any prior chart instance attached to this container
+	if (container.__chartInstance) {
+		try { container.__chartInstance.destroy(); } catch {}
+		container.__chartInstance = null;
+	}
+	// Reset container content
 	container.innerHTML = '';
 
 	const wrap = document.createElement('div');
 	wrap.className = 'rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm';
+	// Constrain layout to prevent vertical expansion
+	wrap.style.position = 'relative';
+	wrap.style.height = '320px';
+	wrap.style.minHeight = '320px';
 
 	const header = document.createElement('div');
 	header.className = 'flex items-center justify-between gap-2';
@@ -64,7 +74,9 @@ export async function renderChartSection(container, { title, description = '', d
 	header.appendChild(filters);
 
 	const canvas = document.createElement('canvas');
-	canvas.height = 120;
+	canvas.style.width = '100%';
+	canvas.style.height = '100%';
+	canvas.style.display = 'block';
 
 	wrap.appendChild(header);
 	wrap.appendChild(document.createElement('div')).className = 'h-3';
@@ -84,6 +96,8 @@ export async function renderChartSection(container, { title, description = '', d
 			return;
 		}
 		chartInstance = new window.Chart(ctx, config);
+		// Attach on container for future destroys
+		container.__chartInstance = chartInstance;
 	}
 
 	function getConfig(d) {
