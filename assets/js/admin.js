@@ -1763,7 +1763,12 @@ function renderDashboardChart(dataset) {
 	}
 
 	// 2) Reset container to single canvas
-	container.innerHTML = '<canvas id="kpiChart"></canvas>';
+	// Ensure predictable layout height
+	container.style.position = 'relative';
+	container.style.height = '320px';
+	container.style.minHeight = '320px';
+	container.style.width = '100%';
+	container.innerHTML = '<canvas id="kpiChart" style="width:100%;height:100%;display:block;"></canvas>';
 	const canvas = document.getElementById('kpiChart');
 	const ctx = canvas.getContext('2d');
 
