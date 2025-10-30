@@ -104,12 +104,12 @@
     </header>
 
     <main class="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-4 py-4 sm:py-6 space-y-6 sm:space-y-8">
-      <!-- Section Tabs -->
-      <nav class="flex items-center gap-2 overflow-x-auto pb-2">
-        <button id="tabOverview" class="sidebar-link sidebar-link-active" onclick="showAdminSection('overview')">Overview</button>
-        <button id="tabAnalytics" class="sidebar-link" onclick="showAdminSection('analytics')">Analytics</button>
-        <button id="tabClients" class="sidebar-link" onclick="showAdminSection('clients')">Clients</button>
-        <button id="tabBookings" class="sidebar-link" onclick="showAdminSection('bookings')">Leads</button>
+      <!-- Sticky navbar with anchor links for single-page scroll -->
+      <nav class="sticky top-[60px] z-30 bg-white/70 dark:bg-slate-950/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 rounded-xl px-2 py-2 flex items-center gap-2 overflow-x-auto border border-slate-200/50 dark:border-slate-800/50">
+        <a href="#overviewSection" class="sidebar-link sidebar-link-active">Overview</a>
+        <a href="#analyticsSection" class="sidebar-link">Analytics</a>
+        <a href="#clientsSection" class="sidebar-link">Clients</a>
+        <a href="#bookingsSection" class="sidebar-link">Leads</a>
       </nav>
       <!-- Overview Section -->
       <section id="overviewSection">
@@ -207,7 +207,7 @@
       </section>
 
       <!-- Leads -->
-      <section id="bookingsSection" class="hidden">
+      <section id="bookingsSection">
         <div class="mb-4 sm:mb-6">
           <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Leads</h2>
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
