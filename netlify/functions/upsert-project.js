@@ -38,7 +38,8 @@ exports.handler = async (event, context) => {
       client_email: clientEmail,
       title: project.name,
       description: project.description || project.summary || '',
-      status: project.status || 'In Progress'
+      status: project.status || 'In Progress',
+      activity: Array.isArray(project.activity) ? project.activity : null
     };
 
     // Check if project ID was provided (for updates)

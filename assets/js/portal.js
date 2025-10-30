@@ -1026,6 +1026,18 @@ if (submitProjectComment) submitProjectComment.onclick = async () => {
     document.getElementById('clientProjectComment').value = '';
     renderClientProjectActivity(p.activity);
     showToast('✅ Comment added!');
+
+    // Also persist to projects table for admin reload consistency
+    try {
+      await fetch('/.netlify/functions/upsert-project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          clientEmail: activeClient.email,
+          project: { id: p.id, name: p.name, description: p.summary, status: p.status, activity: p.activity }
+        })
+      });
+    } catch (e) { console.warn('Optional projects.activity upsert failed', e); }
   } catch (e) {
     console.error(e);
     showToast('❌ Failed to add comment', 'error');
