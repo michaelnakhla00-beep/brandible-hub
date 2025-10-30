@@ -131,12 +131,12 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 		details.innerHTML = `
 			<div class="rounded-lg border border-slate-100 dark:border-slate-800 p-3">
 				<div class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">Projects</div>
-				<div class="flex flex-col gap-2">${(projectsArr || []).map((p) => `
+				<div class="flex flex-col gap-2" data-projects>${(projectsArr || []).length ? (projectsArr || []).map((p) => `
 					<div class="flex items-center justify-between text-sm">
 						<div class="text-slate-700 dark:text-slate-200">${p.name || 'Untitled'}</div>
 						<div class="text-xs text-slate-500 dark:text-slate-400">${p.status || 'N/A'}</div>
 					</div>
-				`).join('') || '<div class="text-xs text-slate-500">No projects</div>'}
+				`).join('') : '<div class="text-xs text-slate-500">No projects</div>'}
 				</div>
 				<div class="h-3"></div>
 				<div class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">Quick Actions</div>
@@ -148,8 +148,33 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 			</div>
 		`;
 
-		expandBtn.addEventListener('click', () => {
+		expandBtn.addEventListener('click', async () => {
 			details.classList.toggle('hidden');
+			if (!details.classList.contains('hidden') && details.getAttribute('data-loaded') !== '1') {
+				const listWrap = details.querySelector('[data-projects]');
+				if (listWrap) {
+					listWrap.innerHTML = '<div class="text-xs text-slate-500">Loading projects…</div>';
+					const token = await getIdentityToken();
+					try {
+						const res = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(email || '')}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+						if (res.ok) {
+							const data = await res.json();
+							const projs = (data?.projects || []).map((p) => ({ name: p.title || p.name, status: p.status || 'In Progress' }));
+							listWrap.innerHTML = projs.length ? projs.map((p) => `
+								<div class="flex items-center justify-between text-sm">
+									<div class="text-slate-700 dark:text-slate-200">${p.name || 'Untitled'}</div>
+									<div class="text-xs text-slate-500 dark:text-slate-400">${p.status}</div>
+								</div>
+							`).join('') : '<div class="text-xs text-slate-500">No projects</div>';
+							details.setAttribute('data-loaded', '1');
+						} else {
+							listWrap.innerHTML = '<div class="text-xs text-rose-600">Failed to load projects</div>';
+						}
+					} catch {
+						listWrap.innerHTML = '<div class="text-xs text-rose-600">Failed to load projects</div>';
+					}
+				}
+			}
 		});
 
 		details.addEventListener('click', (e) => {
@@ -165,6 +190,17 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 		card.appendChild(stats);
 		card.appendChild(details);
 		return card;
+	}
+}
+
+async function getIdentityToken() {
+	try {
+		const id = window.netlifyIdentity;
+		const user = id && id.currentUser && id.currentUser();
+		if (!user) return null;
+		return await user.jwt();
+	} catch {
+		return null;
 	}
 }
 

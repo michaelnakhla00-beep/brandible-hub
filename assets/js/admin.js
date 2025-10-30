@@ -2062,7 +2062,8 @@ function renderAnalytics(clients = []) {
         type: a.type || 'project',
         title: a.text || 'Update',
         subtitle: c.name || c.email || '',
-        timestamp: a.when ? new Date(a.when) : new Date(),
+        // Preserve original timestamp string if date parsing may fail
+        timestamp: a.timestamp || a.when || new Date().toISOString(),
         client: c,
       })));
       const container = document.getElementById('activityFeedContainer');

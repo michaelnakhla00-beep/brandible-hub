@@ -22,8 +22,22 @@ export async function fetchClients() {
 }
 
 export async function fetchLeads() {
-	const data = await getJson('/.netlify/functions/get-leads');
-	return data?.leads || data || [];
+	const raw = await getJson('/.netlify/functions/get-leads');
+	const arr = Array.isArray(raw) ? raw : raw?.leads || raw?.data || raw?.rows || [];
+	// Normalize common field names
+	return arr.map((l, i) => ({
+		id: l.id ?? l.lead_id ?? i,
+		name: l.name ?? l.full_name ?? '',
+		email: l.email ?? l.email_address ?? '',
+		phone: l.phone ?? l.phone_number ?? '',
+		service: l.service ?? l.topic ?? l.source_service ?? '',
+		message: l.message ?? l.notes ?? '',
+		source: (l.source || l.origin || 'other').toLowerCase(),
+		status: l.status || 'New',
+		created_at: l.created_at || l.createdAt || l.timestamp || l.submitted_at || null,
+		score: l.score || l.lead_score || 'warm',
+		assigned_to: l.assigned_to || l.assignee || 'unassigned',
+	}))
 }
 
 export async function fetchProjects() {
