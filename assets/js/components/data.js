@@ -10,9 +10,20 @@ export function parseJSON(data) {
 }
 
 async function getJson(url, opts) {
-	const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+    const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
 	if (!res.ok) throw new Error(`Request failed: ${res.status}`);
 	return await res.json();
+}
+
+async function getIdentityToken() {
+    try {
+        const id = window.netlifyIdentity;
+        const user = id && id.currentUser && id.currentUser();
+        if (!user) return null;
+        return await user.jwt();
+    } catch {
+        return null;
+    }
 }
 
 export async function fetchClients() {
@@ -22,7 +33,8 @@ export async function fetchClients() {
 }
 
 export async function fetchLeads() {
-	const raw = await getJson('/.netlify/functions/get-leads');
+    const token = await getIdentityToken();
+    const raw = await getJson('/.netlify/functions/get-leads', { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
 	const arr = Array.isArray(raw) ? raw : raw?.leads || raw?.data || raw?.rows || [];
 	// Normalize common field names
 	return arr.map((l, i) => ({
@@ -41,18 +53,22 @@ export async function fetchLeads() {
 }
 
 export async function fetchProjects() {
-	const data = await getJson('/.netlify/functions/get-projects');
+    const token = await getIdentityToken();
+    const data = await getJson('/.netlify/functions/get-projects', { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
 	return data?.projects || data || [];
 }
 
 export function computeKPIs({ clients = [], projects = [], invoices = [] }) {
-	const totalClients = clients.length;
-	const activeProjects = projects.filter((p) => (p.status || '').toLowerCase() === 'active').length;
-	const openInvoices = invoices.filter((i) => (i.status || '').toLowerCase() !== 'paid').length;
-	const conversions = Math.round((clients.filter((c) => (c.status || '').toLowerCase() === 'active').length / Math.max(clients.length, 1)) * 100);
-	const monthlyRevenue = invoices
-		.filter((i) => (i.status || '').toLowerCase() === 'paid')
-		.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+    const totalClients = clients.length;
+    const activeProjects = clients.reduce((sum, c) => sum + (Number(c.kpis?.activeProjects) || (Array.isArray(c.projects) ? c.projects.length : (Array.isArray(c.projects?.data) ? c.projects.data.length : 0))), 0) ||
+        projects.filter((p) => (p.status || '').toLowerCase() === 'active').length;
+    const openInvoices = clients.reduce((sum, c) => sum + (Number(c.kpis?.openInvoices) || (Array.isArray(c.invoices) ? c.invoices.filter((i) => (i.status || '').toLowerCase() !== 'paid').length : 0)), 0) ||
+        invoices.filter((i) => (i.status || '').toLowerCase() !== 'paid').length;
+    const activeClients = clients.filter((c) => (c.status || '').toLowerCase() === 'active').length;
+    const conversions = Math.round((activeClients / Math.max(clients.length, 1)) * 100);
+    const monthlyRevenue = (Array.isArray(invoices) ? invoices : [])
+        .filter((i) => (i.status || '').toLowerCase() === 'paid')
+        .reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
 
 	return [
 		{ label: 'Total Clients', value: String(totalClients), trendPct: 4.2, trendLabel: 'vs last month' },
