@@ -2479,6 +2479,34 @@ window.exportLeadsToCSV = function() {
 window.updateLeadStatus = updateLeadStatus;
 window.updateLeadSource = updateLeadSource;
 
+async function updateLeadScore(leadId, newScore) {
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    const res = await fetch('/.netlify/functions/update-lead-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ leadId, score: newScore })
+    });
+    if (res.ok) {
+      const lead = allBookingsGlobal.find(l => l.id === leadId);
+      if (lead) lead.score = newScore;
+      showToast('Score updated', 'success');
+    } else {
+      showToast('Failed to update score', 'error');
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('Failed to update score', 'error');
+  }
+}
+
+window.updateLeadScore = updateLeadScore;
+
 async function refreshBookings() {
   console.log('🔄 refreshBookings called');
   const data = await fetchBookings();

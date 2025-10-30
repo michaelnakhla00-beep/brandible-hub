@@ -27,9 +27,13 @@ export function renderActivityFeed(container, items = [], { onClick } = {}) {
 		const row = document.createElement('button');
 		row.type = 'button';
 		row.className = 'text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/70 focus:outline-none focus:bg-slate-50 dark:focus:bg-slate-800/70 transition-colors';
+		const avatarUrl = it.client?.profile_url;
+		const avatar = avatarUrl
+			? `<img src="${avatarUrl}" class="h-7 w-7 rounded-full object-cover" alt="avatar" />`
+			: `<span class="h-7 w-7 inline-flex items-center justify-center rounded-full text-xs ${iconBg(it.type)}">${iconGlyph(it.type)}</span>`;
 		row.innerHTML = `
 			<div class="flex items-center gap-3">
-				<span class="h-7 w-7 inline-flex items-center justify-center rounded-full text-xs ${iconBg(it.type)}">${iconGlyph(it.type)}</span>
+				${avatar}
 				<div class="flex-1">
 					<div class="text-sm text-slate-800 dark:text-slate-100">${it.title || 'Activity'}</div>
 					<div class="text-xs text-slate-500 dark:text-slate-400">${it.subtitle || ''}</div>

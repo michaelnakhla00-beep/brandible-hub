@@ -77,13 +77,18 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 		who.className = 'text-sm font-semibold text-slate-900 dark:text-white';
 		who.textContent = lead.name || lead.email || 'Unknown Lead';
 
+		const cameAt = document.createElement('div');
+		cameAt.className = 'text-[11px] text-slate-400';
+		cameAt.textContent = lead.created_at ? new Date(lead.created_at).toLocaleString() : '';
+
 		const score = document.createElement('span');
 		const s = (lead.score || 'warm').toLowerCase();
-		score.className = `px-2 py-1 text-xs rounded-full ${s === 'hot' ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' : s === 'warm' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200'}`;
+		score.className = `px-2 py-1 text-xs rounded-full ${s === 'hot' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : s === 'warm' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'}`;
 		score.textContent = s[0].toUpperCase() + s.slice(1);
 
 		header.appendChild(who);
 		header.appendChild(score);
+		header.appendChild(cameAt);
 
 		const meta = document.createElement('div');
 		meta.className = 'mt-2 grid grid-cols-1 md:grid-cols-4 gap-2 text-xs text-slate-600 dark:text-slate-300';
@@ -137,12 +142,36 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 		statusWrap.appendChild(statusLabel);
 		statusWrap.appendChild(statusSelect);
 
+		// Editable Score
+		const scoreWrap = document.createElement('div');
+		scoreWrap.className = 'flex items-center gap-2';
+		const scoreLabel = document.createElement('span');
+		scoreLabel.className = 'text-slate-500';
+		scoreLabel.textContent = 'Score:';
+		const scoreSelect = document.createElement('select');
+		scoreSelect.className = 'rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs';
+		['hot','warm','cold'].forEach((sc) => {
+			const opt = document.createElement('option');
+			opt.value = sc;
+			opt.textContent = sc.charAt(0).toUpperCase() + sc.slice(1);
+			if ((lead.score || 'warm').toLowerCase() === sc) opt.selected = true;
+			scoreSelect.appendChild(opt);
+		});
+		scoreSelect.addEventListener('change', () => {
+			lead.score = scoreSelect.value;
+			if (typeof onChange === 'function') onChange({ ...lead });
+			if (typeof window.updateLeadScore === 'function') window.updateLeadScore(lead.id, scoreSelect.value);
+		});
+		scoreWrap.appendChild(scoreLabel);
+		scoreWrap.appendChild(scoreSelect);
+
 		// Assigned
 		const assignedWrap = document.createElement('div');
 		assignedWrap.textContent = `Assigned: ${lead.assigned_to || 'Unassigned'}`;
 
 		meta.appendChild(sourceWrap);
 		meta.appendChild(statusWrap);
+		meta.appendChild(scoreWrap);
 		meta.appendChild(assignedWrap);
 
 		const notes = document.createElement('textarea');
