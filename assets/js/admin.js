@@ -917,7 +917,7 @@ async function fetchClientActivity(clientEmail) {
   try {
     const { data, error } = await adminSupabaseClient
       .from('client_activity')
-      .select('*')
+      .select('id, client_email, activity, type, timestamp, created_at')
       .eq('client_email', clientEmail)
       .order('timestamp', { ascending: false })
       .limit(10);
@@ -936,7 +936,11 @@ async function fetchClientActivity(clientEmail) {
     console.log('✅ Fetched client activity:', data?.length || 0, 'records');
     console.log('Activity data:', data);
     
-    return data || [];
+    // Normalize timestamp field (fallback to created_at)
+    return (data || []).map((row) => ({
+      ...row,
+      timestamp: row.timestamp || row.created_at,
+    }));
   } catch (err) {
     console.error('❌ Failed to fetch client activity:', err);
     return [];

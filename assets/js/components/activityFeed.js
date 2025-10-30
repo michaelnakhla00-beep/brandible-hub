@@ -1,8 +1,12 @@
 // Activity Feed with relative timestamps and clickable items
 
 function timeAgo(date) {
-	const d = typeof date === 'string' ? new Date(date) : date;
-	const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+	const parsed = typeof date === 'string' ? new Date(date) : date instanceof Date ? date : null;
+	if (!parsed || isNaN(parsed.getTime())) {
+		// Fallback: if original is a readable string like "2h ago", show it
+		return typeof date === 'string' ? date : '';
+	}
+	const diff = Math.floor((Date.now() - parsed.getTime()) / 1000);
 	if (diff < 60) return `${diff}s ago`;
 	const m = Math.floor(diff / 60);
 	if (m < 60) return `${m}m ago`;

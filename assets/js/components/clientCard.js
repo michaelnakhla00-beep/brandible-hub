@@ -56,8 +56,12 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 
 	function ClientCard(client) {
 		const { id, name, email, status = 'Active', avatar_url } = client;
-		const projects = parseJSON(client.projects);
-		const invoices = parseJSON(client.invoices);
+		const projectsArr = Array.isArray(client.projects) ? client.projects : parseJSON(client.projects);
+		const invoicesArr = Array.isArray(client.invoices) ? client.invoices : parseJSON(client.invoices);
+		const filesArr = Array.isArray(client.files) ? client.files : parseJSON(client.files);
+		const projectsCount = (projectsArr && projectsArr.length) || Number(client.kpis?.activeProjects) || 0;
+		const invoicesCount = (invoicesArr && invoicesArr.length) || Number(client.kpis?.openInvoices) || 0;
+		const filesCount = (filesArr && filesArr.length) || Number(client.kpis?.files) || 0;
 
 		const card = document.createElement('div');
 		card.className = 'rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm hover:shadow-md transition-all';
@@ -110,15 +114,15 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 		stats.innerHTML = `
 			<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
 				<div class="text-xs text-slate-500 dark:text-slate-400">Projects</div>
-				<div class="text-sm font-semibold text-slate-900 dark:text-white">${projects.length}</div>
+				<div class="text-sm font-semibold text-slate-900 dark:text-white">${projectsCount}</div>
 			</div>
 			<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
 				<div class="text-xs text-slate-500 dark:text-slate-400">Invoices</div>
-				<div class="text-sm font-semibold text-slate-900 dark:text-white">${invoices.length}</div>
+				<div class="text-sm font-semibold text-slate-900 dark:text-white">${invoicesCount}</div>
 			</div>
 			<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
 				<div class="text-xs text-slate-500 dark:text-slate-400">Files</div>
-				<div class="text-sm font-semibold text-slate-900 dark:text-white">${parseJSON(client.files).length}</div>
+				<div class="text-sm font-semibold text-slate-900 dark:text-white">${filesCount}</div>
 			</div>
 		`;
 
@@ -127,7 +131,7 @@ export function renderClientCards(container, clients, { onView, onEdit, onArchiv
 		details.innerHTML = `
 			<div class="rounded-lg border border-slate-100 dark:border-slate-800 p-3">
 				<div class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">Projects</div>
-				<div class="flex flex-col gap-2">${projects.map((p) => `
+				<div class="flex flex-col gap-2">${(projectsArr || []).map((p) => `
 					<div class="flex items-center justify-between text-sm">
 						<div class="text-slate-700 dark:text-slate-200">${p.name || 'Untitled'}</div>
 						<div class="text-xs text-slate-500 dark:text-slate-400">${p.status || 'N/A'}</div>
