@@ -2087,6 +2087,156 @@ function renderAnalytics(clients = []) {
   }
 })();
 
+// === Create Client Modal Logic ===
+function getEl(id){ return document.getElementById(id); }
+
+const openAddClientBtn = getEl('openAddClientModal');
+if (openAddClientBtn) {
+  openAddClientBtn.addEventListener('click', () => {
+    const modal = getEl('createClientModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    const today = new Date().toISOString().split('T')[0];
+    const lastUpdate = getEl('lastUpdate');
+    if (lastUpdate) lastUpdate.value = today;
+  });
+}
+
+const cancelCreateClient = getEl('cancelCreateClient');
+if (cancelCreateClient) {
+  cancelCreateClient.addEventListener('click', () => {
+    const modal = getEl('createClientModal');
+    if (modal) modal.classList.add('hidden');
+  });
+}
+
+const toggleBusinessFields = getEl('toggleBusinessFields');
+if (toggleBusinessFields) {
+  toggleBusinessFields.addEventListener('click', (e) => {
+    e.preventDefault();
+    const fields = getEl('businessFields');
+    if (fields) fields.classList.toggle('hidden');
+  });
+}
+
+const avatarUpload = getEl('avatarUpload');
+if (avatarUpload) {
+  avatarUpload.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const preview = getEl('avatarPreview');
+    if (preview) preview.src = url;
+  });
+}
+
+async function getIdentityTokenForInsert() {
+  try {
+    const id = window.netlifyIdentity;
+    const user = id && id.currentUser && id.currentUser();
+    if (!user) return null;
+    return await user.jwt();
+  } catch { return null; }
+}
+
+const createClientBtn = getEl('createClientBtn');
+if (createClientBtn) {
+  createClientBtn.addEventListener('click', async () => {
+    const btn = createClientBtn;
+    const loader = btn.querySelector('.loader');
+    if (loader) loader.classList.remove('hidden');
+    btn.disabled = true;
+
+    try {
+      const name = getEl('clientName')?.value?.trim();
+      const email = getEl('clientEmail')?.value?.trim();
+      if (!name || !email) {
+        showToast('⚠️ Please fill in all required fields.');
+        return;
+      }
+
+      // Duplicate email check via Supabase
+      if (!adminSupabaseClient) await initAdminSupabase();
+      if (!adminSupabaseClient) throw new Error('Supabase not initialized');
+      const { data: existing, error: dupErr } = await adminSupabaseClient
+        .from('clients')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+      if (dupErr) console.warn('Duplicate check error:', dupErr);
+      if (existing) {
+        showToast('⚠️ This email is already registered.');
+        return;
+      }
+
+      const kpis = {
+        activeProjects: Number(getEl('activeProjects')?.value || 0),
+        files: Number(getEl('filesShared')?.value || 0),
+        openInvoices: Number(getEl('openInvoices')?.value || 0),
+        lastUpdate: getEl('lastUpdate')?.value || new Date().toISOString().split('T')[0],
+      };
+
+      const clientData = {
+        name,
+        email,
+        company: getEl('company')?.value || '',
+        manager: getEl('manager')?.value || '',
+        phone: getEl('phone')?.value || '',
+        website: getEl('website')?.value || '',
+        notes: getEl('notes')?.value || '',
+        kpis,
+        projects: [],
+        files: [],
+        invoices: [],
+        activity: [{ text: 'Client profile created', type: 'system', when: new Date().toISOString() }],
+      };
+
+      // Optional avatar upload to Supabase Storage (client_avatars)
+      const file = getEl('avatarUpload')?.files?.[0];
+      if (file && adminSupabaseClient) {
+        const path = `${crypto.randomUUID()}/${file.name}`;
+        const { error: upErr } = await adminSupabaseClient.storage.from('client_avatars').upload(path, file);
+        if (!upErr) {
+          const { data: urlData } = adminSupabaseClient.storage.from('client_avatars').getPublicUrl(path);
+          if (urlData?.publicUrl) clientData.profile_url = urlData.publicUrl;
+        }
+      }
+
+      // Insert client via Netlify function to keep server-side rules
+      const token = await getIdentityTokenForInsert();
+      const res = await fetch('/.netlify/functions/create-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ name: clientData.name, email: clientData.email, kpis, extra: clientData })
+      });
+      if (!res.ok) throw new Error(`Create failed (${res.status})`);
+
+      // Close modal and refresh clients
+      getEl('createClientModal')?.classList.add('hidden');
+      showToast('✅ Client created successfully!');
+
+      const data = await fetchAllClients();
+      const clients = data.clients || [];
+      allClientsGlobal = clients;
+      const container = document.getElementById('clientCardsContainer');
+      if (container) {
+        renderClientCards(container, clients, {
+          onView: (c) => c?.email && window.viewClient && window.viewClient(c.email),
+          onEdit: (c) => c?.email && window.openProfileEditor && window.openProfileEditor(c.email),
+          onArchive: (c) => window.showToast && window.showToast('Archived', 'success', c?.name || c?.email || ''),
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Error creating client.');
+    } finally {
+      const loader = createClientBtn.querySelector('.loader');
+      if (loader) loader.classList.add('hidden');
+      createClientBtn.disabled = false;
+    }
+  });
+}
+
 /* ---------------------------
    9) Bookings (Leads) Tab
 ---------------------------- */
