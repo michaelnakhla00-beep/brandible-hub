@@ -86,13 +86,64 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 		header.appendChild(score);
 
 		const meta = document.createElement('div');
-		meta.className = 'mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-600 dark:text-slate-300';
+		meta.className = 'mt-2 grid grid-cols-1 md:grid-cols-4 gap-2 text-xs text-slate-600 dark:text-slate-300';
 		meta.innerHTML = `
-			<div><span class="text-slate-500">Email:</span> ${lead.email || '—'}</div>
-			<div><span class="text-slate-500">Source:</span> ${lead.source || '—'}</div>
-			<div><span class="text-slate-500">Status:</span> ${lead.status || 'New'}</div>
-			<div><span class="text-slate-500">Assigned:</span> ${lead.assigned_to || 'Unassigned'}</div>
+			<div class="truncate"><span class="text-slate-500">Email:</span> ${lead.email || '—'}</div>
 		`;
+
+		// Editable Source
+		const sourceWrap = document.createElement('div');
+		sourceWrap.className = 'flex items-center gap-2';
+		const sourceLabel = document.createElement('span');
+		sourceLabel.className = 'text-slate-500';
+		sourceLabel.textContent = 'Source:';
+		const sourceSelect = document.createElement('select');
+		sourceSelect.className = 'rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs';
+		['website','instagram','referral','other'].forEach((s) => {
+			const opt = document.createElement('option');
+			opt.value = s;
+			opt.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+			if ((lead.source || 'other').toLowerCase() === s) opt.selected = true;
+			sourceSelect.appendChild(opt);
+		});
+		sourceSelect.addEventListener('change', () => {
+			lead.source = sourceSelect.value;
+			if (typeof onChange === 'function') onChange({ ...lead });
+			if (typeof window.updateLeadSource === 'function') window.updateLeadSource(lead.id, sourceSelect.value);
+		});
+		sourceWrap.appendChild(sourceLabel);
+		sourceWrap.appendChild(sourceSelect);
+
+		// Editable Status
+		const statusWrap = document.createElement('div');
+		statusWrap.className = 'flex items-center gap-2';
+		const statusLabel = document.createElement('span');
+		statusLabel.className = 'text-slate-500';
+		statusLabel.textContent = 'Status:';
+		const statusSelect = document.createElement('select');
+		statusSelect.className = 'rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs';
+		['New','Contacted','In Progress','Closed'].forEach((s) => {
+			const opt = document.createElement('option');
+			opt.value = s;
+			opt.textContent = s;
+			if ((lead.status || 'New') === s) opt.selected = true;
+			statusSelect.appendChild(opt);
+		});
+		statusSelect.addEventListener('change', () => {
+			lead.status = statusSelect.value;
+			if (typeof onChange === 'function') onChange({ ...lead });
+			if (typeof window.updateLeadStatus === 'function') window.updateLeadStatus(lead.id, statusSelect.value);
+		});
+		statusWrap.appendChild(statusLabel);
+		statusWrap.appendChild(statusSelect);
+
+		// Assigned
+		const assignedWrap = document.createElement('div');
+		assignedWrap.textContent = `Assigned: ${lead.assigned_to || 'Unassigned'}`;
+
+		meta.appendChild(sourceWrap);
+		meta.appendChild(statusWrap);
+		meta.appendChild(assignedWrap);
 
 		const notes = document.createElement('textarea');
 		notes.className = 'mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:ring-2 ring-brand';

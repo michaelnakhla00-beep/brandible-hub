@@ -2404,6 +2404,39 @@ async function updateLeadStatus(leadId, newStatus) {
   }
 }
 
+async function updateLeadSource(leadId, newSource) {
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+
+    const res = await fetch('/.netlify/functions/update-lead-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ leadId, source: newSource })
+    });
+
+    if (res.ok) {
+      const lead = allBookingsGlobal.find(l => l.id === leadId);
+      if (lead) lead.source = newSource;
+      showToast('Source updated', 'success');
+    } else {
+      const errorText = await res.text();
+      console.error('Update source failed:', res.status, errorText);
+      showToast('Failed to update source', 'error');
+    }
+  } catch (err) {
+    console.error('Error updating source:', err);
+    showToast('Failed to update source', 'error');
+  }
+}
+
 window.exportLeadsToCSV = function() {
   const leads = allBookingsGlobal;
   if (!leads || leads.length === 0) {
@@ -2444,6 +2477,7 @@ window.exportLeadsToCSV = function() {
 }
 
 window.updateLeadStatus = updateLeadStatus;
+window.updateLeadSource = updateLeadSource;
 
 async function refreshBookings() {
   console.log('🔄 refreshBookings called');
