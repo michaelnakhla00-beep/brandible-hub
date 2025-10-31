@@ -3,11 +3,14 @@ const Stripe = require('stripe');
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const stripeConfigured = STRIPE_SECRET_KEY && !STRIPE_SECRET_KEY.toLowerCase().includes('dummy');
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function requireAdmin(user) {
-  if (!user) return false;
-  const roles = user.app_metadata?.roles || [];
-  return roles.includes('admin');
+function getSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase configuration missing');
+  }
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
 function getStripe() {
@@ -20,6 +23,16 @@ function getStripe() {
   }
 }
 
+function normalizeItems(items = []) {
+  return items
+    .filter((item) => item && item.description)
+    .map((item) => ({
+      description: item.description,
+      quantity: Number(item.quantity) || 1,
+      unit_amount: Number(item.unit_amount) || 0,
+    }));
+}
+
 exports.handler = async (event, context) => {
   try {
     if (event.httpMethod !== 'POST') {
@@ -27,30 +40,24 @@ exports.handler = async (event, context) => {
     }
 
     const user = context.clientContext && context.clientContext.user;
-    if (!requireAdmin(user)) {
+    if (!user || !(user.app_metadata?.roles || []).includes('admin')) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Admin access required' }) };
     }
 
-    const body = JSON.parse(event.body || '{}');
-    const { invoiceId } = body;
+    const { invoiceId } = JSON.parse(event.body || '{}');
     if (!invoiceId) {
       return { statusCode: 400, body: JSON.stringify({ error: 'invoiceId is required' }) };
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !supabaseKey) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'Supabase configuration missing' }) };
-    }
+    const supabase = getSupabase();
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('*, clients:client_id(email, name), invoice_items (*)')
+      .select('*, clients:client_id(email, name), invoice_items(*)')
       .eq('id', invoiceId)
       .single();
-
-    if (invoiceError || !invoice) {
+    if (invoiceError) throw invoiceError;
+    if (!invoice) {
       return { statusCode: 404, body: JSON.stringify({ error: 'Invoice not found' }) };
     }
 
@@ -59,15 +66,23 @@ exports.handler = async (event, context) => {
     let stripeInvoiceId = invoice.stripe_invoice_id;
     let stripeNote = null;
 
-    const stripe = getStripe();
-    if (stripe) {
+    if (invoice.status === 'paid') {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, hosted_url: hostedUrl, pdf_url: pdfUrl, note: 'Invoice already paid.' }),
+      };
+    }
+
+    if (stripeConfigured) {
+      const stripe = getStripe();
       try {
         const customer = await stripe.customers.create(
           { email: invoice.clients?.email, name: invoice.clients?.name },
-          { idempotencyKey: `${invoice.clients?.email || 'client'}-${invoice.id}` }
+          { idempotencyKey: `${invoice.clients?.email || 'client'}-${invoice.id}-resend` }
         );
 
-        for (const item of invoice.invoice_items || []) {
+        const normalizedItems = normalizeItems(invoice.invoice_items || []);
+        for (const item of normalizedItems) {
           await stripe.invoiceItems.create({
             customer: customer.id,
             description: item.description,
@@ -77,7 +92,28 @@ exports.handler = async (event, context) => {
           });
         }
 
-        const invoiceParams = {
+        const meta = invoice.meta || {};
+        if (meta.taxRate && invoice.tax) {
+          await stripe.invoiceItems.create({
+            customer: customer.id,
+            description: 'Tax',
+            quantity: 1,
+            unit_amount: Math.round(Number(invoice.tax) * 100),
+            currency: invoice.currency,
+          });
+        }
+
+        if (meta.discountAmount) {
+          await stripe.invoiceItems.create({
+            customer: customer.id,
+            description: 'Discount',
+            quantity: 1,
+            unit_amount: Math.round(-Number(meta.discountAmount) * 100),
+            currency: invoice.currency,
+          });
+        }
+
+        const params = {
           customer: customer.id,
           collection_method: 'send_invoice',
           auto_advance: true,
@@ -87,13 +123,13 @@ exports.handler = async (event, context) => {
           const dueDate = new Date(invoice.due_at);
           if (!Number.isNaN(dueDate.getTime())) {
             const days = Math.max(0, Math.round((dueDate - new Date()) / (1000 * 60 * 60 * 24)));
-            invoiceParams.days_until_due = days || 30;
+            params.days_until_due = days || 30;
           }
         }
 
-        const stripeInvoice = await stripe.invoices.create(invoiceParams);
-        const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
-        await stripe.invoices.sendInvoice(stripeInvoice.id);
+        const draft = await stripe.invoices.create(params);
+        const finalized = await stripe.invoices.finalizeInvoice(draft.id);
+        await stripe.invoices.sendInvoice(draft.id);
 
         hostedUrl = finalized.hosted_invoice_url;
         pdfUrl = finalized.invoice_pdf;
@@ -112,17 +148,15 @@ exports.handler = async (event, context) => {
           })
           .eq('id', invoiceId);
       } catch (err) {
-        console.error('Stripe send invoice failed:', err.message);
-        stripeNote = 'Stripe error: ' + err.message;
+        console.error('Stripe send invoice failed:', err);
+        stripeNote = `Stripe error: ${err.message}`;
       }
     } else {
-      hostedUrl = '#';
-      pdfUrl = null;
-      stripeNote = 'Stripe not configured; invoice marked open locally.';
       await supabase
         .from('invoices')
         .update({ status: 'open', issued_at: new Date().toISOString() })
         .eq('id', invoiceId);
+      stripeNote = 'Stripe not configured; invoice status moved to open locally.';
     }
 
     return {
@@ -138,86 +172,9 @@ exports.handler = async (event, context) => {
     };
   } catch (err) {
     console.error('send-invoice error:', err);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Unexpected error sending invoice' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Unexpected error sending invoice' }) };
   }
 };
-
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
-
-function getSupabase() {
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error('Supabase credentials not configured');
-  }
-  return createClient(supabaseUrl, serviceKey);
-}
-
-function hasStripe() {
-  return stripeSecret && !stripeSecret.toLowerCase().includes('dummy');
-}
-
-function toCents(amount) {
-  return Math.round((Number(amount) || 0) * 100);
-}
-
-exports.handler = async (event, context) => {
-  try {
-    if (event.httpMethod !== 'POST') {
-      return {
-        statusCode: 405,
-        body: JSON.stringify({ error: 'Method not allowed' }),
-      };
-    }
-
-    const user = context.clientContext && context.clientContext.user;
-    const isAdmin = user?.app_metadata?.roles?.includes('admin');
-    if (!isAdmin) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: 'Admin access required' }),
-      };
-    }
-
-    const body = JSON.parse(event.body || '{}');
-    const { invoiceId, sendEmail = true, dueDate = null } = body;
-
-    if (!invoiceId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'invoiceId is required' }),
-      };
-    }
-
-    const supabase = getSupabase();
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .select('*, clients(id, email, name), invoice_items(*)')
-      .eq('id', invoiceId)
-      .maybeSingle();
-
-    if (invoiceError) throw invoiceError;
-    if (!invoice) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Invoice not found' }),
-      };
-    }
-
-    const issuedAt = new Date();
-    const dueAt = dueDate ? new Date(dueDate) : new Date(issuedAt.getTime() + 7 * 24 * 3600 * 1000);
-
-    let stripeData = { hosted_invoice_url: null, invoice_pdf: null, stripe_invoice_id: invoice.stripe_invoice_id || null };
-
-    if (hasStripe()) {
-      const Stripe = require('stripe');
-      const stripe = new Stripe(stripeSecret);
-
-      const clientEmail = invoice.clients?.email;
-      if (!clientEmail) {
-        throw new Error('Client email required for Stripe invoice');
       }
 
       let stripeInvoiceId = invoice.stripe_invoice_id;

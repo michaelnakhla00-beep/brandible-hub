@@ -580,82 +580,173 @@ function formatInvoiceDatePortal(value) {
   return date.toLocaleDateString();
 }
 
-// Invoices → table (advanced) + keep hidden fallback div updated
+function renderInvoiceStatusPill(status) {
+  switch ((status || '').toLowerCase()) {
+    case 'paid':
+      return '<span class="pill-green">Paid</span>';
+    case 'open':
+      return '<span class="pill-amber">Open</span>';
+    case 'draft':
+      return '<span class="pill-slate">Draft</span>';
+    case 'void':
+      return '<span class="pill-slate">Void</span>';
+    case 'uncollectible':
+      return '<span class="pill-slate">Uncollectible</span>';
+    default:
+      return `<span class="pill-slate">${status || 'Unknown'}</span>`;
+  }
+}
+
 function renderInvoices(invoices = portalInvoices) {
   const tableBody = document.getElementById('invoicesTable');
-  const fallbackDiv = document.getElementById('invoices'); // may be hidden
+  const emptyState = document.getElementById('invoicesEmptyState');
+  if (!tableBody) return;
 
-  const pill = (status) => {
-    switch ((status || '').toLowerCase()) {
-      case 'paid':
-        return '<span class="pill-green">Paid</span>';
-      case 'open':
-        return '<span class="pill-amber">Open</span>';
-      case 'draft':
-        return '<span class="pill-slate">Draft</span>';
-      case 'void':
-        return '<span class="pill-slate">Void</span>';
-      default:
-        return `<span class="pill-slate">${status || 'Unknown'}</span>`;
-    }
-  };
-
-  if (tableBody) {
-    if (!invoices.length) {
-      tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-500">No invoices yet</td></tr>';
-    } else {
-      tableBody.innerHTML = invoices
-        .map(
-          (inv) => `
-          <tr class="border-t border-slate-200 dark:border-slate-800">
-            <td class="py-2">${inv.number || '—'}</td>
-            <td class="py-2">${formatInvoiceDatePortal(inv.issued_at)}</td>
-            <td class="py-2">${formatInvoiceCurrencyPortal(inv.total, inv.currency)}</td>
-            <td class="py-2">${pill(inv.status)}</td>
-            <td class="py-2 text-right">
-              <div class="flex items-center justify-end gap-2">
-                ${inv.hosted_url ? `<button class="btn-primary text-xs" data-action="pay" data-url="${inv.hosted_url}">Pay</button>` : ''}
-                ${inv.pdf_url ? `<a class="btn-ghost text-xs" href="${inv.pdf_url}" target="_blank" rel="noopener">PDF</a>` : ''}
-              </div>
-            </td>
-          </tr>`
-        )
-        .join('');
-
-      tableBody.querySelectorAll('button[data-action="pay"]').forEach((btn) => {
-        const url = btn.getAttribute('data-url');
-        if (!url) {
-          btn.disabled = true;
-          return;
-        }
-        btn.addEventListener('click', () => {
-          window.open(url, '_blank');
-        });
-      });
-    }
+  if (!invoices.length) {
+    tableBody.innerHTML = '';
+    if (emptyState) emptyState.classList.remove('hidden');
+    return;
   }
 
-  if (fallbackDiv) {
-    if (!invoices.length) {
-      fallbackDiv.innerHTML = '<div class="text-sm text-slate-500">No invoices yet</div>';
-    } else {
-      fallbackDiv.innerHTML = invoices
-        .map(
-          (inv) => `
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="font-medium">#${inv.number || '—'}</div>
-              <div class="text-xs text-slate-500">${formatInvoiceDatePortal(inv.issued_at)}</div>
+  if (emptyState) emptyState.classList.add('hidden');
+
+  tableBody.innerHTML = invoices
+    .map((inv) => {
+      const payButton = inv.hosted_url && inv.status !== 'paid'
+        ? `<button class="btn-primary text-xs" data-action="pay" data-id="${inv.id}">Pay</button>`
+        : '';
+      const pdfLink = inv.pdf_url ? `<a class="btn-ghost text-xs" href="${inv.pdf_url}" target="_blank" rel="noopener">PDF</a>` : '';
+      return `
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+          <td class="py-3 px-4 font-medium text-slate-700 dark:text-slate-200">${inv.number || '—'}</td>
+          <td class="py-3 px-4 text-slate-500">${formatInvoiceDatePortal(inv.issued_at)}</td>
+          <td class="py-3 px-4">${renderInvoiceStatusPill(inv.status)}</td>
+          <td class="py-3 px-4 font-medium">${formatInvoiceCurrencyPortal(inv.total, inv.currency)}</td>
+          <td class="py-3 px-4">
+            <div class="flex items-center justify-end gap-2">
+              ${payButton}
+              ${pdfLink}
+              <button class="btn-ghost text-xs" data-action="view" data-id="${inv.id}">View</button>
             </div>
-            <div class="text-right">
-              <div class="font-semibold">${formatInvoiceCurrencyPortal(inv.total, inv.currency)}</div>
-              <div class="text-xs text-amber-600">${(inv.status || '').toUpperCase()}</div>
-            </div>
-          </div>`
-        )
-        .join('');
-    }
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  tableBody.querySelectorAll('button[data-action="pay"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const invoiceId = btn.getAttribute('data-id');
+      const invoice = portalInvoices.find((inv) => inv.id === invoiceId);
+      if (invoice?.hosted_url) window.open(invoice.hosted_url, '_blank');
+    });
+  });
+
+  tableBody.querySelectorAll('button[data-action="view"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const invoiceId = btn.getAttribute('data-id');
+      const invoice = portalInvoices.find((inv) => inv.id === invoiceId);
+      if (invoice) openInvoiceDetailModal(invoice);
+    });
+  });
+}
+
+function renderInvoiceDetailAttachments(attachments = []) {
+  const container = document.getElementById('invoiceDetailAttachments');
+  const list = document.getElementById('invoiceDetailAttachmentList');
+  if (!container || !list) return;
+
+  if (!attachments.length) {
+    container.classList.add('hidden');
+    list.innerHTML = '';
+    return;
   }
+
+  container.classList.remove('hidden');
+  list.innerHTML = attachments
+    .map((file) => `
+      <li class="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+        <span class="truncate">${file.name || 'Attachment'}</span>
+        <a class="btn-ghost text-xs" href="${file.url}" target="_blank" rel="noopener">Open</a>
+      </li>
+    `)
+    .join('');
+}
+
+function openInvoiceDetailModal(invoice) {
+  const modal = document.getElementById('invoiceDetailModal');
+  if (!modal) return;
+
+  const { meta = {} } = invoice;
+  const subtotal = invoice.subtotal || 0;
+  const tax = invoice.tax || 0;
+  const discountAmount = meta.discountAmount || 0;
+  const total = invoice.total || subtotal + tax - discountAmount;
+  const fallbackClient = window.portalClientData || {};
+
+  document.getElementById('invoiceDetailNumber').textContent = invoice.number || '—';
+  document.getElementById('invoiceDetailDate').textContent = formatInvoiceDatePortal(invoice.issued_at);
+  document.getElementById('invoiceDetailStatus').innerHTML = renderInvoiceStatusPill(invoice.status);
+  document.getElementById('invoiceDetailTotal').textContent = formatInvoiceCurrencyPortal(total, invoice.currency);
+  document.getElementById('invoiceDetailClient').textContent = invoice.clients?.name || fallbackClient.name || 'Your company';
+  document.getElementById('invoiceDetailEmail').textContent = invoice.clients?.email || fallbackClient.email || '';
+
+  const itemsContainer = document.getElementById('invoiceDetailItems');
+  itemsContainer.innerHTML = (invoice.invoice_items || [])
+    .map((item) => {
+      const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_amount) || 0);
+      return `
+        <tr>
+          <td class="py-3 px-4">${item.description || 'Line item'}</td>
+          <td class="py-3 px-4 text-right">${Number(item.quantity) || 0}</td>
+          <td class="py-3 px-4 text-right">${formatInvoiceCurrencyPortal(item.unit_amount, invoice.currency)}</td>
+          <td class="py-3 px-4 text-right font-medium">${formatInvoiceCurrencyPortal(lineTotal, invoice.currency)}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  document.getElementById('invoiceDetailSubtotal').textContent = formatInvoiceCurrencyPortal(subtotal, invoice.currency);
+  document.getElementById('invoiceDetailTax').textContent = formatInvoiceCurrencyPortal(tax, invoice.currency);
+  document.getElementById('invoiceDetailDiscount').textContent = formatInvoiceCurrencyPortal(-discountAmount, invoice.currency);
+  document.getElementById('invoiceDetailGrandTotal').textContent = formatInvoiceCurrencyPortal(total, invoice.currency);
+
+  renderInvoiceDetailAttachments(meta.attachments || []);
+
+  const pdfLink = document.getElementById('invoiceDetailPdf');
+  if (invoice.pdf_url) {
+    pdfLink.href = invoice.pdf_url;
+    pdfLink.classList.remove('hidden');
+  } else {
+    pdfLink.classList.add('hidden');
+  }
+
+  const payBtn = document.getElementById('invoiceDetailPay');
+  if (invoice.hosted_url && invoice.status !== 'paid') {
+    payBtn.classList.remove('hidden');
+    payBtn.onclick = () => window.open(invoice.hosted_url, '_blank');
+  } else {
+    payBtn.classList.add('hidden');
+    payBtn.onclick = null;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeInvoiceDetailModal() {
+  const modal = document.getElementById('invoiceDetailModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+const closeInvoiceDetailTrigger = document.getElementById('closeInvoiceDetail');
+if (closeInvoiceDetailTrigger) closeInvoiceDetailTrigger.addEventListener('click', closeInvoiceDetailModal);
+const invoiceDetailCloseBtn = document.getElementById('invoiceDetailCloseBtn');
+if (invoiceDetailCloseBtn) invoiceDetailCloseBtn.addEventListener('click', closeInvoiceDetailModal);
+const invoiceDetailModalEl = document.getElementById('invoiceDetailModal');
+if (invoiceDetailModalEl) {
+  invoiceDetailModalEl.addEventListener('click', (event) => {
+    if (event.target === invoiceDetailModalEl) closeInvoiceDetailModal();
+  });
 }
 
 async function loadPortalInvoices() {
@@ -672,7 +763,14 @@ async function loadPortalInvoices() {
     });
     if (!res.ok) throw new Error(`Failed to load invoices (${res.status})`);
     const data = await res.json();
-    portalInvoices = data.invoices || [];
+    const baseClient = window.portalClientData || {};
+    portalInvoices = (data.invoices || []).map((inv) => ({
+      ...inv,
+      clients: inv.clients || {
+        name: baseClient.name || '',
+        email: baseClient.email || '',
+      },
+    }));
   } catch (err) {
     console.error('loadPortalInvoices error:', err);
     portalInvoices = [];

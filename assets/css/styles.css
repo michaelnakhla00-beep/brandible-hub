@@ -63,6 +63,15 @@
              text-slate-700 dark:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-800/50
              transition-all duration-200;
     }
+
+    .summary-line {
+      @apply flex items-center justify-between text-sm text-slate-600 dark:text-slate-300;
+    }
+
+    .summary-total {
+      @apply font-semibold text-base;
+      color: #5B4FFF;
+    }
     
     /* Brandible Glass Cards */
     .card { 
@@ -116,6 +125,12 @@
     .pill-slate { 
       @apply pill bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-900/40 dark:to-slate-800/30 
              text-slate-700 dark:text-slate-300 shadow-sm; 
+    }
+    .summary-line {
+      @apply flex items-center justify-between text-sm text-slate-600 dark:text-slate-300;
+    }
+    .summary-total {
+      @apply text-base font-semibold text-[#5B4FFF];
     }
     
     /* Glass tables */

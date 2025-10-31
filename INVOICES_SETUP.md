@@ -38,7 +38,8 @@ Because the Netlify functions now use the Stripe SDK, run `npm install` locally 
 ## 6. What to expect
 
 - Admins can create invoices inside the client modal. Checking “Send invoice immediately” finalizes and emails the Stripe invoice when Stripe keys are configured.
-- Clients see their invoices in the portal with “Pay” (hosted invoice URL) and “PDF” buttons.
+- Admin invoice builder supports tax %, discount %, and file attachments (stored in Supabase Storage and referenced on the invoice record).
+- Clients see a responsive invoice table with status pills, pay/PDF actions, and a detail modal showing line items, totals, and attachments.
 - Stripe webhooks keep Supabase in sync (status, hosted link, paid date, payment records).
 - If Stripe credentials are missing or set to a placeholder (e.g. `sk_test_dummy`), invoices are stored in Supabase as drafts and no Stripe calls are made—ideal for UI testing before enabling payments.
 

@@ -214,22 +214,32 @@
 
           <!-- Invoices Section -->
           <div class="card-section" id="invoicesCard">
-            <h2 class="section-title">Invoices</h2>
-            <div class="overflow-x-auto">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div>
+                <h2 class="section-title">Invoices</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Review your billing history and download receipts.</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
               <table class="w-full text-sm">
-                <thead class="text-slate-500">
+                <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40">
                   <tr>
-                    <th class="text-left py-2">#</th>
-                    <th class="text-left py-2">Date</th>
-                    <th class="text-left py-2">Amount</th>
-                    <th class="text-left py-2">Status</th>
-                    <th class="text-right py-2">Action</th>
+                    <th class="text-left py-3 px-4">Invoice #</th>
+                    <th class="text-left py-3 px-4">Date</th>
+                    <th class="text-left py-3 px-4">Status</th>
+                    <th class="text-left py-3 px-4">Total</th>
+                    <th class="text-right py-3 px-4">Actions</th>
                   </tr>
                 </thead>
-                <tbody id="invoicesTable"></tbody>
+                <tbody id="invoicesTable" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
               </table>
-              <!-- Fallback list used by portal.js -->
-              <div id="invoices" class="hidden"></div>
+            </div>
+            <div id="invoicesEmptyState" class="hidden text-center py-10 text-slate-400">
+              <svg class="w-12 h-12 mx-auto mb-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-6 0V3a1 1 0 011-1h2a1 1 0 011 1v2m-6 4h8" />
+              </svg>
+              <p class="text-sm">No invoices yet</p>
+              <p class="text-xs mt-1">Your invoices will appear here once the team sends one.</p>
             </div>
           </div>
 
@@ -260,61 +270,75 @@
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    function toMoney(n){ return `$${Number(n).toFixed(2)}` }
-
-    // Hydrate after portal.js data render
-    const hydrate = () => {
-      const invDiv = document.getElementById('invoices');
-      const invTable = document.getElementById('invoicesTable');
-      if (invDiv && invDiv.children.length && invTable && !invTable.dataset.hydrated) {
-        const rows = Array.from(invDiv.querySelectorAll(':scope > div')).map(div => {
-          const num = div.querySelector('.font-medium')?.textContent?.replace('#','') || '';
-          const date = div.querySelector('.text-xs.text-slate-500')?.textContent || '';
-          const amount = div.querySelector('.font-semibold')?.textContent?.replace('$','') || '0';
-          const status = div.querySelector('.text-xs')?.textContent || 'Open';
-          return { num, date, amount: parseFloat(amount), status };
-        });
-        invTable.innerHTML = rows.map(r => `
-          <tr class="border-t border-slate-200 dark:border-slate-800">
-            <td class="py-2">${r.num}</td>
-            <td class="py-2">${r.date}</td>
-            <td class="py-2">${toMoney(r.amount)}</td>
-            <td class="py-2">${r.status === 'Paid' ? '<span class="pill-green">Paid</span>' : '<span class="pill-amber">Open</span>'}</td>
-            <td class="py-2 text-right">${r.status === 'Paid' ? '<button class="btn-ghost">View</button>' : '<button class="btn-primary">Pay</button>'}</td>
-          </tr>
-        `).join('');
-        invTable.dataset.hydrated = '1';
-      }
-
-      // Kanban mapping from projects list
-      const list = document.getElementById('projects');
-      if (list && list.children.length && !document.getElementById('kanban').dataset.hydrated) {
-        const items = Array.from(list.children).map(row => ({
-          name: row.querySelector('h3')?.textContent || 'Project',
-          status: row.querySelector('span.text-xs')?.textContent || 'In Progress',
-          summary: row.querySelector('p')?.textContent || ''
-        }));
-        const col = (id) => document.getElementById(id);
-        items.forEach(p => {
-          const pill = p.status === 'Completed' ? 'pill-green' : (p.status.includes('Review') ? 'pill-slate' : 'pill-amber');
-          const target = p.status === 'Completed' ? col('col-done') : (p.status.includes('Review') ? col('col-review') : col('col-progress'));
-          target.insertAdjacentHTML('beforeend', `
-            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
-              <div class="flex items-center justify-between">
-                <div class="font-medium">${p.name}</div>
-                <span class="${pill}">${p.status}</span>
-              </div>
-              <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">${p.summary}</div>
-            </div>
-          `);
-        });
-        document.getElementById('kanban').dataset.hydrated = '1';
-      }
-    };
-    const mo = new MutationObserver(hydrate);
-    mo.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('load', hydrate);
   </script>
+  
+  <!-- Invoice Detail Modal -->
+  <div id="invoiceDetailModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[2600]">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 relative">
+      <button id="closeInvoiceDetail" class="absolute top-4 right-5 text-slate-500 hover:text-slate-900">✕</button>
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-400">Invoice</p>
+          <h3 id="invoiceDetailNumber" class="text-xl font-semibold text-slate-900 dark:text-slate-100">INV-00000</h3>
+          <p id="invoiceDetailDate" class="text-sm text-slate-500 dark:text-slate-400"></p>
+        </div>
+        <div class="text-right">
+          <span id="invoiceDetailStatus" class="inline-flex items-center px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700"></span>
+          <p id="invoiceDetailTotal" class="text-lg font-semibold text-[#5B4FFF] mt-2">$0.00</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 mb-6">
+        <p class="text-xs font-semibold text-slate-500 mb-2">Billed To</p>
+        <p id="invoiceDetailClient" class="text-sm text-slate-700 dark:text-slate-200"></p>
+        <p id="invoiceDetailEmail" class="text-sm text-slate-500 dark:text-slate-400"></p>
+      </div>
+
+      <div class="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden mb-6">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+            <tr>
+              <th class="text-left py-3 px-4">Description</th>
+              <th class="text-right py-3 px-4">Qty</th>
+              <th class="text-right py-3 px-4">Price</th>
+              <th class="text-right py-3 px-4">Line Total</th>
+            </tr>
+          </thead>
+          <tbody id="invoiceDetailItems" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
+        </table>
+      </div>
+
+      <div class="space-y-2 border-t border-slate-200 dark:border-slate-700 pt-4">
+        <div class="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+          <span>Subtotal</span>
+          <span id="invoiceDetailSubtotal">$0.00</span>
+        </div>
+        <div class="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+          <span>Tax</span>
+          <span id="invoiceDetailTax">$0.00</span>
+        </div>
+        <div class="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+          <span>Discount</span>
+          <span id="invoiceDetailDiscount">-$0.00</span>
+        </div>
+        <div class="flex items-center justify-between text-base font-semibold text-[#5B4FFF]">
+          <span>Total</span>
+          <span id="invoiceDetailGrandTotal">$0.00</span>
+        </div>
+      </div>
+
+      <div id="invoiceDetailAttachments" class="mt-6 hidden">
+        <p class="text-xs font-semibold text-slate-500 mb-2">Attachments</p>
+        <ul class="space-y-2" id="invoiceDetailAttachmentList"></ul>
+      </div>
+
+      <div class="mt-6 flex flex-wrap gap-3 justify-end">
+        <a id="invoiceDetailPdf" href="#" target="_blank" rel="noopener" class="btn-ghost text-sm hidden">View PDF</a>
+        <button id="invoiceDetailPay" class="btn-primary text-sm hidden">Pay Now</button>
+        <button id="invoiceDetailCloseBtn" class="btn-ghost text-sm">Close</button>
+      </div>
+    </div>
+  </div>
   <!-- Project Details Modal -->
   <div id="clientProjectModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative transition-all duration-300">

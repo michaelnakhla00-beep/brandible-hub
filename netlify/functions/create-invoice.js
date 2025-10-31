@@ -4,6 +4,16 @@ const Stripe = require('stripe');
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const stripeConfigured = STRIPE_SECRET_KEY && !STRIPE_SECRET_KEY.toLowerCase().includes('dummy');
 
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+function getSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase configuration missing');
+  }
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+}
+
 function getStripe() {
   if (!stripeConfigured) return null;
   try {
@@ -14,27 +24,38 @@ function getStripe() {
   }
 }
 
-function requireAdmin(user) {
-  if (!user) return false;
-  const roles = user.app_metadata?.roles || [];
-  return roles.includes('admin');
+function normalizeItems(items = []) {
+  return items
+    .filter((item) => item && item.description)
+    .map((item) => ({
+      description: item.description,
+      quantity: Number(item.quantity) || 1,
+      unit_amount: Number(item.unit_amount) || 0,
+    }));
 }
 
-function computeTotals(items = []) {
-  const safeItems = Array.isArray(items) ? items : [];
-  let subtotal = 0;
-  safeItems.forEach((item) => {
-    const qty = Number(item.quantity || 0);
-    const unit = Number(item.unit_amount || 0);
-    if (!Number.isFinite(qty) || !Number.isFinite(unit)) return;
-    subtotal += qty * unit;
-  });
-  return { subtotal, tax: 0, total: subtotal }; // tax placeholder for future
+function calculateTotals(items = [], taxRate = 0, discountRate = 0) {
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_amount, 0);
+  const taxAmount = subtotal * (Number(taxRate) || 0) / 100;
+  const discountAmount = subtotal * (Number(discountRate) || 0) / 100;
+  const total = subtotal + taxAmount - discountAmount;
+  return { subtotal, taxAmount, discountAmount, total };
 }
 
-function generateInvoiceNumber() {
+function fallbackInvoiceNumber() {
   const now = new Date();
-  return `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${now.getTime().toString().slice(-5)}`;
+  const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const random = Math.floor(Math.random() * 90000 + 10000);
+  return `INV-${datePart}-${random}`;
+}
+
+function buildMeta({ attachments = [], taxRate = 0, discountRate = 0, discountAmount = 0 }) {
+  return {
+    attachments,
+    taxRate: Number(taxRate) || 0,
+    discountRate: Number(discountRate) || 0,
+    discountAmount,
+  };
 }
 
 exports.handler = async (event, context) => {
@@ -44,78 +65,81 @@ exports.handler = async (event, context) => {
     }
 
     const user = context.clientContext && context.clientContext.user;
-    if (!requireAdmin(user)) {
+    if (!user || !(user.app_metadata?.roles || []).includes('admin')) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Admin access required' }) };
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { clientId, items = [], currency = 'usd', due_at = null, notes = '', sendNow = false } = body;
+    const {
+      clientId,
+      currency = 'usd',
+      due_at = null,
+      notes = '',
+      sendNow = true,
+      number: providedNumber,
+      taxRate = 0,
+      discountRate = 0,
+      items = [],
+      attachments = [],
+    } = body;
 
     if (!clientId) {
       return { statusCode: 400, body: JSON.stringify({ error: 'clientId is required' }) };
     }
-    if (!Array.isArray(items) || !items.length) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'At least one line item is required' }) };
-    }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !supabaseKey) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'Supabase configuration missing' }) };
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = getSupabase();
 
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('id, email, name')
       .eq('id', clientId)
       .single();
-
-    if (clientError || !client) {
+    if (clientError) throw clientError;
+    if (!client) {
       return { statusCode: 404, body: JSON.stringify({ error: 'Client not found' }) };
     }
 
-    const totals = computeTotals(items);
-    const number = generateInvoiceNumber();
+    const normalizedItems = normalizeItems(items);
+    if (!normalizedItems.length) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'At least one line item is required' }) };
+    }
+
+    const totals = calculateTotals(normalizedItems, taxRate, discountRate);
+    const invoiceNumber = providedNumber || fallbackInvoiceNumber();
+
+    const meta = buildMeta({ attachments, taxRate, discountRate, discountAmount: totals.discountAmount });
 
     const { data: invoice, error: insertError } = await supabase
       .from('invoices')
       .insert({
         client_id: clientId,
-        number,
+        number: invoiceNumber,
         currency,
         status: sendNow ? 'open' : 'draft',
         subtotal: totals.subtotal,
-        tax: totals.tax,
+        tax: totals.taxAmount,
         total: totals.total,
         issued_at: sendNow ? new Date().toISOString() : null,
         due_at,
         notes,
+        meta,
       })
       .select('*')
       .single();
 
-    if (insertError) {
-      console.error('Invoice insert error:', insertError);
-      return { statusCode: 500, body: JSON.stringify({ error: 'Failed to create invoice' }) };
-    }
+    if (insertError) throw insertError;
 
-    const itemPayload = items.map((item) => ({
+    const lineRows = normalizedItems.map((item) => ({
       invoice_id: invoice.id,
-      description: item.description || 'Line item',
-      quantity: Number(item.quantity || 1),
-      unit_amount: Number(item.unit_amount || 0),
+      description: item.description,
+      quantity: item.quantity,
+      unit_amount: item.unit_amount,
     }));
 
-    const { error: insertItemsError } = await supabase
+    const { error: itemsError } = await supabase
       .from('invoice_items')
-      .insert(itemPayload);
-
-    if (insertItemsError) {
-      console.error('Invoice items insert error:', insertItemsError);
-      return { statusCode: 500, body: JSON.stringify({ error: 'Failed to create invoice items' }) };
-    }
+      .insert(lineRows);
+    if (itemsError) throw itemsError;
 
     let hostedUrl = null;
     let pdfUrl = null;
@@ -131,12 +155,32 @@ exports.handler = async (event, context) => {
             { idempotencyKey: `${client.email}-${invoice.id}` }
           );
 
-          for (const item of itemPayload) {
+          for (const item of normalizedItems) {
             await stripe.invoiceItems.create({
               customer: customer.id,
               description: item.description,
               quantity: item.quantity,
               unit_amount: Math.round(item.unit_amount * 100),
+              currency,
+            });
+          }
+
+          if (totals.taxAmount > 0) {
+            await stripe.invoiceItems.create({
+              customer: customer.id,
+              description: 'Tax',
+              quantity: 1,
+              unit_amount: Math.round(totals.taxAmount * 100),
+              currency,
+            });
+          }
+
+          if (totals.discountAmount > 0) {
+            await stripe.invoiceItems.create({
+              customer: customer.id,
+              description: 'Discount',
+              quantity: 1,
+              unit_amount: Math.round(-totals.discountAmount * 100),
               currency,
             });
           }
@@ -155,9 +199,9 @@ exports.handler = async (event, context) => {
             }
           }
 
-          const stripeInvoice = await stripe.invoices.create(invoiceParams);
-          const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
-          await stripe.invoices.sendInvoice(stripeInvoice.id);
+          const stripeDraft = await stripe.invoices.create(invoiceParams);
+          const finalized = await stripe.invoices.finalizeInvoice(stripeDraft.id);
+          await stripe.invoices.sendInvoice(stripeDraft.id);
 
           hostedUrl = finalized.hosted_invoice_url;
           pdfUrl = finalized.invoice_pdf;
@@ -176,13 +220,11 @@ exports.handler = async (event, context) => {
             })
             .eq('id', invoice.id);
         } catch (err) {
-          console.error('Stripe send invoice failed:', err.message);
-          stripeNote = 'Stripe error: ' + err.message;
+          console.error('Stripe send invoice failed:', err);
+          stripeNote = `Stripe error: ${err.message}`;
         }
       } else {
-        hostedUrl = '#';
-        pdfUrl = null;
-        stripeNote = 'Stripe not configured; invoice marked open locally.';
+        stripeNote = 'Stripe not configured; invoice saved locally as open.';
       }
     }
 
@@ -197,154 +239,11 @@ exports.handler = async (event, context) => {
     };
   } catch (err) {
     console.error('create-invoice error:', err);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Unexpected error creating invoice' }) };
-  }
-};
-
-const crypto = require('crypto');
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function getSupabase() {
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error('Supabase credentials not configured');
-  }
-  return createClient(supabaseUrl, serviceKey);
-}
-
-function generateInvoiceNumber() {
-  const now = new Date();
-  const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const randomPart = crypto.randomUUID().split('-')[0].toUpperCase();
-  return `INV-${datePart}-${randomPart}`;
-}
-
-function parseItems(items = []) {
-  return items
-    .filter((item) => item && item.description)
-    .map((item) => ({
-      description: item.description,
-      quantity: Number(item.quantity) || 1,
-      unit_amount: Number(item.unit_amount) || 0,
-    }));
-}
-
-function calculateTotals(items) {
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.quantity * item.unit_amount,
-    0
-  );
-  return {
-    subtotal,
-    tax: 0,
-    total: subtotal,
-  };
-}
-
-exports.handler = async (event, context) => {
-  try {
-    if (event.httpMethod !== 'POST') {
-      return {
-        statusCode: 405,
-        body: JSON.stringify({ error: 'Method not allowed' }),
-      };
-    }
-
-    const user = context.clientContext && context.clientContext.user;
-    const isAdmin = user?.app_metadata?.roles?.includes('admin');
-    if (!isAdmin) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: 'Admin access required' }),
-      };
-    }
-
-    const body = JSON.parse(event.body || '{}');
-    const {
-      clientId,
-      clientEmail,
-      currency = 'usd',
-      dueDate = null,
-      notes = '',
-      items = [],
-    } = body;
-
-    if (!clientId || !clientEmail) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'clientId and clientEmail are required' }),
-      };
-    }
-
-    const supabase = getSupabase();
-
-    // Ensure client exists
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('id, email')
-      .eq('id', clientId)
-      .maybeSingle();
-
-    if (clientError) throw clientError;
-    if (!client) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Client not found' }),
-      };
-    }
-
-    const parsedItems = parseItems(items);
-    const totals = calculateTotals(parsedItems);
-    const invoiceNumber = generateInvoiceNumber();
-
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .insert({
-        client_id: clientId,
-        number: invoiceNumber,
-        currency,
-        status: 'draft',
-        subtotal: totals.subtotal,
-        tax: totals.tax,
-        total: totals.total,
-        due_at: dueDate ? new Date(dueDate).toISOString() : null,
-        notes,
-        meta: body.meta || {},
-      })
-      .select('*')
-      .single();
-
-    if (invoiceError) throw invoiceError;
-
-    if (parsedItems.length) {
-      const rows = parsedItems.map((item) => ({
-        invoice_id: invoice.id,
-        description: item.description,
-        quantity: item.quantity,
-        unit_amount: item.unit_amount,
-      }));
-      const { error: itemsError } = await supabase
-        .from('invoice_items')
-        .insert(rows);
-      if (itemsError) throw itemsError;
-    }
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        success: true,
-        invoice,
-      }),
-    };
-  } catch (err) {
-    console.error('create-invoice error:', err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: err.message || 'Failed to create invoice' }),
     };
   }
 };
+
 

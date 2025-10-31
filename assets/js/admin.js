@@ -6,6 +6,8 @@ import { renderLeads } from './components/leadsCard.js';
 import { renderActivityFeed } from './components/activityFeed.js';
 import { fetchClients as fetchClientsFn, fetchLeads as fetchLeadsFn, fetchProjects as fetchProjectsFn, computeKPIs, buildRevenueDataset, buildLeadSourceDataset, parseJSON } from './components/data.js';
 
+const INVOICE_CURRENCY_STORAGE_KEY = 'brandible:lastInvoiceCurrency';
+
 /* ---------------------------
    1) Fetch all clients data
 ---------------------------- */
@@ -38,6 +40,7 @@ let allBookingsGlobal = [];
 let activeClientInvoices = [];
 let activeInvoiceClient = null;
 let invoiceFormState = null;
+const INVOICE_CURRENCY_KEY = 'brandible.invoiceCurrency';
 
 /* ---------------------------
    2) Render helpers
@@ -865,6 +868,75 @@ function formatInvoiceDate(value) {
   return date.toLocaleDateString();
 }
 
+function defaultInvoiceDueDate(days = 7) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function getSavedInvoiceCurrency() {
+  try {
+    return localStorage.getItem(INVOICE_CURRENCY_KEY) || 'usd';
+  } catch {
+    return 'usd';
+  }
+}
+
+function saveInvoiceCurrency(value) {
+  try {
+    localStorage.setItem(INVOICE_CURRENCY_KEY, value);
+  } catch {
+    /* ignore */
+  }
+}
+
+function generateInvoiceNumberForYear(invoices = [], year = new Date().getFullYear()) {
+  let maxSequence = 0;
+  invoices.forEach((inv) => {
+    const match = String(inv.number || '').match(/^INV-(\d{4})-(\d{5})$/i);
+    if (match) {
+      const invYear = Number(match[1]);
+      const seq = Number(match[2]);
+      if (invYear === year && seq > maxSequence) {
+        maxSequence = seq;
+      }
+    }
+  });
+  const nextSequence = String(maxSequence + 1).padStart(5, '0');
+  return `INV-${year}-${nextSequence}`;
+}
+
+function makeSafeStorageKey(name) {
+  return String(name)
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '');
+}
+
+async function uploadInvoiceAttachments(files = [], clientId) {
+  if (!files.length) return [];
+  if (!adminSupabaseClient) {
+    const initialized = await initAdminSupabase();
+    if (!initialized) throw new Error('Storage not configured');
+  }
+
+  const uploads = [];
+  for (const file of files) {
+    const safeClient = makeSafeStorageKey(clientId || 'unknown');
+    const path = `invoices/${safeClient}/attachments/${Date.now()}-${makeSafeStorageKey(file.name)}`;
+    const { error } = await adminSupabaseClient.storage
+      .from('client_files')
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+    if (error) {
+      console.error('Attachment upload failed:', error);
+      throw new Error(`Failed to upload ${file.name}`);
+    }
+    const { data } = adminSupabaseClient.storage.from('client_files').getPublicUrl(path);
+    uploads.push({ name: file.name, path, url: data.publicUrl });
+  }
+  return uploads;
+}
+
 function renderModalInvoices() {
   const container = document.getElementById('modalInvoices');
   if (!container) return;
@@ -873,7 +945,7 @@ function renderModalInvoices() {
     container.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-500">No invoices yet</td></tr>';
     return;
   }
-
+  
   const statusClass = (status) => {
     switch ((status || '').toLowerCase()) {
       case 'paid':
@@ -893,20 +965,20 @@ function renderModalInvoices() {
 
   container.innerHTML = activeClientInvoices
     .map((inv) => `
-      <tr class="border-t border-slate-200 dark:border-slate-800">
+    <tr class="border-t border-slate-200 dark:border-slate-800">
         <td class="py-2">${inv.number || '—'}</td>
         <td class="py-2">${formatInvoiceDate(inv.issued_at)}</td>
         <td class="py-2">${formatInvoiceDate(inv.due_at)}</td>
         <td class="py-2">${formatInvoiceCurrency(inv.total, inv.currency)}</td>
         <td class="py-2">${statusClass(inv.status)}</td>
-        <td class="py-2">
+      <td class="py-2">
           <div class="flex items-center justify-end gap-2">
             ${inv.hosted_url ? `<a class="btn-ghost text-xs" href="${inv.hosted_url}" target="_blank" rel="noopener">View</a>` : ''}
             ${inv.pdf_url ? `<a class="btn-ghost text-xs" href="${inv.pdf_url}" target="_blank" rel="noopener">PDF</a>` : ''}
             <button class="btn-ghost text-xs" data-action="send" data-id="${inv.id}">${inv.status === 'draft' ? 'Send' : 'Resend'}</button>
           </div>
-        </td>
-      </tr>
+      </td>
+    </tr>
     `)
     .join('');
 
@@ -980,13 +1052,17 @@ async function sendInvoiceRequest(invoiceId, { sendEmail = true } = {}) {
 
 function defaultInvoiceState() {
   return {
-    currency: 'usd',
-    dueDate: '',
+    number: generateInvoiceNumberForYear(activeClientInvoices || []),
+    currency: getSavedInvoiceCurrency(),
+    dueDate: defaultInvoiceDueDate(),
     notes: '',
     sendNow: true,
+    taxRate: 0,
+    discountRate: 0,
     items: [
       { description: '', quantity: 1, unit_amount: 0 },
     ],
+    files: [],
   };
 }
 
@@ -994,6 +1070,10 @@ function openInvoiceModal(client) {
   activeInvoiceClient = client;
   invoiceFormState = defaultInvoiceState();
   renderInvoiceForm();
+  const clientInfo = document.getElementById('invoiceClientInfo');
+  if (clientInfo) clientInfo.textContent = `${client.name || 'Client'} • ${client.email || ''}`;
+  const numberDisplay = document.getElementById('invoiceNumberDisplay');
+  if (numberDisplay) numberDisplay.textContent = invoiceFormState.number;
   document.getElementById('invoiceModal').classList.remove('hidden');
 }
 
@@ -1004,73 +1084,155 @@ function closeInvoiceModal() {
 }
 
 function updateInvoiceTotals() {
+  if (!invoiceFormState) return;
   const subtotal = invoiceFormState.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_amount) || 0), 0);
-  document.getElementById('invoiceSubtotal').textContent = formatInvoiceCurrency(subtotal, invoiceFormState.currency);
-  document.getElementById('invoiceTotal').textContent = formatInvoiceCurrency(subtotal, invoiceFormState.currency);
+  const taxAmount = subtotal * (Number(invoiceFormState.taxRate) || 0) / 100;
+  const discountAmount = subtotal * (Number(invoiceFormState.discountRate) || 0) / 100;
+  const total = subtotal + taxAmount - discountAmount;
+
+  invoiceFormState.subtotal = subtotal;
+  invoiceFormState.taxAmount = taxAmount;
+  invoiceFormState.discountAmount = discountAmount;
+  invoiceFormState.total = total;
+
+  const currency = invoiceFormState.currency;
+  const subtotalEl = document.getElementById('invoiceSubtotalValue');
+  const taxEl = document.getElementById('invoiceTaxValue');
+  const discountEl = document.getElementById('invoiceDiscountValue');
+  const totalEl = document.getElementById('invoiceTotalValue');
+
+  if (subtotalEl) subtotalEl.textContent = formatInvoiceCurrency(subtotal, currency);
+  if (taxEl) taxEl.textContent = formatInvoiceCurrency(taxAmount, currency);
+  if (discountEl) discountEl.textContent = formatInvoiceCurrency(-discountAmount, currency);
+  if (totalEl) totalEl.textContent = formatInvoiceCurrency(total, currency);
+}
+
+function renderInvoiceAttachmentsList() {
+  const list = document.getElementById('invoiceAttachmentList');
+  if (!list || !invoiceFormState) return;
+  if (!invoiceFormState.files || !invoiceFormState.files.length) {
+    list.innerHTML = '<li class="text-xs text-slate-400">No attachments added</li>';
+    return;
+  }
+  list.innerHTML = invoiceFormState.files
+    .map((file, index) => `
+      <li class="flex items-center justify-between gap-2">
+        <span class="truncate">${file.name}</span>
+        <button class="btn-ghost text-xs" data-attachment-index="${index}">Remove</button>
+      </li>
+    `)
+    .join('');
+
+  list.querySelectorAll('button[data-attachment-index]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const idx = Number(btn.getAttribute('data-attachment-index'));
+      invoiceFormState.files.splice(idx, 1);
+      renderInvoiceAttachmentsList();
+    });
+  });
 }
 
 function renderInvoiceForm() {
   const modal = document.getElementById('invoiceModal');
   if (!modal || !invoiceFormState) return;
 
-  const currencySelect = document.getElementById('invoiceCurrency');
+  const numberDisplay = document.getElementById('invoiceNumberDisplay');
+  if (numberDisplay) numberDisplay.textContent = invoiceFormState.number;
+
+  const currencyInput = document.getElementById('invoiceCurrency');
   const dueInput = document.getElementById('invoiceDueDate');
   const notesInput = document.getElementById('invoiceNotes');
-  const sendNowInput = document.getElementById('invoiceSendNow');
+  const taxInput = document.getElementById('invoiceTaxRate');
+  const discountInput = document.getElementById('invoiceDiscountRate');
+  const sendNowRadio = document.getElementById('invoiceSendNowRadio');
+  const draftRadio = document.getElementById('invoiceSaveDraft');
 
-  if (currencySelect) currencySelect.value = invoiceFormState.currency;
-  if (dueInput) dueInput.value = invoiceFormState.dueDate || '';
-  if (notesInput) notesInput.value = invoiceFormState.notes || '';
-  if (sendNowInput) sendNowInput.checked = invoiceFormState.sendNow;
-
-  if (currencySelect) {
-    currencySelect.onchange = (e) => {
-      invoiceFormState.currency = e.target.value;
+  if (currencyInput) {
+    currencyInput.value = invoiceFormState.currency;
+    currencyInput.onchange = (e) => {
+      invoiceFormState.currency = e.target.value || 'usd';
+      saveInvoiceCurrency(invoiceFormState.currency);
       updateInvoiceTotals();
     };
   }
+
   if (dueInput) {
+    dueInput.value = invoiceFormState.dueDate || '';
     dueInput.onchange = (e) => {
       invoiceFormState.dueDate = e.target.value;
     };
   }
+
   if (notesInput) {
+    notesInput.value = invoiceFormState.notes || '';
     notesInput.oninput = (e) => {
       invoiceFormState.notes = e.target.value;
     };
   }
-  if (sendNowInput) {
-    sendNowInput.onchange = (e) => {
-      invoiceFormState.sendNow = e.target.checked;
+
+  if (taxInput) {
+    taxInput.value = invoiceFormState.taxRate ?? 0;
+    taxInput.oninput = (e) => {
+      invoiceFormState.taxRate = Number(e.target.value) || 0;
+      updateInvoiceTotals();
     };
   }
 
-  const container = document.getElementById('invoiceItemsContainer');
-  container.innerHTML = invoiceFormState.items
-    .map((item, index) => `
-      <div class="grid grid-cols-1 sm:grid-cols-6 gap-2" data-index="${index}">
-        <div class="sm:col-span-3">
-          <input class="input-field" type="text" placeholder="Description" data-field="description" data-index="${index}" value="${item.description || ''}">
-        </div>
-        <div>
-          <input class="input-field" type="number" min="0" step="1" data-field="quantity" data-index="${index}" value="${item.quantity}">
-        </div>
-        <div>
-          <input class="input-field" type="number" min="0" step="0.01" data-field="unit_amount" data-index="${index}" value="${item.unit_amount}">
-        </div>
-        <div class="flex items-center justify-end">
-          <button class="btn-ghost text-xs" data-action="remove" data-index="${index}" ${invoiceFormState.items.length === 1 ? 'disabled' : ''}>Remove</button>
-        </div>
-      </div>
-    `)
-    .join('');
+  if (discountInput) {
+    discountInput.value = invoiceFormState.discountRate ?? 0;
+    discountInput.oninput = (e) => {
+      invoiceFormState.discountRate = Number(e.target.value) || 0;
+      updateInvoiceTotals();
+    };
+  }
 
+  const updateSubmitLabel = () => {
+    const submitLabel = document.getElementById('invoiceSubmitLabel');
+    if (submitLabel) submitLabel.textContent = invoiceFormState.sendNow ? 'Send Invoice' : 'Save Draft';
+  };
+
+  if (sendNowRadio && draftRadio) {
+    sendNowRadio.checked = !!invoiceFormState.sendNow;
+    draftRadio.checked = !invoiceFormState.sendNow;
+    sendNowRadio.onchange = () => { invoiceFormState.sendNow = true; updateSubmitLabel(); };
+    draftRadio.onchange = () => { invoiceFormState.sendNow = false; updateSubmitLabel(); };
+  }
+
+  const container = document.getElementById('invoiceItemsContainer');
+  const itemsHtml = invoiceFormState.items
+    .map((item, index) => {
+      const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_amount) || 0);
+      return `
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-3" data-index="${index}">
+          <div class="md:col-span-6">
+            <input class="input-field" type="text" placeholder="Description" data-field="description" data-index="${index}" value="${item.description || ''}">
+          </div>
+          <div class="md:col-span-2">
+            <input class="input-field text-right" type="number" min="0" step="1" data-field="quantity" data-index="${index}" value="${item.quantity}">
+          </div>
+          <div class="md:col-span-2">
+            <input class="input-field text-right" type="number" min="0" step="0.01" data-field="unit_amount" data-index="${index}" value="${item.unit_amount}">
+          </div>
+          <div class="md:col-span-2 flex items-center justify-between md:justify-end gap-3">
+            <span class="font-medium" data-role="line-total">${formatInvoiceCurrency(lineTotal, invoiceFormState.currency)}</span>
+            <button class="btn-ghost text-xs" data-action="remove" data-index="${index}" ${invoiceFormState.items.length === 1 ? 'disabled' : ''}>🗑️</button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+  container.innerHTML = itemsHtml || '<div class="text-xs text-slate-400">Add line items to build the invoice</div>';
+
+  const lineTotalEls = container.querySelectorAll('[data-role="line-total"]');
   container.querySelectorAll('input').forEach((input) => {
     input.addEventListener('input', (e) => {
       const idx = Number(e.target.getAttribute('data-index'));
       const field = e.target.getAttribute('data-field');
       if (field === 'quantity' || field === 'unit_amount') {
         invoiceFormState.items[idx][field] = Number(e.target.value);
+        const lineTotal = (Number(invoiceFormState.items[idx].quantity) || 0) * (Number(invoiceFormState.items[idx].unit_amount) || 0);
+        if (lineTotalEls[idx]) lineTotalEls[idx].textContent = formatInvoiceCurrency(lineTotal, invoiceFormState.currency);
       } else {
         invoiceFormState.items[idx][field] = e.target.value;
       }
@@ -1088,7 +1250,20 @@ function renderInvoiceForm() {
     });
   });
 
+  const attachmentInput = document.getElementById('invoiceAttachments');
+  if (attachmentInput) {
+    attachmentInput.onchange = (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      invoiceFormState.files = (invoiceFormState.files || []).concat(files);
+      renderInvoiceAttachmentsList();
+      attachmentInput.value = '';
+    };
+  }
+  renderInvoiceAttachmentsList();
+
   updateInvoiceTotals();
+  updateSubmitLabel();
 }
 
 async function submitInvoiceForm() {
@@ -1101,25 +1276,39 @@ async function submitInvoiceForm() {
   }
 
   const submitBtn = document.getElementById('invoiceSubmit');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating...';
-  }
+  const submitText = document.getElementById('invoiceSubmitLabel');
+  const submitSpinner = document.getElementById('invoiceSubmitSpinner');
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitText) submitText.textContent = invoiceFormState.sendNow ? 'Sending invoice…' : 'Saving draft…';
+  if (submitSpinner) submitSpinner.classList.remove('hidden');
 
   try {
     const token = await getAuthToken();
     const payload = {
       clientId: activeInvoiceClient.id,
+      number: invoiceFormState.number,
       currency: invoiceFormState.currency,
       due_at: invoiceFormState.dueDate || null,
       notes: invoiceFormState.notes || '',
       sendNow: invoiceFormState.sendNow,
+      taxRate: Number(invoiceFormState.taxRate) || 0,
+      discountRate: Number(invoiceFormState.discountRate) || 0,
+      subtotal: invoiceFormState.subtotal || 0,
+      tax: invoiceFormState.taxAmount || 0,
+      discount: invoiceFormState.discountAmount || 0,
+      total: invoiceFormState.total || 0,
       items: filteredItems.map((item) => ({
         description: item.description,
         quantity: Number(item.quantity) || 1,
         unit_amount: Number(item.unit_amount) || 0,
       })),
     };
+
+    let attachmentsMeta = [];
+    if (invoiceFormState.files && invoiceFormState.files.length) {
+      attachmentsMeta = await uploadInvoiceAttachments(invoiceFormState.files, activeInvoiceClient.id);
+      payload.attachments = attachmentsMeta;
+    }
 
     const res = await fetch('/.netlify/functions/create-invoice', {
       method: 'POST',
@@ -1135,10 +1324,10 @@ async function submitInvoiceForm() {
       throw new Error(text || `Failed to create invoice (${res.status})`);
     }
 
-    const { invoice, note } = await res.json();
+    const { note } = await res.json();
 
     if (invoiceFormState.sendNow) {
-      showToast(note ? `✅ Invoice created. ${note}` : '✅ Invoice created and sent!');
+      showToast(note ? `✅ Invoice created. ${note}` : '✅ Invoice created and sent successfully!');
     } else {
       showToast('✅ Invoice draft created');
     }
@@ -1149,10 +1338,9 @@ async function submitInvoiceForm() {
     console.error(err);
     showToast(err.message || 'Failed to create invoice', 'error');
   } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Create Invoice';
-    }
+    if (submitBtn) submitBtn.disabled = false;
+    if (submitText) submitText.textContent = 'Create Invoice';
+    if (submitSpinner) submitSpinner.classList.add('hidden');
   }
 }
 
