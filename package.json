@@ -15,7 +15,9 @@
   ],
   "author": "Brandible",
   "license": "MIT",
-  "devDependencies": {},
+  "devDependencies": {
+    "stylelint-config-tailwindcss": "^0.0.7"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
     "stripe": "^12.15.0",

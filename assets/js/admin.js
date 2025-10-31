@@ -1315,19 +1315,28 @@ function renderInvoiceForm() {
     .map((item, index) => {
       const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_amount) || 0);
       return `
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-3" data-index="${index}">
-          <div class="md:col-span-6">
-            <input class="input-field" type="text" placeholder="Description" data-field="description" data-index="${index}" value="${item.description || ''}">
-          </div>
-          <div class="md:col-span-2">
-            <input class="input-field text-right" type="number" min="0" step="1" data-field="quantity" data-index="${index}" value="${item.quantity}">
-          </div>
-          <div class="md:col-span-2">
-            <input class="input-field text-right" type="number" min="0" step="0.01" data-field="unit_amount" data-index="${index}" value="${item.unit_amount}">
-          </div>
-          <div class="md:col-span-2 flex items-center justify-between md:justify-end gap-3">
-            <span class="font-medium" data-role="line-total">${formatInvoiceCurrency(lineTotal, invoiceFormState.currency)}</span>
-            <button class="btn-ghost text-xs" data-action="remove" data-index="${index}" ${invoiceFormState.items.length === 1 ? 'disabled' : ''}>🗑️</button>
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4" data-index="${index}">
+          <div class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,0.6fr)_minmax(0,1fr)_minmax(0,1fr)] md:gap-x-3 md:items-center">
+            <div>
+              <label class="md:hidden text-xs font-semibold text-slate-500">Description</label>
+              <input class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100" type="text" placeholder="Description" data-field="description" data-index="${index}" value="${item.description || ''}">
+            </div>
+            <div>
+              <label class="md:hidden text-xs font-semibold text-slate-500">Qty</label>
+              <select class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-right" data-field="quantity" data-index="${index}">
+                ${Array.from({ length: 10 }, (_, i) => i + 1)
+                  .map((qty) => `<option value="${qty}" ${Number(item.quantity) === qty ? 'selected' : ''}>${qty}</option>`)
+                  .join('')}
+              </select>
+            </div>
+            <div>
+              <label class="md:hidden text-xs font-semibold text-slate-500">Price</label>
+              <input class="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-right" type="number" min="0" step="0.01" data-field="unit_amount" data-index="${index}" value="${item.unit_amount}">
+            </div>
+            <div class="flex items-center justify-between md:justify-end gap-3">
+              <div class="text-right font-semibold text-slate-700 dark:text-slate-200" data-role="line-total">${formatInvoiceCurrency(lineTotal, invoiceFormState.currency)}</div>
+              <button class="btn-ghost text-xs" data-action="remove" data-index="${index}" ${invoiceFormState.items.length === 1 ? 'disabled' : ''}>🗑️</button>
+            </div>
           </div>
         </div>
       `;
@@ -1336,8 +1345,9 @@ function renderInvoiceForm() {
   container.innerHTML = itemsHtml || '<div class="text-xs text-slate-400">Add line items to build the invoice</div>';
 
   const lineTotalEls = container.querySelectorAll('[data-role="line-total"]');
-  container.querySelectorAll('input').forEach((input) => {
-    input.addEventListener('input', (e) => {
+  container.querySelectorAll('input, select').forEach((input) => {
+    const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+    input.addEventListener(eventName, (e) => {
       const idx = Number(e.target.getAttribute('data-index'));
       const field = e.target.getAttribute('data-field');
       if (field === 'quantity' || field === 'unit_amount') {
