@@ -184,6 +184,7 @@ function renderProjects({ projects = [] }) {
 
 // Files - Supabase Storage
 let supabaseClient = null;
+let portalInvoices = [];
 
 // Sanitize email for use in file paths (replace @ and . with _)
 function sanitizeEmail(email) {
@@ -376,7 +377,7 @@ async function refreshClientData() {
       storageFiles = await fetchSupabaseFiles(userEmail);
     }
     renderFiles({ files: storageFiles.length > 0 ? storageFiles : (latest.files || []), userEmail });
-    renderInvoices({ invoices: latest.invoices || [] });
+    await loadPortalInvoices();
     renderActivity({ activity: latest.activity || [] });
     showToast('Client data refreshed!');
   } catch (err) {
@@ -561,54 +562,122 @@ window.deleteStorageFile = async function(filename, userEmail) {
   }
 };
 
+function formatInvoiceCurrencyPortal(amount, currency = 'usd') {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(Number(amount) || 0);
+  } catch {
+    return `$${Number(amount || 0).toFixed(2)}`;
+  }
+}
+
+function formatInvoiceDatePortal(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString();
+}
+
 // Invoices → table (advanced) + keep hidden fallback div updated
-function renderInvoices({ invoices = [] }) {
-  const tableBody = document.getElementById("invoicesTable");
-  const fallbackDiv = document.getElementById("invoices"); // may be hidden
-  const toMoney = (n) => `$${Number(n).toFixed(2)}`;
+function renderInvoices(invoices = portalInvoices) {
+  const tableBody = document.getElementById('invoicesTable');
+  const fallbackDiv = document.getElementById('invoices'); // may be hidden
+
+  const pill = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'paid':
+        return '<span class="pill-green">Paid</span>';
+      case 'open':
+        return '<span class="pill-amber">Open</span>';
+      case 'draft':
+        return '<span class="pill-slate">Draft</span>';
+      case 'void':
+        return '<span class="pill-slate">Void</span>';
+      default:
+        return `<span class="pill-slate">${status || 'Unknown'}</span>`;
+    }
+  };
 
   if (tableBody) {
-    tableBody.innerHTML = invoices
-      .map(
-        (inv) => `
-      <tr class="border-t border-slate-200 dark:border-slate-800">
-        <td class="py-2">${inv.number}</td>
-        <td class="py-2">${inv.date}</td>
-        <td class="py-2">${toMoney(inv.amount)}</td>
-        <td class="py-2">${
-          inv.status === "Paid"
-            ? '<span class="pill-green">Paid</span>'
-            : '<span class="pill-amber">Open</span>'
-        }</td>
-        <td class="py-2 text-right">${
-          inv.status === "Paid"
-            ? '<button class="btn-ghost">View</button>'
-            : '<button class="btn-primary">Pay</button>'
-        }</td>
-      </tr>`
-      )
-      .join("");
+    if (!invoices.length) {
+      tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-500">No invoices yet</td></tr>';
+    } else {
+      tableBody.innerHTML = invoices
+        .map(
+          (inv) => `
+          <tr class="border-t border-slate-200 dark:border-slate-800">
+            <td class="py-2">${inv.number || '—'}</td>
+            <td class="py-2">${formatInvoiceDatePortal(inv.issued_at)}</td>
+            <td class="py-2">${formatInvoiceCurrencyPortal(inv.total, inv.currency)}</td>
+            <td class="py-2">${pill(inv.status)}</td>
+            <td class="py-2 text-right">
+              <div class="flex items-center justify-end gap-2">
+                ${inv.hosted_url ? `<button class="btn-primary text-xs" data-action="pay" data-url="${inv.hosted_url}">Pay</button>` : ''}
+                ${inv.pdf_url ? `<a class="btn-ghost text-xs" href="${inv.pdf_url}" target="_blank" rel="noopener">PDF</a>` : ''}
+              </div>
+            </td>
+          </tr>`
+        )
+        .join('');
+
+      tableBody.querySelectorAll('button[data-action="pay"]').forEach((btn) => {
+        const url = btn.getAttribute('data-url');
+        if (!url) {
+          btn.disabled = true;
+          return;
+        }
+        btn.addEventListener('click', () => {
+          window.open(url, '_blank');
+        });
+      });
+    }
   }
 
   if (fallbackDiv) {
-    fallbackDiv.innerHTML = invoices
-      .map(
-        (inv) => `
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="font-medium">#${inv.number}</div>
-          <div class="text-xs text-slate-500">${inv.date}</div>
-        </div>
-        <div class="text-right">
-          <div class="font-semibold">${toMoney(inv.amount)}</div>
-          <div class="text-xs ${
-            inv.status === "Paid" ? "text-emerald-600" : "text-amber-600"
-          }">${inv.status}</div>
-        </div>
-      </div>`
-      )
-      .join("");
+    if (!invoices.length) {
+      fallbackDiv.innerHTML = '<div class="text-sm text-slate-500">No invoices yet</div>';
+    } else {
+      fallbackDiv.innerHTML = invoices
+        .map(
+          (inv) => `
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium">#${inv.number || '—'}</div>
+              <div class="text-xs text-slate-500">${formatInvoiceDatePortal(inv.issued_at)}</div>
+            </div>
+            <div class="text-right">
+              <div class="font-semibold">${formatInvoiceCurrencyPortal(inv.total, inv.currency)}</div>
+              <div class="text-xs text-amber-600">${(inv.status || '').toUpperCase()}</div>
+            </div>
+          </div>`
+        )
+        .join('');
+    }
   }
+}
+
+async function loadPortalInvoices() {
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+
+    const res = await fetch('/.netlify/functions/get-invoices', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Failed to load invoices (${res.status})`);
+    const data = await res.json();
+    portalInvoices = data.invoices || [];
+  } catch (err) {
+    console.error('loadPortalInvoices error:', err);
+    portalInvoices = [];
+  }
+  renderInvoices();
 }
 
 // Activity
@@ -701,7 +770,7 @@ function wireFilters(fullData) {
         // reset full data views
         renderProjects({ projects: fullData.projects || [] });
         renderFiles({ files: fullData.files || [] });
-        renderInvoices({ invoices: fullData.invoices || [] });
+        renderInvoices();
         renderActivity({ activity: fullData.activity || [] });
         return;
       }
@@ -714,7 +783,7 @@ function wireFilters(fullData) {
       const files = (fullData.files || []).filter((f) =>
         f.name?.toLowerCase().includes(q)
       );
-      const invoices = (fullData.invoices || []).filter(
+      const invoices = (portalInvoices || []).filter(
         (i) =>
           String(i.number).toLowerCase().includes(q) ||
           String(i.status).toLowerCase().includes(q)
@@ -725,7 +794,7 @@ function wireFilters(fullData) {
 
       renderProjects({ projects: proj });
       renderFiles({ files });
-      renderInvoices({ invoices });
+      renderInvoices(invoices);
       renderActivity({ activity });
     };
 
@@ -821,7 +890,7 @@ window.hideToast = hideToast;
     }
     
     renderFiles({ files: storageFiles.length > 0 ? storageFiles : (data.files || []), userEmail });
-    renderInvoices({ invoices: data.invoices || [] });
+    await loadPortalInvoices();
     renderActivity({ activity: data.activity || [] });
     renderUpdates({ updates: data.updates || [] });
 

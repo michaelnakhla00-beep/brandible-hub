@@ -31,9 +31,13 @@ async function fetchAllClients() {
 // Store all clients globally for modal access
 let allClientsGlobal = [];
 let currentClientEmail = null;
+let currentClientId = null;
 let editMode = false;
 let originalClientData = null;
 let allBookingsGlobal = [];
+let activeClientInvoices = [];
+let activeInvoiceClient = null;
+let invoiceFormState = null;
 
 /* ---------------------------
    2) Render helpers
@@ -843,29 +847,343 @@ window.downloadAllFilesForCurrentClient = async function() {
   }
 };
 
-function renderModalInvoices(client) {
-  const container = document.getElementById("modalInvoices");
-  if (!container || !client.invoices || !client.invoices.length) {
-    container.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-500">No invoices</td></tr>';
+function formatInvoiceCurrency(amount, currency = 'usd') {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(Number(amount) || 0);
+  } catch {
+    return `$${Number(amount || 0).toFixed(2)}`;
+  }
+}
+
+function formatInvoiceDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString();
+}
+
+function renderModalInvoices() {
+  const container = document.getElementById('modalInvoices');
+  if (!container) return;
+
+  if (!activeClientInvoices.length) {
+    container.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-500">No invoices yet</td></tr>';
     return;
   }
-  
-  const toMoney = (n) => `$${Number(n).toFixed(2)}`;
-  
-  container.innerHTML = client.invoices.map(inv => `
-    <tr class="border-t border-slate-200 dark:border-slate-800">
-      <td class="py-2">${inv.number}</td>
-      <td class="py-2">${inv.date}</td>
-      <td class="py-2">${toMoney(inv.amount)}</td>
-      <td class="py-2">
-        ${inv.status === "Paid" 
-          ? '<span class="pill-green">Paid</span>' 
-          : '<span class="pill-amber">Open</span>'
-        }
-      </td>
-    </tr>
-  `).join("");
+
+  const statusClass = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'paid':
+        return '<span class="pill-green">Paid</span>';
+      case 'open':
+        return '<span class="pill-amber">Open</span>';
+      case 'draft':
+        return '<span class="pill-slate">Draft</span>';
+      case 'void':
+        return '<span class="pill-slate">Void</span>';
+      case 'uncollectible':
+        return '<span class="pill-amber">Uncollectible</span>';
+      default:
+        return `<span class="pill-slate">${status || 'Unknown'}</span>`;
+    }
+  };
+
+  container.innerHTML = activeClientInvoices
+    .map((inv) => `
+      <tr class="border-t border-slate-200 dark:border-slate-800">
+        <td class="py-2">${inv.number || '—'}</td>
+        <td class="py-2">${formatInvoiceDate(inv.issued_at)}</td>
+        <td class="py-2">${formatInvoiceDate(inv.due_at)}</td>
+        <td class="py-2">${formatInvoiceCurrency(inv.total, inv.currency)}</td>
+        <td class="py-2">${statusClass(inv.status)}</td>
+        <td class="py-2">
+          <div class="flex items-center justify-end gap-2">
+            ${inv.hosted_url ? `<a class="btn-ghost text-xs" href="${inv.hosted_url}" target="_blank" rel="noopener">View</a>` : ''}
+            ${inv.pdf_url ? `<a class="btn-ghost text-xs" href="${inv.pdf_url}" target="_blank" rel="noopener">PDF</a>` : ''}
+            <button class="btn-ghost text-xs" data-action="send" data-id="${inv.id}">${inv.status === 'draft' ? 'Send' : 'Resend'}</button>
+          </div>
+        </td>
+      </tr>
+    `)
+    .join('');
+
+  container.querySelectorAll('button[data-action="send"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        const result = await sendInvoiceRequest(btn.getAttribute('data-id'), { sendEmail: true });
+        await loadInvoicesForClient(currentClientId);
+        showToast(result?.note ? `✅ Invoice updated. ${result.note}` : '✅ Invoice sent');
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to send invoice', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Resend';
+      }
+    });
+  });
 }
+
+async function getAuthToken() {
+  const id = window.netlifyIdentity;
+  const user = id && id.currentUser();
+  if (!user) return null;
+  try {
+    return await user.jwt();
+  } catch {
+    return null;
+  }
+}
+
+async function loadInvoicesForClient(clientId) {
+  if (!clientId) {
+    activeClientInvoices = [];
+    renderModalInvoices();
+    return;
+  }
+  try {
+    const token = await getAuthToken();
+    const res = await fetch(`/.netlify/functions/get-invoices?clientId=${clientId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Failed to load invoices (${res.status})`);
+    const data = await res.json();
+    activeClientInvoices = data.invoices || [];
+  } catch (err) {
+    console.error('loadInvoicesForClient error:', err);
+    activeClientInvoices = [];
+  }
+  renderModalInvoices();
+}
+
+async function sendInvoiceRequest(invoiceId, { sendEmail = true } = {}) {
+  const token = await getAuthToken();
+  const res = await fetch('/.netlify/functions/send-invoice', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ invoiceId, sendEmail }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `Failed to send invoice (${res.status})`);
+  }
+  return res.json();
+}
+
+function defaultInvoiceState() {
+  return {
+    currency: 'usd',
+    dueDate: '',
+    notes: '',
+    sendNow: true,
+    items: [
+      { description: '', quantity: 1, unit_amount: 0 },
+    ],
+  };
+}
+
+function openInvoiceModal(client) {
+  activeInvoiceClient = client;
+  invoiceFormState = defaultInvoiceState();
+  renderInvoiceForm();
+  document.getElementById('invoiceModal').classList.remove('hidden');
+}
+
+function closeInvoiceModal() {
+  document.getElementById('invoiceModal').classList.add('hidden');
+  invoiceFormState = null;
+  activeInvoiceClient = null;
+}
+
+function updateInvoiceTotals() {
+  const subtotal = invoiceFormState.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_amount) || 0), 0);
+  document.getElementById('invoiceSubtotal').textContent = formatInvoiceCurrency(subtotal, invoiceFormState.currency);
+  document.getElementById('invoiceTotal').textContent = formatInvoiceCurrency(subtotal, invoiceFormState.currency);
+}
+
+function renderInvoiceForm() {
+  const modal = document.getElementById('invoiceModal');
+  if (!modal || !invoiceFormState) return;
+
+  const currencySelect = document.getElementById('invoiceCurrency');
+  const dueInput = document.getElementById('invoiceDueDate');
+  const notesInput = document.getElementById('invoiceNotes');
+  const sendNowInput = document.getElementById('invoiceSendNow');
+
+  if (currencySelect) currencySelect.value = invoiceFormState.currency;
+  if (dueInput) dueInput.value = invoiceFormState.dueDate || '';
+  if (notesInput) notesInput.value = invoiceFormState.notes || '';
+  if (sendNowInput) sendNowInput.checked = invoiceFormState.sendNow;
+
+  if (currencySelect) {
+    currencySelect.onchange = (e) => {
+      invoiceFormState.currency = e.target.value;
+      updateInvoiceTotals();
+    };
+  }
+  if (dueInput) {
+    dueInput.onchange = (e) => {
+      invoiceFormState.dueDate = e.target.value;
+    };
+  }
+  if (notesInput) {
+    notesInput.oninput = (e) => {
+      invoiceFormState.notes = e.target.value;
+    };
+  }
+  if (sendNowInput) {
+    sendNowInput.onchange = (e) => {
+      invoiceFormState.sendNow = e.target.checked;
+    };
+  }
+
+  const container = document.getElementById('invoiceItemsContainer');
+  container.innerHTML = invoiceFormState.items
+    .map((item, index) => `
+      <div class="grid grid-cols-1 sm:grid-cols-6 gap-2" data-index="${index}">
+        <div class="sm:col-span-3">
+          <input class="input-field" type="text" placeholder="Description" data-field="description" data-index="${index}" value="${item.description || ''}">
+        </div>
+        <div>
+          <input class="input-field" type="number" min="0" step="1" data-field="quantity" data-index="${index}" value="${item.quantity}">
+        </div>
+        <div>
+          <input class="input-field" type="number" min="0" step="0.01" data-field="unit_amount" data-index="${index}" value="${item.unit_amount}">
+        </div>
+        <div class="flex items-center justify-end">
+          <button class="btn-ghost text-xs" data-action="remove" data-index="${index}" ${invoiceFormState.items.length === 1 ? 'disabled' : ''}>Remove</button>
+        </div>
+      </div>
+    `)
+    .join('');
+
+  container.querySelectorAll('input').forEach((input) => {
+    input.addEventListener('input', (e) => {
+      const idx = Number(e.target.getAttribute('data-index'));
+      const field = e.target.getAttribute('data-field');
+      if (field === 'quantity' || field === 'unit_amount') {
+        invoiceFormState.items[idx][field] = Number(e.target.value);
+      } else {
+        invoiceFormState.items[idx][field] = e.target.value;
+      }
+      updateInvoiceTotals();
+    });
+  });
+
+  container.querySelectorAll('button[data-action="remove"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const idx = Number(btn.getAttribute('data-index'));
+      if (invoiceFormState.items.length === 1) return;
+      invoiceFormState.items.splice(idx, 1);
+      renderInvoiceForm();
+    });
+  });
+
+  updateInvoiceTotals();
+}
+
+async function submitInvoiceForm() {
+  if (!activeInvoiceClient || !invoiceFormState) return;
+
+  const filteredItems = invoiceFormState.items.filter((item) => item.description && Number(item.quantity) > 0);
+  if (!filteredItems.length) {
+    showToast('Please add at least one line item', 'error');
+    return;
+  }
+
+  const submitBtn = document.getElementById('invoiceSubmit');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating...';
+  }
+
+  try {
+    const token = await getAuthToken();
+    const payload = {
+      clientId: activeInvoiceClient.id,
+      currency: invoiceFormState.currency,
+      due_at: invoiceFormState.dueDate || null,
+      notes: invoiceFormState.notes || '',
+      sendNow: invoiceFormState.sendNow,
+      items: filteredItems.map((item) => ({
+        description: item.description,
+        quantity: Number(item.quantity) || 1,
+        unit_amount: Number(item.unit_amount) || 0,
+      })),
+    };
+
+    const res = await fetch('/.netlify/functions/create-invoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(text || `Failed to create invoice (${res.status})`);
+    }
+
+    const { invoice, note } = await res.json();
+
+    if (invoiceFormState.sendNow) {
+      showToast(note ? `✅ Invoice created. ${note}` : '✅ Invoice created and sent!');
+    } else {
+      showToast('✅ Invoice draft created');
+    }
+
+    await loadInvoicesForClient(activeInvoiceClient.id);
+    closeInvoiceModal();
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'Failed to create invoice', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Invoice';
+    }
+  }
+}
+
+const createInvoiceBtn = document.getElementById('createInvoiceBtn');
+if (createInvoiceBtn) {
+  createInvoiceBtn.addEventListener('click', () => {
+    if (!originalClientData) {
+      showToast('Open a client first', 'error');
+      return;
+    }
+    openInvoiceModal(originalClientData);
+  });
+}
+
+const invoiceModalClose = document.getElementById('invoiceModalClose');
+if (invoiceModalClose) invoiceModalClose.addEventListener('click', closeInvoiceModal);
+const invoiceCancel = document.getElementById('invoiceCancel');
+if (invoiceCancel) invoiceCancel.addEventListener('click', closeInvoiceModal);
+
+const addInvoiceItemBtn = document.getElementById('addInvoiceItem');
+if (addInvoiceItemBtn) {
+  addInvoiceItemBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!invoiceFormState) return;
+    invoiceFormState.items.push({ description: '', quantity: 1, unit_amount: 0 });
+    renderInvoiceForm();
+  });
+}
+
+const invoiceSubmitBtn = document.getElementById('invoiceSubmit');
+if (invoiceSubmitBtn) invoiceSubmitBtn.addEventListener('click', submitInvoiceForm);
 
 function renderModalActivity(client) {
   const container = document.getElementById("modalActivity");
@@ -1044,6 +1362,7 @@ window.viewClient = function (email) {
   
   // Store current client for editing
   currentClientEmail = email;
+  currentClientId = client.id;
   
   // Populate modal header
   document.getElementById("modalClientName").textContent = client.name || "Unknown";
@@ -1129,7 +1448,7 @@ window.viewClient = function (email) {
     renderModalKPIs(fullClient);
     renderModalProjects(fullClient);
     renderModalFiles(fullClient);
-    renderModalInvoices(fullClient);
+    await loadInvoicesForClient(fullClient.id);
     renderModalActivity(fullClient);
     renderModalUpdates(fullClient);
     
@@ -1140,7 +1459,10 @@ window.viewClient = function (email) {
     console.error("Error fetching full client data:", err);
     // Fallback to basic data from list
     originalClientData = { ...client };
+    currentClientId = client.id;
+    activeClientInvoices = [];
     renderModalKPIs(client);
+    renderModalInvoices();
   });
   
   // Show modal
@@ -1519,7 +1841,7 @@ window.saveClientChanges = async function() {
         renderModalKPIs(latestClient);
         renderModalProjects(latestClient);
         renderModalFiles(latestClient);
-        renderModalInvoices(latestClient);
+        await loadInvoicesForClient(latestClient.id);
         renderModalActivity(latestClient);
         showToast('Profile and KPIs updated successfully!');
       } else {
