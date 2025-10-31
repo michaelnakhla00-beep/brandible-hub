@@ -186,6 +186,18 @@ function renderProjects({ projects = [] }) {
 let supabaseClient = null;
 let portalInvoices = [];
 
+async function getPortalAuthToken() {
+  const id = window.netlifyIdentity;
+  const user = id && id.currentUser();
+  if (!user) return null;
+  try {
+    return await user.jwt();
+  } catch (err) {
+    console.warn('Failed to fetch portal auth token:', err);
+    return null;
+  }
+}
+
 // Sanitize email for use in file paths (replace @ and . with _)
 function sanitizeEmail(email) {
   if (!email) return '';
@@ -615,7 +627,8 @@ function renderInvoices(invoices = portalInvoices) {
       const payButton = inv.hosted_url && inv.status !== 'paid'
         ? `<button class="btn-primary text-xs" data-action="pay" data-id="${inv.id}">Pay</button>`
         : '';
-      const pdfLink = inv.pdf_url ? `<a class="btn-ghost text-xs" href="${inv.pdf_url}" target="_blank" rel="noopener">PDF</a>` : '';
+      const pdfButtonText = inv.pdf_url ? 'View PDF' : 'Generate PDF';
+      const pdfButton = `<button class="btn-ghost text-xs" data-action="pdf" data-id="${inv.id}">${pdfButtonText}</button>`;
       return `
         <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
           <td class="py-3 px-4 font-medium text-slate-700 dark:text-slate-200">${inv.number || '—'}</td>
@@ -625,7 +638,7 @@ function renderInvoices(invoices = portalInvoices) {
           <td class="py-3 px-4">
             <div class="flex items-center justify-end gap-2">
               ${payButton}
-              ${pdfLink}
+              ${pdfButton}
               <button class="btn-ghost text-xs" data-action="view" data-id="${inv.id}">View</button>
             </div>
           </td>
@@ -637,7 +650,7 @@ function renderInvoices(invoices = portalInvoices) {
   tableBody.querySelectorAll('button[data-action="pay"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const invoiceId = btn.getAttribute('data-id');
-      const invoice = portalInvoices.find((inv) => inv.id === invoiceId);
+      const invoice = portalInvoices.find((inv) => String(inv.id) === String(invoiceId));
       if (invoice?.hosted_url) window.open(invoice.hosted_url, '_blank');
     });
   });
@@ -645,8 +658,29 @@ function renderInvoices(invoices = portalInvoices) {
   tableBody.querySelectorAll('button[data-action="view"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const invoiceId = btn.getAttribute('data-id');
-      const invoice = portalInvoices.find((inv) => inv.id === invoiceId);
+      const invoice = portalInvoices.find((inv) => String(inv.id) === String(invoiceId));
       if (invoice) openInvoiceDetailModal(invoice);
+    });
+  });
+
+  tableBody.querySelectorAll('button[data-action="pdf"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const invoiceId = btn.getAttribute('data-id');
+      const invoice = portalInvoices.find((inv) => String(inv.id) === String(invoiceId));
+      if (!invoice) {
+        showToast('Invoice not found', 'error');
+        return;
+      }
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = 'Preparing…';
+      try {
+        const url = await viewPortalInvoicePdf(invoice);
+        if (url) btn.textContent = 'View PDF';
+      } finally {
+        btn.disabled = false;
+        if (!invoice.pdf_url) btn.textContent = originalText;
+      }
     });
   });
 }
@@ -714,11 +748,18 @@ function openInvoiceDetailModal(invoice) {
   renderInvoiceDetailAttachments(meta.attachments || []);
 
   const pdfLink = document.getElementById('invoiceDetailPdf');
-  if (invoice.pdf_url) {
-    pdfLink.href = invoice.pdf_url;
+  if (pdfLink) {
     pdfLink.classList.remove('hidden');
-  } else {
-    pdfLink.classList.add('hidden');
+    pdfLink.textContent = invoice.pdf_url ? 'View PDF' : 'Generate PDF';
+    pdfLink.href = invoice.pdf_url || '#';
+    pdfLink.onclick = async (e) => {
+      e.preventDefault();
+      const url = await viewPortalInvoicePdf(invoice);
+      if (url) {
+        pdfLink.href = url;
+        pdfLink.textContent = 'View PDF';
+      }
+    };
   }
 
   const payBtn = document.getElementById('invoiceDetailPay');
@@ -738,6 +779,59 @@ function closeInvoiceDetailModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+async function requestPortalInvoicePdf(invoice, { store = true } = {}) {
+  const token = await getPortalAuthToken();
+  const res = await fetch('/.netlify/functions/generate-invoice-pdf', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ invoiceId: invoice.id, store }),
+  });
+
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text || '{}');
+  } catch (err) {
+    throw new Error(`Failed to parse PDF response: ${text}`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || `Failed to generate PDF (${res.status})`);
+  }
+
+  if (!data.url) {
+    throw new Error('PDF endpoint did not return a URL');
+  }
+
+  return data.url;
+}
+
+async function viewPortalInvoicePdf(invoice) {
+  try {
+    const existingUrl = invoice.pdf_url || invoice.meta?.pdfUrl;
+    if (existingUrl) {
+      window.open(existingUrl, '_blank');
+      return existingUrl;
+    }
+
+    const url = await requestPortalInvoicePdf(invoice, { store: true });
+    if (url) {
+      invoice.pdf_url = url;
+      if (!invoice.meta) invoice.meta = {};
+      invoice.meta.pdfUrl = url;
+      window.open(url, '_blank');
+    }
+    return url;
+  } catch (err) {
+    console.error('viewPortalInvoicePdf error:', err);
+    showToast('Unable to open invoice PDF', 'error', err.message);
+    return null;
+  }
+}
+
 const closeInvoiceDetailTrigger = document.getElementById('closeInvoiceDetail');
 if (closeInvoiceDetailTrigger) closeInvoiceDetailTrigger.addEventListener('click', closeInvoiceDetailModal);
 const invoiceDetailCloseBtn = document.getElementById('invoiceDetailCloseBtn');
@@ -751,12 +845,7 @@ if (invoiceDetailModalEl) {
 
 async function loadPortalInvoices() {
   try {
-    const token = await new Promise((resolve) => {
-      const id = window.netlifyIdentity;
-      const user = id && id.currentUser();
-      if (!user) return resolve(null);
-      user.jwt().then(resolve).catch(() => resolve(null));
-    });
+    const token = await getPortalAuthToken();
 
     const res = await fetch('/.netlify/functions/get-invoices', {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -766,6 +855,7 @@ async function loadPortalInvoices() {
     const baseClient = window.portalClientData || {};
     portalInvoices = (data.invoices || []).map((inv) => ({
       ...inv,
+      pdf_url: inv.pdf_url || inv.meta?.pdfUrl || null,
       clients: inv.clients || {
         name: baseClient.name || '',
         email: baseClient.email || '',

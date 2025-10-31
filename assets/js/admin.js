@@ -41,6 +41,7 @@ let activeClientInvoices = [];
 let activeInvoiceClient = null;
 let invoiceFormState = null;
 const INVOICE_CURRENCY_KEY = 'brandible.invoiceCurrency';
+const INVOICE_PDF_ENDPOINT = '/.netlify/functions/generate-invoice-pdf';
 
 /* ---------------------------
    2) Render helpers
@@ -937,6 +938,94 @@ async function uploadInvoiceAttachments(files = [], clientId) {
   return uploads;
 }
 
+function buildInvoicePayloadFromState({ store = false } = {}) {
+  if (!invoiceFormState || !activeInvoiceClient) {
+    throw new Error('Invoice data is not ready');
+  }
+
+  return {
+    clientId: activeInvoiceClient.id,
+    clientName: activeInvoiceClient.name,
+    clientEmail: activeInvoiceClient.email,
+    invoiceNumber: invoiceFormState.number,
+    date: new Date().toISOString(),
+    dueDate: invoiceFormState.dueDate || null,
+    currency: invoiceFormState.currency || 'USD',
+    taxRate: Number(invoiceFormState.taxRate) || 0,
+    discountRate: Number(invoiceFormState.discountRate) || 0,
+    subtotal: Number(invoiceFormState.subtotal) || 0,
+    taxAmount: Number(invoiceFormState.taxAmount) || 0,
+    discountAmount: Number(invoiceFormState.discountAmount) || 0,
+    total: Number(invoiceFormState.total) || 0,
+    notes: invoiceFormState.notes || '',
+    items: invoiceFormState.items.map((item) => ({
+      description: item.description || 'Line item',
+      qty: Number(item.quantity ?? item.qty ?? 0),
+      price: Number(item.unit_amount ?? item.price ?? 0),
+    })),
+    store,
+  };
+}
+
+async function requestInvoicePdf(payload = {}) {
+  const token = await getAuthToken();
+  const res = await fetch(INVOICE_PDF_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text || '{}');
+  } catch (err) {
+    throw new Error(`Failed to parse PDF response: ${text}`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || `Failed to generate PDF (${res.status})`);
+  }
+
+  if (!data.url) {
+    throw new Error('PDF endpoint did not return a URL');
+  }
+
+  return data.url;
+}
+
+async function openInvoicePdf(invoice, { store = true } = {}) {
+  try {
+    const existingUrl = invoice?.pdf_url || invoice?.meta?.pdfUrl;
+    if (existingUrl) {
+      window.open(existingUrl, '_blank');
+      return existingUrl;
+    }
+
+    const payload = {
+      invoiceId: invoice?.id,
+      clientId: invoice?.client_id || currentClientId,
+      store,
+    };
+
+    const url = await requestInvoicePdf(payload);
+    if (url) {
+      window.open(url, '_blank');
+      invoice.pdf_url = url;
+      if (!invoice.meta) invoice.meta = {};
+      invoice.meta.pdfUrl = url;
+    }
+    return url;
+  } catch (err) {
+    console.error('openInvoicePdf error:', err);
+    showToast('Unable to generate PDF', 'error', err.message);
+    return null;
+  }
+}
+
 function renderModalInvoices() {
   const container = document.getElementById('modalInvoices');
   if (!container) return;
@@ -965,20 +1054,20 @@ function renderModalInvoices() {
 
   container.innerHTML = activeClientInvoices
     .map((inv) => `
-    <tr class="border-t border-slate-200 dark:border-slate-800">
+      <tr class="border-t border-slate-200 dark:border-slate-800">
         <td class="py-2">${inv.number || '—'}</td>
         <td class="py-2">${formatInvoiceDate(inv.issued_at)}</td>
         <td class="py-2">${formatInvoiceDate(inv.due_at)}</td>
         <td class="py-2">${formatInvoiceCurrency(inv.total, inv.currency)}</td>
         <td class="py-2">${statusClass(inv.status)}</td>
-      <td class="py-2">
+        <td class="py-2">
           <div class="flex items-center justify-end gap-2">
-            ${inv.hosted_url ? `<a class="btn-ghost text-xs" href="${inv.hosted_url}" target="_blank" rel="noopener">View</a>` : ''}
-            ${inv.pdf_url ? `<a class="btn-ghost text-xs" href="${inv.pdf_url}" target="_blank" rel="noopener">PDF</a>` : ''}
+            <button class="btn-ghost text-xs" data-action="pdf" data-id="${inv.id}">View PDF</button>
+            ${inv.hosted_url ? `<a class="btn-ghost text-xs" href="${inv.hosted_url}" target="_blank" rel="noopener">${inv.status === 'draft' ? 'Preview' : 'Hosted'}</a>` : ''}
             <button class="btn-ghost text-xs" data-action="send" data-id="${inv.id}">${inv.status === 'draft' ? 'Send' : 'Resend'}</button>
           </div>
-      </td>
-    </tr>
+        </td>
+      </tr>
     `)
     .join('');
 
@@ -996,6 +1085,25 @@ function renderModalInvoices() {
       } finally {
         btn.disabled = false;
         btn.textContent = 'Resend';
+      }
+    });
+  });
+
+  container.querySelectorAll('button[data-action="pdf"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const invoice = activeClientInvoices.find((entry) => String(entry.id) === String(id));
+      if (!invoice) {
+        showToast('Invoice not found', 'error');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Opening…';
+      try {
+        await openInvoicePdf(invoice, { store: true });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'View PDF';
       }
     });
   });
@@ -1025,7 +1133,10 @@ async function loadInvoicesForClient(clientId) {
     });
     if (!res.ok) throw new Error(`Failed to load invoices (${res.status})`);
     const data = await res.json();
-    activeClientInvoices = data.invoices || [];
+    activeClientInvoices = (data.invoices || []).map((invoice) => ({
+      ...invoice,
+      pdf_url: invoice.pdf_url || invoice.meta?.pdfUrl || null,
+    }));
   } catch (err) {
     console.error('loadInvoicesForClient error:', err);
     activeClientInvoices = [];
@@ -1324,7 +1435,21 @@ async function submitInvoiceForm() {
       throw new Error(text || `Failed to create invoice (${res.status})`);
     }
 
-    const { note } = await res.json();
+    const responseJson = await res.json();
+    const createdInvoice = responseJson.invoice;
+    const note = responseJson.note;
+
+    if (invoiceFormState.sendNow && createdInvoice?.id) {
+      await sendInvoiceRequest(createdInvoice.id, { sendEmail: true });
+    }
+
+    if (createdInvoice?.id) {
+      try {
+        await requestInvoicePdf({ invoiceId: createdInvoice.id, store: true });
+      } catch (pdfErr) {
+        console.warn('Invoice PDF generation warning:', pdfErr);
+      }
+    }
 
     if (invoiceFormState.sendNow) {
       showToast(note ? `✅ Invoice created. ${note}` : '✅ Invoice created and sent successfully!');
@@ -1372,6 +1497,32 @@ if (addInvoiceItemBtn) {
 
 const invoiceSubmitBtn = document.getElementById('invoiceSubmit');
 if (invoiceSubmitBtn) invoiceSubmitBtn.addEventListener('click', submitInvoiceForm);
+
+const invoicePreviewBtn = document.getElementById('invoicePreview');
+if (invoicePreviewBtn) {
+  invoicePreviewBtn.addEventListener('click', async () => {
+    if (!invoiceFormState || !activeInvoiceClient) {
+      showToast('Open a client first', 'error');
+      return;
+    }
+
+    const spinner = invoicePreviewBtn.querySelector('.invoice-preview-spinner');
+    invoicePreviewBtn.disabled = true;
+    if (spinner) spinner.classList.remove('hidden');
+
+    try {
+      const payload = buildInvoicePayloadFromState({ store: false });
+      const url = await requestInvoicePdf(payload);
+      if (url) window.open(url, '_blank');
+    } catch (err) {
+      console.error('Preview invoice PDF failed:', err);
+      showToast(err.message || 'Failed to preview invoice', 'error');
+    } finally {
+      invoicePreviewBtn.disabled = false;
+      if (spinner) spinner.classList.add('hidden');
+    }
+  });
+}
 
 function renderModalActivity(client) {
   const container = document.getElementById("modalActivity");

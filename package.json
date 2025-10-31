@@ -18,7 +18,8 @@
   "devDependencies": {},
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
-    "stripe": "^12.15.0"
+    "stripe": "^12.15.0",
+    "pdfkit": "^0.13.0"
   }
 }
 
