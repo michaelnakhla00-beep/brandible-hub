@@ -3,6 +3,31 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+const pdfkitPackagePath = require.resolve('pdfkit/package.json');
+const pdfkitDir = path.dirname(pdfkitPackagePath);
+const standardFontDir = path.join(pdfkitDir, 'js', 'data');
+const standardFontMap = {
+  Helvetica: 'Helvetica.afm',
+  'Helvetica-Bold': 'Helvetica-Bold.afm',
+  'Helvetica-Oblique': 'Helvetica-Oblique.afm',
+  'Helvetica-BoldOblique': 'Helvetica-BoldOblique.afm',
+  'Times-Roman': 'Times-Roman.afm',
+  'Times-Bold': 'Times-Bold.afm',
+  'Times-Italic': 'Times-Italic.afm',
+  'Times-BoldItalic': 'Times-BoldItalic.afm'
+};
+
+const originalFontMethod = PDFDocument.prototype.font;
+PDFDocument.prototype.font = function patchedFont(name, size, options) {
+  if (typeof name === 'string' && standardFontMap[name]) {
+    const fontFile = path.join(standardFontDir, standardFontMap[name]);
+    if (fs.existsSync(fontFile)) {
+      return originalFontMethod.call(this, fontFile, size, options);
+    }
+  }
+  return originalFontMethod.call(this, name, size, options);
+};
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const STORAGE_BUCKET = process.env.INVOICE_STORAGE_BUCKET || 'client_files';
