@@ -2707,6 +2707,359 @@ function renderAnalytics(clients = []) {
 }
 
 /* ---------------------------
+   NEW ADMIN FEATURES: Profile Completion, Feedback, Resources
+---------------------------- */
+
+// Load and display profile completion in client modal
+async function loadProfileCompletionForClient(clientEmail) {
+  if (!clientEmail) return;
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) return;
+    
+    const res = await fetch(`/.netlify/functions/get-client-profile?email=${encodeURIComponent(clientEmail)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (res.ok) {
+      const { completion_percentage } = await res.json();
+      const slider = document.getElementById('adminClientCompletion');
+      const display = document.getElementById('adminClientCompletionPercent');
+      
+      if (slider) slider.value = completion_percentage || 0;
+      if (display) display.textContent = `${completion_percentage || 0}%`;
+      
+      // Wire slider update
+      if (slider && display) {
+        slider.addEventListener('input', (e) => {
+          display.textContent = `${e.target.value}%`;
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load profile completion:', err);
+  }
+}
+
+// Load and render project feedback management
+async function loadFeedbackManagement() {
+  const container = document.getElementById('feedbackManagementContainer');
+  if (!container) return;
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      container.innerHTML = '<p class="text-slate-500">Authentication required</p>';
+      return;
+    }
+    
+    const res = await fetch('/.netlify/functions/get-feedback', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      container.innerHTML = '<p class="text-slate-500">No feedback yet</p>';
+      return;
+    }
+    
+    const { feedback, averageRating, count } = await res.json();
+    
+    if (!feedback || feedback.length === 0) {
+      container.innerHTML = '<p class="text-slate-500">No feedback submitted yet</p>';
+      return;
+    }
+    
+    // Get projects for mapping
+    const projectsRes = await fetch('/.netlify/functions/get-projects', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const projects = projectsRes.ok ? await projectsRes.json() : [];
+    
+    container.innerHTML = `
+      <div class="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-slate-600 dark:text-slate-400">Average Rating</p>
+            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">${averageRating || 0}/5</p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm text-slate-600 dark:text-slate-400">Total Feedback</p>
+            <p class="text-2xl font-bold text-slate-900 dark:text-slate-100">${count || 0}</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="space-y-3">
+        ${feedback.map(f => {
+          const project = projects.find(p => p.id === f.project_id);
+          return `
+            <div class="card p-4">
+              <div class="flex items-start justify-between mb-2">
+                <div class="flex-1">
+                  <p class="font-medium text-slate-900 dark:text-slate-100">${project?.title || 'Project'}</p>
+                  <p class="text-xs text-slate-500">${new Date(f.created_at).toLocaleDateString()}</p>
+                </div>
+                <div class="flex gap-1">
+                  ${Array.from({ length: 5 }, (_, i) => 
+                    `<span class="text-lg ${i < f.rating ? 'text-yellow-400' : 'text-slate-300'}">⭐</span>`
+                  ).join('')}
+                </div>
+              </div>
+              ${f.comment ? `<p class="text-sm text-slate-600 dark:text-slate-400 mt-2">${f.comment}</p>` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } catch (err) {
+    console.error('Failed to load feedback:', err);
+    container.innerHTML = '<p class="text-slate-500">Loading feedback...</p>';
+  }
+}
+
+// Load and render resources management
+async function loadResourcesManagement() {
+  const container = document.getElementById('resourcesManagementContainer');
+  if (!container) return;
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      container.innerHTML = '<p class="text-slate-500">Authentication required</p>';
+      return;
+    }
+    
+    const res = await fetch('/.netlify/functions/get-resources', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      container.innerHTML = '<p class="text-slate-500">No resources yet. Click "Add Resource" to create one.</p>';
+      return;
+    }
+    
+    const { resources } = await res.json();
+    
+    if (!resources || resources.length === 0) {
+      container.innerHTML = '<p class="text-slate-500">No resources yet. Click "Add Resource" to create one.</p>';
+      return;
+    }
+    
+    container.innerHTML = resources.map(r => `
+      <div class="card p-5">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex-1">
+            <h3 class="font-semibold text-slate-900 dark:text-slate-100 mb-1">${r.title}</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">${r.category}</span>
+            <span class="ml-2 text-xs px-2 py-1 rounded-full ${r.visible_to === 'client' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}">${r.visible_to}</span>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="editResource('${r.id}')" class="btn-ghost text-sm">Edit</button>
+            <button onclick="deleteResource('${r.id}')" class="btn-ghost text-sm text-red-500">Delete</button>
+          </div>
+        </div>
+        ${r.description ? `<p class="text-sm text-slate-600 dark:text-slate-400 mb-3">${r.description}</p>` : ''}
+        <a href="${r.file_url}" target="_blank" rel="noopener" class="btn-ghost text-sm">View File</a>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load resources:', err);
+    container.innerHTML = '<p class="text-slate-500">Loading resources...</p>';
+  }
+}
+
+// Open resource modal (add or edit)
+window.openResourceModal = function(resourceId = null) {
+  const modal = document.getElementById('resourceModal');
+  const title = document.getElementById('resourceModalTitle');
+  const form = document.getElementById('resourceForm');
+  
+  if (!modal) return;
+  
+  if (resourceId) {
+    // Edit mode - load resource data
+    if (title) title.textContent = 'Edit Resource';
+    // TODO: Load resource data
+  } else {
+    // Add mode
+    if (title) title.textContent = 'Add Resource';
+    if (form) form.reset();
+    document.getElementById('resourceFileCurrent').classList.add('hidden');
+  }
+  
+  modal.classList.remove('hidden');
+};
+
+// Close resource modal
+window.closeResourceModal = function() {
+  const modal = document.getElementById('resourceModal');
+  if (modal) modal.classList.add('hidden');
+};
+
+// Delete resource
+window.deleteResource = async function(resourceId) {
+  if (!confirm('Delete this resource?')) return;
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      alert('Authentication required');
+      return;
+    }
+    
+    const res = await fetch(`/.netlify/functions/delete-resource?resource_id=${resourceId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (res.ok) {
+      if (window.showToast) window.showToast('Resource deleted successfully');
+      await loadResourcesManagement();
+    } else {
+      throw new Error('Delete failed');
+    }
+  } catch (err) {
+    console.error('Failed to delete resource:', err);
+    if (window.showToast) window.showToast('Failed to delete resource', 'error');
+  }
+};
+
+// Edit resource
+window.editResource = async function(resourceId) {
+  // TODO: Load resource and populate form
+  window.openResourceModal(resourceId);
+};
+
+// Wire resource form submission
+(function wireResourceForm() {
+  const form = document.getElementById('resourceForm');
+  const addBtn = document.getElementById('addResourceBtn');
+  const closeBtn = document.getElementById('closeResourceModal');
+  const cancelBtn = document.getElementById('cancelResourceBtn');
+  
+  if (addBtn) {
+    addBtn.addEventListener('click', () => window.openResourceModal());
+  }
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => window.closeResourceModal());
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => window.closeResourceModal());
+  }
+  
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const title = document.getElementById('resourceTitle').value;
+      const description = document.getElementById('resourceDescription').value;
+      const category = document.getElementById('resourceCategory').value;
+      const visibleTo = document.getElementById('resourceVisibility').value;
+      const fileInput = document.getElementById('resourceFile');
+      
+      if (!title || !category) {
+        alert('Title and category are required');
+        return;
+      }
+      
+      if (!fileInput.files.length && !document.getElementById('resourceModalTitle').textContent.includes('Edit')) {
+        alert('Please select a file');
+        return;
+      }
+      
+      try {
+        const token = await new Promise((resolve) => {
+          const id = window.netlifyIdentity;
+          const user = id && id.currentUser();
+          if (!user) return resolve(null);
+          user.jwt().then(resolve).catch(() => resolve(null));
+        });
+        
+        if (!token) {
+          alert('Authentication required');
+          return;
+        }
+        
+        // Convert file to base64
+        let fileData = null;
+        let fileName = '';
+        let fileType = '';
+        
+        if (fileInput.files.length > 0) {
+          const file = fileInput.files[0];
+          fileName = file.name;
+          fileType = file.type;
+          
+          const reader = new FileReader();
+          fileData = await new Promise((resolve) => {
+            reader.onloadend = () => {
+              const base64 = reader.result.split(',')[1];
+              resolve(base64);
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+        
+        const res = await fetch('/.netlify/functions/create-resource', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title,
+            description,
+            category,
+            visible_to: visibleTo,
+            fileData,
+            fileName,
+            fileType
+          })
+        });
+        
+        if (res.ok) {
+          if (window.showToast) window.showToast('Resource created successfully');
+          window.closeResourceModal();
+          await loadResourcesManagement();
+        } else {
+          throw new Error('Create failed');
+        }
+      } catch (err) {
+        console.error('Failed to create resource:', err);
+        if (window.showToast) window.showToast('Failed to create resource', 'error');
+      }
+    });
+  }
+})();
+
+/* ---------------------------
    6) Init
 ---------------------------- */
 (async function init() {
@@ -2726,9 +3079,17 @@ function renderAnalytics(clients = []) {
     renderAllActivity(clients);
     renderAnalytics(clients);
     
-    // Load new admin features
-    await loadFeedbackManagement();
-    await loadResourcesManagement();
+    // Load new admin features (non-blocking - don't fail if these error)
+    try {
+      await loadFeedbackManagement();
+    } catch (err) {
+      console.error('Failed to load feedback management:', err);
+    }
+    try {
+      await loadResourcesManagement();
+    } catch (err) {
+      console.error('Failed to load resources management:', err);
+    }
 
     // New: Enhanced Overview KPIs
     try {
