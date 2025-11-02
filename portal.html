@@ -86,6 +86,8 @@
         <a href="#projects" class="sidebar-link" data-target="projects"><span>Projects</span></a>
         <a href="#filesCard" class="sidebar-link" data-target="filesCard"><span>Files</span></a>
         <a href="#invoicesCard" class="sidebar-link" data-target="invoicesCard"><span>Invoices</span></a>
+        <a href="#feedback" class="sidebar-link" data-target="feedback"><span>Feedback</span></a>
+        <a href="#resources" class="sidebar-link" data-target="resources"><span>Resources</span></a>
         <a href="#support" class="sidebar-link" data-target="support"><span>Support</span></a>
       </nav>
       
@@ -131,6 +133,25 @@
       </header>
 
       <main class="flex-1 max-w-[1200px] mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
+        <!-- Welcome Header -->
+        <section id="welcomeHeader" class="card-section">
+          <h1 id="welcomeMessage" class="text-2xl font-bold text-slate-900 dark:text-slate-100">Welcome back! 👋</h1>
+        </section>
+
+        <!-- Profile Completion -->
+        <section id="profileCompletion" class="card-section">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="section-title">Profile Completion</h2>
+            <span id="profileCompletionPercent" class="text-sm font-semibold text-purple-600 dark:text-purple-400">0%</span>
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-3 mb-2">
+            <div id="profileCompletionBar" class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <div id="profileCompletionMissing" class="text-xs text-slate-500 dark:text-slate-400">
+            <p>Complete your profile to unlock all features.</p>
+          </div>
+        </section>
+
         <!-- Profile -->
         <section id="profile" class="card-section">
           <h2 class="section-title">Profile</h2>
@@ -240,6 +261,69 @@
               </svg>
               <p class="text-sm">No invoices yet</p>
               <p class="text-xs mt-1">Your invoices will appear here once the team sends one.</p>
+            </div>
+          </div>
+
+          <!-- Feedback Section -->
+          <div class="card-section" id="feedback">
+            <h2 class="section-title">Project Feedback</h2>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Share your thoughts on completed projects. Help us improve!</p>
+            
+            <div id="feedbackForm" class="space-y-4 mb-6">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Select Project</label>
+                <select id="feedbackProjectSelect" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all">
+                  <option value="">Choose a project...</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Rating</label>
+                <div id="ratingStars" class="flex gap-2">
+                  <button type="button" class="rating-star text-2xl text-slate-300 hover:text-yellow-400 transition-colors" data-rating="1">⭐</button>
+                  <button type="button" class="rating-star text-2xl text-slate-300 hover:text-yellow-400 transition-colors" data-rating="2">⭐</button>
+                  <button type="button" class="rating-star text-2xl text-slate-300 hover:text-yellow-400 transition-colors" data-rating="3">⭐</button>
+                  <button type="button" class="rating-star text-2xl text-slate-300 hover:text-yellow-400 transition-colors" data-rating="4">⭐</button>
+                  <button type="button" class="rating-star text-2xl text-slate-300 hover:text-yellow-400 transition-colors" data-rating="5">⭐</button>
+                </div>
+                <p id="ratingText" class="text-xs text-slate-500 dark:text-slate-400 mt-1">Select a rating</p>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Comments (Optional)</label>
+                <textarea id="feedbackComment" placeholder="Share your feedback..." rows="4" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all"></textarea>
+              </div>
+              
+              <button id="submitFeedback" class="btn-primary w-full">Submit Feedback</button>
+            </div>
+
+            <div id="feedbackHistory" class="hidden">
+              <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Your Feedback History</h3>
+              <div id="feedbackHistoryList" class="space-y-3"></div>
+            </div>
+          </div>
+
+          <!-- Resources Section -->
+          <div class="card-section" id="resources">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title">Resources</h2>
+              <div class="flex items-center gap-2">
+                <button class="resource-filter btn-ghost text-sm active" data-category="all">All</button>
+                <button class="resource-filter btn-ghost text-sm" data-category="Guides">Guides</button>
+                <button class="resource-filter btn-ghost text-sm" data-category="Templates">Templates</button>
+                <button class="resource-filter btn-ghost text-sm" data-category="Tutorials">Tutorials</button>
+              </div>
+            </div>
+            
+            <div id="resourcesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <!-- Resources will be loaded here -->
+            </div>
+            
+            <div id="resourcesEmpty" class="hidden text-center py-10 text-slate-400">
+              <svg class="w-12 h-12 mx-auto mb-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <p class="text-sm">No resources available</p>
             </div>
           </div>
 

@@ -1722,10 +1722,13 @@ window.viewClient = function (email) {
     cancelEditMode();
   }
   
-  // Fetch full client data
+    // Fetch full client data
   fetchClientFullData(email).then(async fullClient => {
     // Store original data
     originalClientData = { ...fullClient };
+    
+    // Load profile completion
+    await loadProfileCompletionForClient(email);
     
     // Fetch projects from Supabase via Netlify function
     try {
@@ -1986,6 +1989,7 @@ window.saveClientChanges = async function() {
     const managerInput = document.getElementById("adminClientManager");
     const phoneInput = document.getElementById("adminClientPhone");
     const websiteInput = document.getElementById("adminClientWebsite");
+    const completionSlider = document.getElementById("adminClientCompletion");
     
     if (nameInput && originalClientData.id) {
       try {
@@ -1996,6 +2000,36 @@ window.saveClientChanges = async function() {
           phone: phoneInput?.value.trim() || '',
           website: websiteInput?.value.trim() || ''
         };
+        
+        // Save profile completion if slider exists
+        if (completionSlider) {
+          const completionPercent = parseInt(completionSlider.value) || 0;
+          try {
+            const token = await new Promise((resolve) => {
+              const id = window.netlifyIdentity;
+              const user = id && id.currentUser();
+              if (!user) return resolve(null);
+              user.jwt().then(resolve).catch(() => resolve(null));
+            });
+            
+            if (token) {
+              await fetch('/.netlify/functions/update-client-profile', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  email: originalClientData.email,
+                  completion_percentage: completionPercent,
+                  missing_items: []
+                })
+              });
+            }
+          } catch (err) {
+            console.error('Failed to update profile completion:', err);
+          }
+        }
         
         // Include profile_url if avatar was uploaded
         const profileImgEdit = document.getElementById("adminProfileImagePreviewEdit");
@@ -2691,6 +2725,10 @@ function renderAnalytics(clients = []) {
     renderClientsTable(clients);
     renderAllActivity(clients);
     renderAnalytics(clients);
+    
+    // Load new admin features
+    await loadFeedbackManagement();
+    await loadResourcesManagement();
 
     // New: Enhanced Overview KPIs
     try {
@@ -3252,7 +3290,7 @@ function updateStatusBadge(status) {
   badge.textContent = status || '—';
 }
 
-window.openProjectModal = function(client, index) {
+window.openProjectModal = async function(client, index) {
   activeProjectIndex = index;
   activeClient = client;
   const p = (client.projects || [])[index] || {};
@@ -3263,6 +3301,44 @@ window.openProjectModal = function(client, index) {
   const d = document.getElementById('editProjectDescription'); if (d) d.value = p.summary || '';
   const s = document.getElementById('editProjectStatus'); if (s) s.value = p.status || 'In Progress';
   const dl = document.getElementById('editProjectDeadline'); if (dl) dl.value = p.deadline || '';
+  
+  // Load progress from Supabase projects table
+  const progressSlider = document.getElementById('projectProgressSlider');
+  const progressDisplay = document.getElementById('projectProgressDisplay');
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    const res = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(client.email)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    
+    if (res.ok) {
+      const supabaseProjects = await res.json();
+      const supabaseProject = supabaseProjects.find(sp => sp.title === p.name);
+      const progress = supabaseProject?.progress_percent || 0;
+      
+      if (progressSlider) progressSlider.value = progress;
+      if (progressDisplay) progressDisplay.textContent = `${progress}%`;
+    }
+  } catch (err) {
+    console.error('Failed to load project progress:', err);
+    if (progressSlider) progressSlider.value = 0;
+    if (progressDisplay) progressDisplay.textContent = '0%';
+  }
+  
+  // Wire progress slider update
+  if (progressSlider && progressDisplay) {
+    progressSlider.addEventListener('input', (e) => {
+      progressDisplay.textContent = `${e.target.value}%`;
+    });
+  }
+  
   renderProjectActivity(p.activity || []);
   updateStatusBadge(p.status || 'In Progress');
   m.classList.remove('hidden');
@@ -3285,6 +3361,10 @@ if (pmSave) pmSave.onclick = async () => {
   project.deadline = document.getElementById('editProjectDeadline')?.value || project.deadline || '';
   project.activity = Array.isArray(project.activity) ? project.activity : [];
   project.activity.unshift({ text: 'Project details updated', when: formatted, by: 'Admin' });
+  
+  // Get progress from slider
+  const progressSlider = document.getElementById('projectProgressSlider');
+  const progressPercent = progressSlider ? parseInt(progressSlider.value) : 0;
 
   try {
     const token = await new Promise((resolve) => {
@@ -3299,6 +3379,29 @@ if (pmSave) pmSave.onclick = async () => {
     if (window.showToast) window.showToast('✅ Project updated successfully!');
     // Persist to projects table too (keeps Admin list consistent after reload)
     try {
+      const supabaseRes = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(activeClient.email)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (supabaseRes.ok) {
+        const supabaseProjects = await supabaseRes.json();
+        const supabaseProject = supabaseProjects.find(sp => sp.title === project.name);
+        
+        // Update progress via update-project-progress function
+        if (supabaseProject?.id) {
+          await fetch('/.netlify/functions/update-project-progress', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              project_id: supabaseProject.id,
+              progress_percent: progressPercent
+            })
+          });
+        }
+      }
+      
       await upsertProject(activeClient.email, {
         id: project.id,
         name: project.name,

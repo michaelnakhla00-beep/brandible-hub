@@ -97,11 +97,23 @@ function renderProjects({ projects = [] }) {
       statusText = "In Progress";
     }
     
+    // Get progress percent (will be updated via loadProjectProgress)
+    const progressPercent = p.progress_percent || 0;
+    
     return `
-      <div class="project-card cursor-pointer" data-index='${index}' data-project='${JSON.stringify({ name: p.name, summary: p.summary || '', status: statusText, links: p.links || [] }).replace(/'/g, "&#39;")}'>
+      <div class="project-card cursor-pointer" data-index='${index}' data-project='${JSON.stringify({ name: p.name, summary: p.summary || '', status: statusText, links: p.links || [], progress_percent: progressPercent }).replace(/'/g, "&#39;")}'>
         <div class="project-title">${p.name}</div>
         ${p.summary ? `<div class="project-desc">${p.summary}</div>` : ""}
-      <div class="flex items-center justify-between">
+        <div class="mt-2">
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="text-slate-600 dark:text-slate-400">Progress</span>
+            <span class="font-semibold text-purple-600 dark:text-purple-400">${progressPercent}%</span>
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
+            <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 h-2 rounded-full transition-all project-progress-bar" style="width: ${progressPercent}%"></div>
+          </div>
+        </div>
+      <div class="flex items-center justify-between mt-2">
           <span class="status-badge ${statusClass}">${statusText}</span>
       </div>
       ${
@@ -1043,6 +1055,334 @@ function hideToast() {
 window.hideToast = hideToast;
 
 /* ---------------------------
+   NEW FEATURES: Welcome, Profile Completion, Progress, Comments, Feedback, Resources
+---------------------------- */
+
+// Welcome Header with First Name
+function renderWelcomeHeader(clientData) {
+  const welcomeEl = document.getElementById('welcomeMessage');
+  if (!welcomeEl || !clientData) return;
+  
+  const firstName = clientData.name?.split(' ')[0] || 'there';
+  welcomeEl.textContent = `Welcome back, ${firstName} 👋`;
+}
+
+// Fetch and render profile completion
+async function loadProfileCompletion(clientData) {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  
+  try {
+    const res = await fetch('/.netlify/functions/get-client-profile', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) throw new Error('Failed to fetch profile');
+    const { completion_percentage, missing_items } = await res.json();
+    
+    const barEl = document.getElementById('profileCompletionBar');
+    const percentEl = document.getElementById('profileCompletionPercent');
+    const missingEl = document.getElementById('profileCompletionMissing');
+    
+    if (barEl) barEl.style.width = `${completion_percentage}%`;
+    if (percentEl) percentEl.textContent = `${completion_percentage}%`;
+    
+    if (missingEl && missing_items && missing_items.length > 0) {
+      const items = missing_items.map(item => {
+        const labels = {
+          brand_logo: 'Upload brand logo',
+          questionnaire: 'Complete brand questionnaire',
+          files: 'Upload files',
+          contact_info: 'Add contact information'
+        };
+        return labels[item] || item;
+      }).join(', ');
+      missingEl.innerHTML = `<p>Missing: ${items}</p>`;
+    } else if (missingEl) {
+      missingEl.innerHTML = '<p class="text-green-600 dark:text-green-400">✓ Profile complete!</p>';
+    }
+  } catch (err) {
+    console.error('Failed to load profile completion:', err);
+  }
+}
+
+// Update project cards to include progress bars
+function updateProjectCardWithProgress(project, progressPercent) {
+  const cards = document.querySelectorAll(`.project-card[data-project]`);
+  cards.forEach(card => {
+    const projectData = JSON.parse(card.getAttribute('data-project') || '{}');
+    if (projectData.name === project.name || projectData.name === project.title) {
+      // Update progress bar and percentage
+      const progressBar = card.querySelector('.project-progress-bar');
+      const progressPercentEl = card.querySelector('.text-purple-600, .text-purple-400');
+      
+      if (progressBar) {
+        progressBar.style.width = `${progressPercent}%`;
+      }
+      if (progressPercentEl && progressPercentEl.textContent.includes('%')) {
+        progressPercentEl.textContent = `${progressPercent}%`;
+      }
+      
+      // Update data attribute
+      const updatedData = { ...projectData, progress_percent: progressPercent };
+      card.setAttribute('data-project', JSON.stringify(updatedData).replace(/'/g, "&#39;"));
+    }
+  });
+}
+
+// Fetch project progress from Supabase projects table
+async function loadProjectProgress(projects) {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  
+  try {
+    // Fetch projects from Supabase to get progress_percent
+    const res = await fetch('/.netlify/functions/get-projects', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) return;
+    const supabaseProjects = await res.json();
+    
+    // Match by project name/title and update cards
+    projects.forEach(p => {
+      const supabaseProject = supabaseProjects.find(sp => 
+        sp.title === p.name || sp.title === p.title || sp.client_email === (window.portalClientData?.email || '')
+      );
+      if (supabaseProject && supabaseProject.progress_percent !== undefined) {
+        updateProjectCardWithProgress(p, supabaseProject.progress_percent);
+      } else {
+        // Default to 0% if no progress set
+        updateProjectCardWithProgress(p, 0);
+      }
+    });
+  } catch (err) {
+    console.error('Failed to load project progress:', err);
+  }
+}
+
+// Load and render resources
+async function loadResources(category = 'all') {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  
+  try {
+    const url = category === 'all' 
+      ? '/.netlify/functions/get-resources'
+      : `/.netlify/functions/get-resources?category=${category}`;
+    
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) throw new Error('Failed to fetch resources');
+    const { resources } = await res.json();
+    
+    const gridEl = document.getElementById('resourcesGrid');
+    const emptyEl = document.getElementById('resourcesEmpty');
+    
+    if (!gridEl) return;
+    
+    if (!resources || resources.length === 0) {
+      gridEl.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+    
+    if (emptyEl) emptyEl.classList.add('hidden');
+    
+    gridEl.innerHTML = resources.map(r => `
+      <div class="card p-5 hover:shadow-lg transition-shadow">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex-1">
+            <h3 class="font-semibold text-slate-900 dark:text-slate-100 mb-1">${r.title}</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">${r.category}</span>
+          </div>
+        </div>
+        ${r.description ? `<p class="text-sm text-slate-600 dark:text-slate-400 mb-3">${r.description}</p>` : ''}
+        <div class="flex items-center gap-2">
+          <a href="${r.file_url}" target="_blank" rel="noopener" class="btn-primary text-sm flex-1 text-center">Download</a>
+          <a href="${r.file_url}" target="_blank" rel="noopener" class="btn-ghost text-sm">View</a>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load resources:', err);
+    showToast('Failed to load resources', 'error');
+  }
+}
+
+// Load feedback history
+async function loadFeedbackHistory() {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  
+  try {
+    const res = await fetch('/.netlify/functions/get-feedback', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) return;
+    const { feedback } = await res.json();
+    
+    const historyEl = document.getElementById('feedbackHistory');
+    const listEl = document.getElementById('feedbackHistoryList');
+    
+    if (!feedback || feedback.length === 0) {
+      if (historyEl) historyEl.classList.add('hidden');
+      return;
+    }
+    
+    if (historyEl) historyEl.classList.remove('hidden');
+    if (listEl) {
+      listEl.innerHTML = feedback.map(f => `
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium">${f.project_id ? 'Project Feedback' : 'General Feedback'}</span>
+            <div class="flex gap-1">
+              ${Array.from({ length: 5 }, (_, i) => 
+                `<span class="text-lg ${i < f.rating ? 'text-yellow-400' : 'text-slate-300'}">⭐</span>`
+              ).join('')}
+            </div>
+          </div>
+          ${f.comment ? `<p class="text-sm text-slate-600 dark:text-slate-400">${f.comment}</p>` : ''}
+          <p class="text-xs text-slate-500 mt-2">${new Date(f.created_at).toLocaleDateString()}</p>
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    console.error('Failed to load feedback history:', err);
+  }
+}
+
+// Submit feedback
+async function submitFeedback(projectId, rating, comment) {
+  const token = await getPortalAuthToken();
+  if (!token) return false;
+  
+  try {
+    const res = await fetch('/.netlify/functions/create-feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ project_id: projectId, rating, comment })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to submit feedback');
+    }
+    
+    showToast('Feedback submitted successfully!');
+    await loadFeedbackHistory();
+    return true;
+  } catch (err) {
+    console.error('Failed to submit feedback:', err);
+    showToast(err.message || 'Failed to submit feedback', 'error');
+    return false;
+  }
+}
+
+// Wire up feedback form
+function wireFeedbackForm(projects) {
+  const projectSelect = document.getElementById('feedbackProjectSelect');
+  const ratingStars = document.querySelectorAll('.rating-star');
+  const ratingText = document.getElementById('ratingText');
+  const commentTextarea = document.getElementById('feedbackComment');
+  const submitBtn = document.getElementById('submitFeedback');
+  
+  if (!projectSelect) return;
+  
+  // Fetch actual projects from Supabase to get IDs
+  async function populateProjectSelect() {
+    const token = await getPortalAuthToken();
+    if (!token) return;
+    
+    try {
+      const res = await fetch('/.netlify/functions/get-projects', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const supabaseProjects = await res.json();
+        projectSelect.innerHTML = '<option value="">Choose a project...</option>' + 
+          supabaseProjects.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to load projects for feedback:', err);
+    }
+    
+    // Fallback: use provided projects array
+    projectSelect.innerHTML = '<option value="">Choose a project...</option>' + 
+      projects.map(p => `<option value="${p.id || p.name}">${p.name || p.title}</option>`).join('');
+  }
+  
+  populateProjectSelect();
+  
+  let selectedRating = 0;
+  
+  // Wire rating stars
+  ratingStars.forEach((star, index) => {
+    star.addEventListener('click', () => {
+      selectedRating = index + 1;
+      ratingStars.forEach((s, i) => {
+        s.classList.toggle('text-yellow-400', i < selectedRating);
+        s.classList.toggle('text-slate-300', i >= selectedRating);
+      });
+      if (ratingText) {
+        ratingText.textContent = `${selectedRating} ${selectedRating === 1 ? 'star' : 'stars'}`;
+      }
+    });
+  });
+  
+  // Wire submit
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      const projectId = projectSelect.value;
+      if (!projectId || !selectedRating) {
+        showToast('Please select a project and rating', 'error');
+        return;
+      }
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+      
+      const success = await submitFeedback(projectId, selectedRating, commentTextarea?.value || '');
+      
+      if (success) {
+        projectSelect.value = '';
+        commentTextarea.value = '';
+        selectedRating = 0;
+        ratingStars.forEach(s => {
+          s.classList.remove('text-yellow-400');
+          s.classList.add('text-slate-300');
+        });
+        if (ratingText) ratingText.textContent = 'Select a rating';
+      }
+      
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Feedback';
+    });
+  }
+}
+
+// Wire up resources filters
+function wireResourcesFilters() {
+  const filters = document.querySelectorAll('.resource-filter');
+  filters.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filters.forEach(f => f.classList.remove('active'));
+      btn.classList.add('active');
+      const category = btn.getAttribute('data-category') || 'all';
+      loadResources(category);
+    });
+  });
+}
+
+/* ---------------------------
    4) Init
 ---------------------------- */
 (async function init() {
@@ -1058,6 +1398,11 @@ window.hideToast = hideToast;
     await initSupabase();
 
     window.portalClientData = data;
+    
+    // New features: Welcome header and profile completion
+    renderWelcomeHeader(data);
+    await loadProfileCompletion(data);
+    
     renderProfile({
       id: data.id,
       name: data.name,
@@ -1071,6 +1416,11 @@ window.hideToast = hideToast;
     renderKPIs(data);
     renderProjects({ projects: data.projects || [] });
     
+    // Load project progress bars
+    if (data.projects && data.projects.length > 0) {
+      await loadProjectProgress(data.projects);
+    }
+    
     // Try to fetch Supabase files if client is initialized
     let storageFiles = [];
     if (supabaseClient && userEmail) {
@@ -1081,6 +1431,12 @@ window.hideToast = hideToast;
     await loadPortalInvoices();
     renderActivity({ activity: data.activity || [] });
     renderUpdates({ updates: data.updates || [] });
+
+    // New features: Feedback and Resources
+    wireFeedbackForm(data.projects || []);
+    wireResourcesFilters();
+    await loadResources();
+    await loadFeedbackHistory();
 
     wireFilters(data);
 
@@ -1322,7 +1678,7 @@ if (submitProjectComment) submitProjectComment.onclick = async () => {
       }
     });
   }, { root: null, rootMargin: '0px 0px -70% 0px', threshold: 0.1 });
-  ['overview','kanban','filesCard','invoicesCard','support'].forEach((id) => {
+  ['overview','kanban','filesCard','invoicesCard','feedback','resources','support'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) observer.observe(el);
   });

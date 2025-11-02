@@ -1,4 +1,4 @@
-// netlify/functions/update-client-profile.js
+// netlify/functions/update-resource.js
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
@@ -18,16 +18,23 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Admin only
     const isAdmin = user.app_metadata?.roles?.includes("admin");
-    const { email: targetEmail, completion_percentage, missing_items } = JSON.parse(event.body || "{}");
+    if (!isAdmin) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "Admin access required" })
+      };
+    }
 
-    // Determine target email
-    let emailToQuery = (user.email || "").toLowerCase();
-    if (isAdmin && targetEmail) {
-      emailToQuery = targetEmail.toLowerCase();
-    } else if (!isAdmin) {
-      // Clients can only update their own profile
-      emailToQuery = (user.email || "").toLowerCase();
+    const { resource_id } = event.queryStringParameters || {};
+    const { title, description, category, visible_to } = JSON.parse(event.body || "{}");
+
+    if (!resource_id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "resource_id is required" })
+      };
     }
 
     // Initialize Supabase client
@@ -43,33 +50,27 @@ exports.handler = async (event, context) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get client record
-    const { data: client, error: clientError } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('email', emailToQuery)
-      .single();
-
-    if (clientError || !client) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: "Client not found" })
-      };
-    }
-
     // Build update object
     const updates = {};
-    if (completion_percentage !== undefined) {
-      if (completion_percentage < 0 || completion_percentage > 100) {
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (category !== undefined) {
+      if (!['Guides', 'Templates', 'Tutorials'].includes(category)) {
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: "completion_percentage must be between 0 and 100" })
+          body: JSON.stringify({ error: "category must be one of: Guides, Templates, Tutorials" })
         };
       }
-      updates.completion_percentage = completion_percentage;
+      updates.category = category;
     }
-    if (missing_items !== undefined) {
-      updates.missing_items = Array.isArray(missing_items) ? missing_items : [];
+    if (visible_to !== undefined) {
+      if (!['client', 'internal'].includes(visible_to)) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: "visible_to must be 'client' or 'internal'" })
+        };
+      }
+      updates.visible_to = visible_to;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -79,16 +80,11 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Upsert profile
-    const { data: profile, error } = await supabase
-      .from('client_profiles')
-      .upsert({
-        user_id: client.id,
-        email: emailToQuery,
-        ...updates
-      }, {
-        onConflict: 'user_id'
-      })
+    // Update resource
+    const { data: resource, error } = await supabase
+      .from('resources')
+      .update(updates)
+      .eq('id', resource_id)
       .select()
       .single();
 
@@ -103,13 +99,14 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, profile })
+      body: JSON.stringify({ success: true, resource })
     };
   } catch (err) {
-    console.error("Error in update-client-profile:", err);
+    console.error("Error in update-resource:", err);
     return { 
       statusCode: 500, 
       body: JSON.stringify({ error: "Server error: " + err.message }) 
     };
   }
 };
+

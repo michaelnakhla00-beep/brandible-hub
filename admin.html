@@ -113,6 +113,8 @@
         <a href="#analyticsSection" class="sidebar-link">Analytics</a>
         <a href="#clientsSection" class="sidebar-link">Clients</a>
         <a href="#bookingsSection" class="sidebar-link">Leads</a>
+        <a href="#feedbackSection" class="sidebar-link">Project Feedback</a>
+        <a href="#resourcesSection" class="sidebar-link">Resources</a>
       </nav>
       <!-- Overview Section -->
       <section id="overviewSection">
@@ -181,6 +183,33 @@
           </div>
         </div>
         <div id="leadsContainer"></div>
+      </section>
+
+      <!-- Project Feedback Section -->
+      <section id="feedbackSection">
+        <h2 class="text-2xl font-bold mb-6">Project Feedback</h2>
+        <div class="card p-6">
+          <div id="feedbackManagementContainer">
+            <p class="text-slate-500 mb-4">Loading feedback...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Resources Management Section -->
+      <section id="resourcesSection">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-bold">Resources Management</h2>
+          <button id="addResourceBtn" class="btn-primary">
+            <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Add Resource
+          </button>
+        </div>
+        
+        <div id="resourcesManagementContainer" class="space-y-4">
+          <!-- Resources will be loaded here -->
+        </div>
       </section>
 
       <!-- Recent Activity Across All Clients -->
@@ -337,6 +366,16 @@
                 <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Website</label>
                 <input id="adminClientWebsite" type="text" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Website URL" />
               </div>
+            </div>
+            
+            <!-- Profile Completion Editor -->
+            <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Profile Completion</label>
+              <div class="flex items-center gap-3">
+                <input id="adminClientCompletion" type="range" min="0" max="100" value="0" class="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-600" />
+                <span id="adminClientCompletionPercent" class="text-sm font-semibold text-purple-600 dark:text-purple-400 w-12 text-right">0%</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Adjust profile completion percentage</p>
             </div>
           </div>
         </section>
@@ -616,6 +655,20 @@
             <option>Done</option>
           </select>
           <input id="editProjectDeadline" type="date" class="input-field" />
+        </div>
+        
+        <!-- Progress Slider -->
+        <div class="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Progress</label>
+            <span id="projectProgressDisplay" class="text-sm font-semibold text-purple-600 dark:text-purple-400">0%</span>
+          </div>
+          <input id="projectProgressSlider" type="range" min="0" max="100" value="0" class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-600" />
+          <div class="flex justify-between text-xs text-slate-500">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
         </div>
       </div>
 
@@ -927,6 +980,54 @@
       <div class="card-header border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
         <button onclick="closeLeadDetailsModal()" class="btn-primary">Close</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Resource Management Modal -->
+  <div id="resourceModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[2700]">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative max-h-[90vh] overflow-y-auto">
+      <button id="closeResourceModal" class="absolute top-4 right-5 text-slate-500 hover:text-slate-900">✕</button>
+      <h2 id="resourceModalTitle" class="text-xl font-semibold mb-6">Add Resource</h2>
+      
+      <form id="resourceForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Title</label>
+          <input id="resourceTitle" type="text" class="input-field w-full" required />
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Description</label>
+          <textarea id="resourceDescription" rows="3" class="input-field w-full"></textarea>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Category</label>
+          <select id="resourceCategory" class="input-field w-full" required>
+            <option value="Guides">Guides</option>
+            <option value="Templates">Templates</option>
+            <option value="Tutorials">Tutorials</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Visibility</label>
+          <select id="resourceVisibility" class="input-field w-full">
+            <option value="client">Client (Visible to clients)</option>
+            <option value="internal">Internal (Admin only)</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">File</label>
+          <input id="resourceFile" type="file" class="input-field w-full" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" />
+          <p id="resourceFileCurrent" class="text-xs text-slate-500 mt-1 hidden"></p>
+        </div>
+        
+        <div class="flex justify-end gap-3 pt-4">
+          <button type="button" id="cancelResourceBtn" class="btn-ghost">Cancel</button>
+          <button type="submit" id="saveResourceBtn" class="btn-primary">Save Resource</button>
+        </div>
+      </form>
     </div>
   </div>
 
