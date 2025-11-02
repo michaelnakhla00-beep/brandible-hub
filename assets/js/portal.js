@@ -1164,7 +1164,15 @@ async function loadProjectProgress(projects) {
 // Load and render resources
 async function loadResources(category = 'all') {
   const token = await getPortalAuthToken();
-  if (!token) return;
+  if (!token) {
+    // Silently return if no token - user might not be authenticated yet
+    return;
+  }
+  
+  const gridEl = document.getElementById('resourcesGrid');
+  const emptyEl = document.getElementById('resourcesEmpty');
+  
+  if (!gridEl) return;
   
   try {
     const url = category === 'all' 
@@ -1175,13 +1183,22 @@ async function loadResources(category = 'all') {
       headers: { Authorization: `Bearer ${token}` }
     });
     
-    if (!res.ok) throw new Error('Failed to fetch resources');
+    // Handle errors gracefully - don't show error toast for empty states
+    if (!res.ok) {
+      // If it's a 404 or empty response, just show empty state
+      if (res.status === 404 || res.status === 200) {
+        gridEl.innerHTML = '';
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        return;
+      }
+      // Only log server errors, don't show user-facing error for expected empty states
+      console.warn('Resources API returned non-OK status:', res.status);
+      gridEl.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+    
     const { resources } = await res.json();
-    
-    const gridEl = document.getElementById('resourcesGrid');
-    const emptyEl = document.getElementById('resourcesEmpty');
-    
-    if (!gridEl) return;
     
     if (!resources || resources.length === 0) {
       gridEl.innerHTML = '';
@@ -1207,8 +1224,10 @@ async function loadResources(category = 'all') {
       </div>
     `).join('');
   } catch (err) {
+    // Silently handle errors - show empty state instead of error toast
     console.error('Failed to load resources:', err);
-    showToast('Failed to load resources', 'error');
+    gridEl.innerHTML = '';
+    if (emptyEl) emptyEl.classList.remove('hidden');
   }
 }
 
@@ -1432,11 +1451,21 @@ function wireResourcesFilters() {
     renderActivity({ activity: data.activity || [] });
     renderUpdates({ updates: data.updates || [] });
 
-    // New features: Feedback and Resources
+    // New features: Feedback and Resources (load in background, don't block on errors)
     wireFeedbackForm(data.projects || []);
     wireResourcesFilters();
-    await loadResources();
-    await loadFeedbackHistory();
+    
+    // Load resources and feedback history - don't fail if these error
+    try {
+      await loadResources();
+    } catch (err) {
+      console.error('Resources failed to load (non-critical):', err);
+    }
+    try {
+      await loadFeedbackHistory();
+    } catch (err) {
+      console.error('Feedback history failed to load (non-critical):', err);
+    }
 
     wireFilters(data);
 
