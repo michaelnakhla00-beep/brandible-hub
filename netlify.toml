@@ -5,7 +5,6 @@
   included_files = ["data/clients.json"]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["pdfkit"]
   
 [dev]
   command = "netlify dev"
