@@ -1916,6 +1916,34 @@ function wireResourcesFilters() {
     const notifBtn = document.getElementById('openNotifications');
     const panel = document.getElementById('notificationsPanel');
     if (notifBtn && panel) notifBtn.addEventListener('click', () => panel.classList.toggle('hidden'));
+    
+    const clearNotifBtn = document.getElementById('clearNotificationsBtn');
+    if (clearNotifBtn) {
+      clearNotifBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to delete all notifications? This cannot be undone.')) return;
+        clearNotifBtn.disabled = true;
+        const origText = clearNotifBtn.textContent;
+        clearNotifBtn.textContent = 'Clearing...';
+        try {
+          const token = await getPortalAuthToken();
+          if (!token) throw new Error('Not authenticated');
+          const res = await fetch('/.netlify/functions/delete-all-notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({})
+          });
+          if (!res.ok) throw new Error('Delete failed');
+          if (window.showToast) window.showToast('All notifications cleared', 'success');
+          await loadNotifications();
+        } catch (err) {
+          console.error('Clear notifications error:', err);
+          if (window.showToast) window.showToast('Failed to clear notifications', 'error', err.message);
+        } finally {
+          clearNotifBtn.disabled = false;
+          clearNotifBtn.textContent = origText;
+        }
+      });
+    }
 
     wireFilters(data);
 

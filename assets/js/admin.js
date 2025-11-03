@@ -3384,6 +3384,25 @@ window.editResource = async function(resourceId) {
           markAll.textContent = origText;
         }
       });
+      const clearAllBtn = document.getElementById('clearAllNotifications');
+      if (clearAllBtn) clearAllBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to delete all notifications? This cannot be undone.')) return;
+        clearAllBtn.disabled = true;
+        const origText = clearAllBtn.textContent;
+        clearAllBtn.textContent = 'Clearing...';
+        try {
+          const token = await new Promise((resolve) => { const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(()=>resolve(null)); });
+          const res = await fetch('/.netlify/functions/delete-all-notifications', { method: 'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({}) });
+          if (!res.ok) throw new Error('Delete failed');
+          showToast('All notifications cleared', 'success');
+          await loadAllNotifications();
+        } catch (err) {
+          showToast('Failed to clear notifications', 'error', err.message);
+        } finally {
+          clearAllBtn.disabled = false;
+          clearAllBtn.textContent = origText;
+        }
+      });
       await loadAllNotifications();
     } catch (e) { console.warn('Load notifications admin failed', e); }
 
