@@ -2,20 +2,48 @@ const supabaseJs = require('@supabase/supabase-js');
 const createClient = supabaseJs.createClient;
 
 exports.handler = async (event, context) => {
-  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' };
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
+  }
   try {
     const user = context.clientContext && context.clientContext.user;
     const userRoles = user && user.app_metadata && user.app_metadata.roles || [];
     const isAdmin = userRoles.indexOf('admin') >= 0;
-    if (!user || !isAdmin) return { statusCode: 403, body: JSON.stringify({ error: 'Admin required' }) };
-    const { client_id } = JSON.parse(event.body || '{}');
+    if (!user || !isAdmin) {
+      return {
+        statusCode: 403,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Admin required' })
+      };
+    }
+    const body = JSON.parse(event.body || '{}');
+    const client_id = body.client_id;
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    const query = supabase.from('notifications').update({ is_read: true });
-    if (client_id) query.eq('user_id', client_id);
-    const { error } = await query;
-    if (error) throw error;
-    return { statusCode: 200, body: JSON.stringify({ success: true }) };
-  } catch (err) { return { statusCode: 500, body: JSON.stringify({ error: err.message }) }; }
+    let query = supabase.from('notifications').update({ is_read: true });
+    if (client_id) {
+      query = query.eq('user_id', client_id);
+    }
+    const result = await query;
+    if (result.error) {
+      throw result.error;
+    }
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, updated: result.data ? result.data.length : 0 })
+    };
+  } catch (err) {
+    console.error('mark-all-notifications-read error:', err);
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: err.message || 'Failed to update notifications' })
+    };
+  }
 };
 
 
