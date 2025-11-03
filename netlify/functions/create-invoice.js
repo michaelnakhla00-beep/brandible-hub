@@ -220,7 +220,7 @@ exports.handler = async (event, context) => {
               description: 'Tax',
               quantity: 1,
               unit_amount: Math.round(totals.taxAmount * 100),
-              currency,
+              currency: currency,
             });
           }
 
@@ -230,7 +230,7 @@ exports.handler = async (event, context) => {
               description: 'Discount',
               quantity: 1,
               unit_amount: Math.round(-totals.discountAmount * 100),
-              currency,
+              currency: currency,
             });
           }
 
