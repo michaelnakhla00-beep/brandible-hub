@@ -105,8 +105,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M21.752 15.002A9.718 9.718 0 0112 21.75a9.75 9.75 0 010-19.5 9.718 9.718 0 019.752 6.748 7.5 7.5 0 000 6.004z"/></svg>
           </button></div>
           <div class="btn-surface"><button onclick="window.refreshAdmin && window.refreshAdmin()" class="btn-ghost text-xs sm:text-sm" title="Refresh">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M4.5 12a7.5 7.5 0 1112.9 5.303l1.4 1.4a.75.75 0 01-1.06 1.06l-2.652-2.652a.75.75 0 01-.22-.53V12a.75.75 0 011.5 0v2.69A6 6 0 106 12a.75.75 0 01-1.5 0z" clip-rule="evenodd"/></svg>
-            <span class="hidden sm:inline">Refresh</span>
+            <span>Refresh</span>
           </button></div>
           <div class="btn-surface"><button id="logoutBtn" class="btn-ghost text-xs sm:text-sm font-medium">Log out</button></div>
         </div>
@@ -171,17 +170,17 @@
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-2xl font-bold">Notifications</h2>
           <div class="flex items-center gap-2">
-            <input id="manualNotifyEmail" class="input-field" placeholder="Client email"/>
-            <input id="manualNotifyMessage" class="input-field w-64" placeholder="Message"/>
-            <select id="manualNotifyType" class="input-field">
+            <input id="manualNotifyEmail" class="input-field border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" placeholder="Client email"/>
+            <input id="manualNotifyMessage" class="input-field w-64 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" placeholder="Message"/>
+            <select id="manualNotifyType" class="input-field border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">
               <option value="system">system</option>
               <option value="file">file</option>
               <option value="invoice">invoice</option>
               <option value="comment">comment</option>
             </select>
-            <button id="sendManualNotify" class="btn-primary btn-sm">Send</button>
-            <button id="markAllRead" class="btn-ghost btn-sm">Mark all read</button>
-            <button id="clearAllNotifications" class="btn-ghost btn-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">Clear all</button>
+            <button id="sendManualNotify" class="btn-primary btn-sm border border-indigo-500 rounded-lg px-3 py-2">Send</button>
+            <button id="markAllRead" class="btn-ghost btn-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">Mark all read</button>
+            <button id="clearAllNotifications" class="btn-ghost btn-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">Clear all</button>
           </div>
         </div>
         <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">

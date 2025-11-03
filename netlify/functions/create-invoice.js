@@ -106,7 +106,16 @@ exports.handler = async (event, context) => {
 
     const user = context.clientContext && context.clientContext.user;
     const userRoles = user && user.app_metadata && user.app_metadata.roles || [];
-    if (!user || !userRoles.includes('admin')) {
+    let isAdmin = false;
+    if (userRoles && userRoles.length > 0) {
+      for (let i = 0; i < userRoles.length; i++) {
+        if (userRoles[i] === 'admin') {
+          isAdmin = true;
+          break;
+        }
+      }
+    }
+    if (!user || !isAdmin) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Admin access required' }) };
     }
 
