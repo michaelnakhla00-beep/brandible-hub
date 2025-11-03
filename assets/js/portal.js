@@ -326,7 +326,8 @@ async function uploadFileToSupabase(file, userEmail) {
   }
   
   const safeEmail = sanitizeEmail(userEmail);
-  const filePath = `${safeEmail}/${Date.now()}-${file.name}`;
+  const safeName = makeSafeStorageKey(file.name) || `file_${Date.now()}`;
+  const filePath = `${safeEmail}/${Date.now()}-${safeName}`;
   
   const { data, error } = await supabaseClient.storage
     .from('client_files')
