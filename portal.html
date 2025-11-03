@@ -129,7 +129,7 @@
             <span id="userEmail" class="hidden sm:inline text-sm text-slate-500"></span>
             <div class="btn-surface"><button id="openNotifications" class="btn-icon" title="Notifications">🔔</button></div>
             <div class="btn-surface"><button onclick="toggleDark()" class="btn-icon" title="Dark mode">🌗</button></div>
-            <div class="btn-surface"><button onclick="refreshClientData()" class="btn-ghost" title="Refresh data">Refresh</button></div>
+            <div class="btn-surface"><button onclick="window.location.reload()" class="btn-ghost" title="Refresh page">Refresh</button></div>
             <button id="logoutBtn" class="btn-ghost">Log out</button>
           </div>
         </div>
@@ -344,6 +344,30 @@
                     <label class="block text-sm font-medium text-slate-600">Email</label>
                     <input id="accountEmail" class="input-field w-full" disabled />
                   </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-slate-600">Phone</label>
+                    <input id="accountPhone" class="input-field w-full" placeholder="(555) 555-5555" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-600">Website</label>
+                    <input id="accountWebsite" class="input-field w-full" placeholder="https://example.com" />
+                  </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-slate-600">Business type</label>
+                    <input id="accountBusinessType" class="input-field w-full" disabled />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-600">Member since</label>
+                    <input id="accountJoined" class="input-field w-full" disabled />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-600">Last update</label>
+                  <input id="accountLastUpdate" class="input-field w-full" disabled />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-2">Notifications</label>
