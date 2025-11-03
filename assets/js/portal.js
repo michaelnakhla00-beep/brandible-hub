@@ -56,11 +56,25 @@ function renderProfile({ id, name, email, company = '', manager = '', phone = ''
   if (!wrap) return;
 
   const avatar = profile_url || 'https://ui-avatars.com/api/?background=635BFF&color=fff&name=' + encodeURIComponent(name || email || 'User');
+  const brand = window.portalBrand || null;
+  const businessType = brand?.business_type || '';
+  const memberSince = window.portalClientData?.created_at ? new Date(window.portalClientData.created_at).toLocaleDateString() : '';
+  const lastUpdate = window.portalClientData?.last_update || '';
+
+  wrap.classList.add('transition-all','duration-200','hover:shadow-xl','hover:scale-[1.01]','rounded-2xl','p-2');
   wrap.innerHTML = `
     <img src="${avatar}" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-indigo-500 shadow flex-shrink-0"/>
     <div class="flex-1 text-center sm:text-left w-full sm:w-auto">
       <div class="text-lg font-semibold">${name || ''}${company ? ' • ' + company : ''}</div>
       <div class="text-sm text-slate-500 dark:text-slate-400">${manager ? 'Manager: ' + manager + ' · ' : ''}${email}${phone ? ' · ' + phone : ''}${website ? ' · <a class=\"underline\" href=\"' + website + '\" target=\"_blank\">Website</a>' : ''}</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap gap-2">
+        ${businessType ? `<span class="pill-slate">${businessType}</span>` : ''}
+        ${memberSince ? `<span class="pill-slate">Member since ${memberSince}</span>` : ''}
+        ${lastUpdate ? `<span class="pill-slate">Last update ${lastUpdate}</span>` : ''}
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="editProfileBtn" class="btn-ghost btn-sm">🖋 Edit Profile</button>
     </div>
   `;
 }
@@ -208,6 +222,57 @@ function renderProjects({ projects = [] }) {
       )
       .join("");
   }
+}
+
+// Wire up collapsible project sections
+function wireCollapsibleSections() {
+  const sections = ['progress', 'review', 'done'];
+  
+  sections.forEach(section => {
+    const button = document.querySelector(`[data-collapse-target="${section}"]`);
+    const content = document.querySelector(`[data-collapse-content="${section}"]`);
+    const icon = document.querySelector(`[data-collapse-icon="${section}"]`);
+    
+    if (!button || !content || !icon) return;
+    
+    // Calculate actual content height
+    function getContentHeight() {
+      const inner = content.querySelector('div');
+      return inner ? inner.scrollHeight + 32 : 0; // padding
+    }
+    
+    // Update max-height based on current state
+    function updateHeight(isOpen) {
+      if (isOpen) {
+        const height = getContentHeight();
+        content.style.maxHeight = `${height}px`;
+        icon.style.transform = 'rotate(0deg)';
+      } else {
+        content.style.maxHeight = '0px';
+        icon.style.transform = 'rotate(180deg)';
+      }
+    }
+    
+    // Initial state: only "progress" is open
+    const isInitiallyOpen = section === 'progress';
+    updateHeight(isInitiallyOpen);
+    
+    // Toggle on click
+    button.addEventListener('click', () => {
+      const isCurrentlyOpen = content.style.maxHeight !== '0px' && content.style.maxHeight !== '';
+      updateHeight(!isCurrentlyOpen);
+    });
+    
+    // Update height when content changes (dynamic content)
+    const observer = new MutationObserver(() => {
+      if (content.style.maxHeight !== '0px' && content.style.maxHeight !== '') {
+        const height = getContentHeight();
+        content.style.maxHeight = `${height}px`;
+      }
+    });
+    
+    observer.observe(content, { childList: true, subtree: true });
+  });
 }
 
 // Files - Supabase Storage
@@ -1130,9 +1195,9 @@ function wireFilters(fullData) {
     });
   }
   
-  // Set "All" as default active on load
-  if (btnAll) {
-    btnAll.click();
+  // Set "Active" as default active on load (matches auto-expanded In Progress)
+  if (btnActive) {
+    btnActive.click();
   }
 
   const search = document.getElementById("globalSearch");
@@ -1235,9 +1300,8 @@ window.hideToast = hideToast;
 function renderWelcomeHeader(clientData) {
   const welcomeEl = document.getElementById('welcomeMessage');
   if (!welcomeEl || !clientData) return;
-  
-  const firstName = clientData.name?.split(' ')[0] || 'there';
-  welcomeEl.textContent = `Welcome back, ${firstName} 👋`;
+  const fullName = clientData.name || clientData.company || 'there';
+  welcomeEl.textContent = `Welcome back, ${fullName} 👋`;
 }
 
 // Fetch and render profile completion
@@ -1261,18 +1325,47 @@ async function loadProfileCompletion(clientData) {
     if (percentEl) percentEl.textContent = `${completion_percentage}%`;
     
     if (missingEl && missing_items && missing_items.length > 0) {
-      const items = missing_items.map(item => {
-        const labels = {
-          brand_logo: 'Upload brand logo',
-          questionnaire: 'Complete brand questionnaire',
-          files: 'Upload files',
-          contact_info: 'Add contact information'
-        };
-        return labels[item] || item;
-      }).join(', ');
-      missingEl.innerHTML = `<p>Missing: ${items}</p>`;
+      const map = {
+        brand_logo: {
+          label: 'Upload brand logo',
+          action: () => document.getElementById('openChangePhoto')?.click(),
+          hint: 'Add your logo so documents and invoices are branded.'
+        },
+        questionnaire: {
+          label: 'Complete brand questionnaire',
+          action: () => openQuestionnaire(),
+          hint: 'Tell us more about your brand so we can tailor work.'
+        },
+        files: {
+          label: 'Upload files',
+          action: () => document.getElementById('filesCard')?.scrollIntoView({ behavior: 'smooth' }),
+          hint: 'Share assets like logos, photos, or copy.'
+        },
+        contact_info: {
+          label: 'Add contact information',
+          action: () => document.getElementById('openAccountSettingsBtn')?.click(),
+          hint: 'Make sure we can reach you with updates.'
+        }
+      };
+      missingEl.innerHTML = missing_items.map(key => {
+        const item = map[key] || { label: key, hint: '' };
+        return `<button class="btn-link" data-missing="${key}" title="${item.hint}">📝 ${item.label}</button>`;
+      }).join(' ');
+      missingEl.querySelectorAll('button[data-missing]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-missing');
+          const conf = map[key];
+          if (conf && typeof conf.action === 'function') conf.action();
+        });
+      });
     } else if (missingEl) {
-      missingEl.innerHTML = '<p class="text-green-600 dark:text-green-400">✓ Profile complete!</p>';
+      // 100% complete state
+      const wrapper = document.getElementById('profileCompletion');
+      if (wrapper) {
+        const barContainer = wrapper.querySelector('.w-full.bg-slate-200');
+        if (barContainer) barContainer.classList.add('hidden');
+      }
+      missingEl.innerHTML = '<div class="flex items-center gap-2 text-green-600 dark:text-green-400"><span class="text-xl animate-pulse">✅</span><span>Profile Complete! You\'re all set.</span></div>';
     }
   } catch (err) {
     console.error('Failed to load profile completion:', err);
@@ -1608,6 +1701,9 @@ function wireResourcesFilters() {
     renderKPIs(data);
     renderProjects({ projects: data.projects || [] });
     
+    // Wire up collapsible project sections
+    wireCollapsibleSections();
+    
     // Load project progress bars
     if (data.projects && data.projects.length > 0) {
       await loadProjectProgress(data.projects);
@@ -1644,6 +1740,8 @@ function wireResourcesFilters() {
     try { await loadNotifications(); } catch {}
     try { await loadUserSettings(); } catch {}
     try { await loadBrandInfo(); } catch {}
+    // Expose brand for profile card additions
+    window.portalBrand = window.portalBrand || null;
 
     // Wire basic account settings values
     const nameInput = document.getElementById('accountName');

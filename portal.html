@@ -185,25 +185,51 @@
 
         <!-- Projects Section -->
         <div class="card-section">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="section-title">Projects</h2>
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">Projects</h2>
               <div class="flex items-center gap-2">
                 <button class="btn-ghost text-sm" id="filterActive">Active</button>
                 <button class="btn-ghost text-sm" id="filterAll">All</button>
               </div>
             </div>
-            <div class="projects-grid" id="kanban">
-              <div class="project-column">
-                <h3>In Progress</h3>
-                <div class="space-y-2" id="col-progress"></div>
+            <div class="space-y-4" id="kanban">
+              <!-- In Progress Section -->
+              <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <button class="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" data-collapse-target="progress">
+                  <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">In Progress</h3>
+                  <svg class="w-5 h-5 text-slate-500 transition-transform duration-300" data-collapse-icon="progress" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div class="overflow-hidden transition-all duration-300" data-collapse-content="progress" style="max-height: 1000px;">
+                  <div class="p-4 space-y-3" id="col-progress"></div>
+                </div>
               </div>
-              <div class="project-column">
-                <h3>Review</h3>
-                <div class="space-y-2" id="col-review"></div>
+              
+              <!-- Review Section -->
+              <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <button class="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" data-collapse-target="review">
+                  <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Review</h3>
+                  <svg class="w-5 h-5 text-slate-500 transition-transform duration-300 rotate-180" data-collapse-icon="review" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div class="overflow-hidden transition-all duration-300" data-collapse-content="review" style="max-height: 0px;">
+                  <div class="p-4 space-y-3" id="col-review"></div>
+                </div>
               </div>
-              <div class="project-column">
-                <h3>Done</h3>
-                <div class="space-y-2" id="col-done"></div>
+              
+              <!-- Done Section -->
+              <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <button class="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" data-collapse-target="done">
+                  <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Done</h3>
+                  <svg class="w-5 h-5 text-slate-500 transition-transform duration-300 rotate-180" data-collapse-icon="done" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div class="overflow-hidden transition-all duration-300" data-collapse-content="done" style="max-height: 0px;">
+                  <div class="p-4 space-y-3" id="col-done"></div>
+                </div>
               </div>
             </div>
             <!-- Fallback list for existing portal.js renderer -->
