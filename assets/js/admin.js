@@ -1051,23 +1051,23 @@ function renderModalInvoices() {
         return `<span class="pill-slate">${status || 'Unknown'}</span>`;
     }
   };
-
+  
   container.innerHTML = activeClientInvoices
     .map((inv) => `
-      <tr class="border-t border-slate-200 dark:border-slate-800">
+    <tr class="border-t border-slate-200 dark:border-slate-800">
         <td class="py-2">${inv.number || '—'}</td>
         <td class="py-2">${formatInvoiceDate(inv.issued_at)}</td>
         <td class="py-2">${formatInvoiceDate(inv.due_at)}</td>
         <td class="py-2">${formatInvoiceCurrency(inv.total, inv.currency)}</td>
         <td class="py-2">${statusClass(inv.status)}</td>
-        <td class="py-2">
+      <td class="py-2">
           <div class="flex items-center justify-end gap-2">
             <button class="btn-ghost text-xs" data-action="pdf" data-id="${inv.id}">View PDF</button>
             ${inv.hosted_url ? `<a class="btn-ghost text-xs" href="${inv.hosted_url}" target="_blank" rel="noopener">${inv.status === 'draft' ? 'Preview' : 'Hosted'}</a>` : ''}
             <button class="btn-ghost text-xs" data-action="send" data-id="${inv.id}">${inv.status === 'draft' ? 'Send' : 'Resend'}</button>
           </div>
-        </td>
-      </tr>
+      </td>
+    </tr>
     `)
     .join('');
 
@@ -1722,7 +1722,7 @@ window.viewClient = function (email) {
     cancelEditMode();
   }
   
-    // Fetch full client data
+  // Fetch full client data
   fetchClientFullData(email).then(async fullClient => {
     // Store original data
     originalClientData = { ...fullClient };

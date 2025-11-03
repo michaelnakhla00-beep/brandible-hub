@@ -290,6 +290,85 @@ async function initSupabase() {
   return false;
 }
 
+// ---------------- Notifications -----------------
+async function loadNotifications() {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  try {
+    const res = await fetch('/.netlify/functions/get-notifications', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Failed');
+    const { notifications } = await res.json();
+    const list = document.getElementById('notificationsList');
+    const badge = document.getElementById('unreadBadge');
+    const unread = (notifications || []).filter(n => !n.is_read).length;
+    if (badge) badge.textContent = unread;
+    if (list) {
+      list.innerHTML = (notifications || []).map(n => `
+        <li class="p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 ${n.is_read ? '' : 'bg-slate-50 dark:bg-slate-800/40'}">
+          <div class="text-sm">${n.message}</div>
+          <div class="text-xs text-slate-500 mt-1">${new Date(n.created_at).toLocaleString()}</div>
+        </li>`).join('');
+    }
+  } catch (e) {
+    console.error('notifications error', e);
+  }
+}
+
+// ---------------- Account Settings -----------------
+async function loadUserSettings() {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  try {
+    const res = await fetch('/.netlify/functions/get-user-settings', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const { settings } = await res.json();
+    const emailCb = document.getElementById('settingEmailNotifications');
+    const invCb = document.getElementById('settingInvoiceReminders');
+    if (emailCb) emailCb.checked = !!settings.email_notifications;
+    if (invCb) invCb.checked = !!settings.invoice_reminders;
+  } catch (e) {
+    console.error('settings error', e);
+  }
+}
+
+async function saveUserSettings() {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  try {
+    const body = {
+      email_notifications: document.getElementById('settingEmailNotifications')?.checked || false,
+      invoice_reminders: document.getElementById('settingInvoiceReminders')?.checked || false,
+    };
+    const res = await fetch('/.netlify/functions/update-user-settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body)
+    });
+    if (res.ok && window.showToast) window.showToast('Settings saved');
+  } catch (e) { console.error('save settings error', e); }
+}
+
+// ---------------- Brand Info -----------------
+async function loadBrandInfo() {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  try {
+    const res = await fetch('/.netlify/functions/get-brand-profile', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const { brand } = await res.json();
+    if (!brand) return;
+    const logo = document.getElementById('brandLogo');
+    const colors = document.getElementById('brandColors');
+    const fonts = document.getElementById('brandFonts');
+    const aud = document.getElementById('brandAudience');
+    if (logo && brand.logo_url) logo.src = brand.logo_url;
+    if (fonts) fonts.textContent = brand.brand_fonts || '—';
+    if (aud) aud.textContent = brand.target_audience || '—';
+    if (colors) {
+      const arr = Array.isArray(brand.brand_colors) ? brand.brand_colors : [];
+      colors.innerHTML = arr.map(c => `<span class="inline-block w-6 h-6 rounded-lg border border-slate-300" style="background:${c}"></span>`).join('');
+    }
+  } catch (e) { console.error('brand info error', e); }
+}
+
 // Fetch files from Supabase Storage
 async function fetchSupabaseFiles(userEmail) {
   if (!supabaseClient) {
@@ -1467,6 +1546,29 @@ function wireResourcesFilters() {
     } catch (err) {
       console.error('Feedback history failed to load (non-critical):', err);
     }
+
+    // Notifications + Settings + Brand Info
+    try { await loadNotifications(); } catch {}
+    try { await loadUserSettings(); } catch {}
+    try { await loadBrandInfo(); } catch {}
+
+    // Wire basic account settings values
+    const nameInput = document.getElementById('accountName');
+    const emailInput = document.getElementById('accountEmail');
+    if (nameInput) nameInput.value = data.name || '';
+    if (emailInput) emailInput.value = data.email || '';
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveUserSettings);
+    const reset = document.getElementById('passwordResetLink');
+    if (reset) {
+      reset.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = window.netlifyIdentity; if (id) id.open('recovery');
+      });
+    }
+    const notifBtn = document.getElementById('openNotifications');
+    const panel = document.getElementById('notificationsPanel');
+    if (notifBtn && panel) notifBtn.addEventListener('click', () => panel.classList.toggle('hidden'));
 
     wireFilters(data);
 

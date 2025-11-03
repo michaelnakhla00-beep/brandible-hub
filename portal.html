@@ -86,6 +86,8 @@
         <a href="#projects" class="sidebar-link" data-target="projects"><span>Projects</span></a>
         <a href="#filesCard" class="sidebar-link" data-target="filesCard"><span>Files</span></a>
         <a href="#invoicesCard" class="sidebar-link" data-target="invoicesCard"><span>Invoices</span></a>
+        <a href="#accountSettings" class="sidebar-link" data-target="accountSettings"><span>Account Settings</span></a>
+        <a href="#brandInfo" class="sidebar-link" data-target="brandInfo"><span>Brand Info</span></a>
         <a href="#feedback" class="sidebar-link" data-target="feedback"><span>Feedback</span></a>
         <a href="#resources" class="sidebar-link" data-target="resources"><span>Resources</span></a>
         <a href="#support" class="sidebar-link" data-target="support"><span>Support</span></a>
@@ -125,12 +127,21 @@
           </div>
           <div class="flex items-center gap-3">
             <span id="userEmail" class="hidden sm:inline text-sm text-slate-500"></span>
+            <div class="btn-surface"><button id="openNotifications" class="btn-icon" title="Notifications">🔔</button></div>
             <div class="btn-surface"><button onclick="toggleDark()" class="btn-icon" title="Dark mode">🌗</button></div>
             <div class="btn-surface"><button onclick="refreshClientData()" class="btn-ghost" title="Refresh data"><span class="icon">🔄</span> Refresh</button></div>
             <button id="logoutBtn" class="btn-ghost">Log out</button>
           </div>
         </div>
       </header>
+          <!-- Notifications Panel -->
+          <div id="notificationsPanel" class="hidden fixed top-16 right-4 z-[3000] w-80 max-h-[70vh] overflow-y-auto card p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold">Notifications</h3>
+              <span id="unreadBadge" class="pill-slate">0</span>
+            </div>
+            <ul id="notificationsList" class="space-y-2"></ul>
+          </div>
 
       <main class="flex-1 max-w-[1200px] mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
         <!-- Welcome Header -->
@@ -261,6 +272,48 @@
               </svg>
               <p class="text-sm">No invoices yet</p>
               <p class="text-xs mt-1">Your invoices will appear here once the team sends one.</p>
+            </div>
+          </div>
+
+          <!-- Account Settings -->
+          <div class="card-section" id="accountSettings">
+            <h2 class="section-title">Account Settings</h2>
+            <div class="grid gap-4 max-w-xl">
+              <div>
+                <label class="block text-sm font-medium text-slate-600">Name</label>
+                <input id="accountName" class="input-field w-full" disabled />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-600">Email</label>
+                <input id="accountEmail" class="input-field w-full" disabled />
+              </div>
+              <div class="mt-2">
+                <label class="block text-sm font-medium text-slate-600 mb-2">Notifications</label>
+                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingEmailNotifications" class="rounded"/> Email notifications</label>
+                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingInvoiceReminders" class="rounded"/> Invoice reminders</label>
+              </div>
+              <div class="flex gap-2">
+                <button id="saveSettingsBtn" class="btn-primary">Save Settings</button>
+                <a id="passwordResetLink" class="btn-ghost" href="#">Reset Password</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Brand Info -->
+          <div class="card-section" id="brandInfo">
+            <h2 class="section-title">Brand Info</h2>
+            <div id="brandInfoCard" class="card p-5">
+              <div class="flex items-start gap-4">
+                <img id="brandLogo" class="w-20 h-20 object-cover rounded-xl border border-slate-200" src="" alt="Brand Logo"/>
+                <div class="flex-1">
+                  <div class="mb-3">
+                    <p class="text-sm font-semibold mb-1">Brand Colors</p>
+                    <div id="brandColors" class="flex items-center gap-2"></div>
+                  </div>
+                  <p class="text-sm"><span class="font-semibold">Fonts:</span> <span id="brandFonts"></span></p>
+                  <p class="text-sm mt-2"><span class="font-semibold">Target Audience:</span> <span id="brandAudience"></span></p>
+                </div>
+              </div>
             </div>
           </div>
 
