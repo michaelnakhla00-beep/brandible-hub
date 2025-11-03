@@ -125,8 +125,8 @@
           </div>
           <div class="flex items-center gap-3">
             <span id="userEmail" class="hidden sm:inline text-sm text-slate-500"></span>
-            <button onclick="toggleDark()" class="btn-icon" title="Dark mode">🌗</button>
-            <button onclick="refreshClientData()" class="btn-ghost" title="Refresh data"><span class="icon">🔄</span> Refresh</button>
+            <div class="btn-surface"><button onclick="toggleDark()" class="btn-icon" title="Dark mode">🌗</button></div>
+            <div class="btn-surface"><button onclick="refreshClientData()" class="btn-ghost" title="Refresh data"><span class="icon">🔄</span> Refresh</button></div>
             <button id="logoutBtn" class="btn-ghost">Log out</button>
           </div>
         </div>
@@ -237,7 +237,7 @@
           <div class="card-section" id="invoicesCard">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div>
-                <h2 class="section-title">Invoices</h2>
+            <h2 class="section-title">Invoices</h2>
                 <p class="text-xs text-slate-500 dark:text-slate-400">Review your billing history and download receipts.</p>
               </div>
             </div>
@@ -386,7 +386,7 @@
               <th class="text-right py-3 px-4">Qty</th>
               <th class="text-right py-3 px-4">Price</th>
               <th class="text-right py-3 px-4">Line Total</th>
-            </tr>
+          </tr>
           </thead>
           <tbody id="invoiceDetailItems" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
         </table>
@@ -438,8 +438,8 @@
         <textarea id="clientProjectComment" placeholder="Add a comment..." class="input-field w-full h-20"></textarea>
         <button id="submitProjectComment" class="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-600/90">Post Comment</button>
       </div>
-    </div>
-  </div>
+              </div>
+            </div>
   <!-- Change Photo Modal -->
   <div id="avatarModal" class="hidden fixed inset-0 z-[2000] bg-black/40 flex items-center justify-center">
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-2xl">

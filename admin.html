@@ -95,13 +95,13 @@
         <div class="flex items-center gap-2 sm:gap-3">
           <span id="userEmail" class="hidden lg:inline text-sm font-medium text-slate-600 dark:text-slate-400"></span>
           <span class="pill-blue font-semibold hidden sm:inline">Admin</span>
-          <button onclick="toggleDark()" class="btn-icon" title="Toggle dark mode">
+          <div class="btn-surface"><button onclick="toggleDark()" class="btn-icon" title="Toggle dark mode">
             <span class="text-lg sm:text-xl">🌗</span>
-          </button>
-          <button onclick="window.refreshAdmin && window.refreshAdmin()" class="btn-ghost text-xs sm:text-sm" title="Refresh">
+          </button></div>
+          <div class="btn-surface"><button onclick="window.refreshAdmin && window.refreshAdmin()" class="btn-ghost text-xs sm:text-sm" title="Refresh">
             <span class="icon">🔄</span> Refresh
-          </button>
-          <button id="logoutBtn" class="btn-ghost text-xs sm:text-sm font-medium px-2 sm:px-4">Log out</button>
+          </button></div>
+          <div class="btn-surface"><button id="logoutBtn" class="btn-ghost text-xs sm:text-sm font-medium">Log out</button></div>
         </div>
       </div>
     </header>
