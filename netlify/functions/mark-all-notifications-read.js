@@ -27,9 +27,9 @@ exports.handler = async (event, context) => {
     if (client_id) {
       query = supabase.from('notifications').update({ is_read: true }).eq('user_id', client_id).select('id');
     } else {
-      // Admin wants to mark all notifications as read - use a WHERE clause that matches all
-      // Use .neq('id', '') to match all rows (id is always a UUID, never empty)
-      query = supabase.from('notifications').update({ is_read: true }).neq('id', '').select('id');
+      // Admin wants to mark all notifications as read - update only unread ones
+      // Use .is('is_read', false) to match unread notifications (avoids UUID comparison issues)
+      query = supabase.from('notifications').update({ is_read: true }).eq('is_read', false).select('id');
     }
     const result = await query;
     if (result.error) {

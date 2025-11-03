@@ -2524,11 +2524,34 @@ function renderDashboardChart(dataset) {
 	wrap.style.width = '100%';
 	
 	const header = document.createElement('div');
-	header.className = 'mb-4';
+	header.className = 'flex items-center justify-between mb-4';
+	
+	const left = document.createElement('div');
 	const title = document.createElement('div');
 	title.className = 'text-sm font-semibold text-slate-900 dark:text-white';
 	title.textContent = 'Revenue';
-	header.appendChild(title);
+	left.appendChild(title);
+	
+	const right = document.createElement('div');
+	right.className = 'flex items-center gap-2';
+	const label = document.createElement('span');
+	label.className = 'text-sm text-slate-600 dark:text-slate-400';
+	label.textContent = 'Distribution by time';
+	const select = document.createElement('select');
+	select.id = 'revenueTimeRange';
+	select.className = 'input-field border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm';
+	['week', 'month', 'quarter'].forEach(function(opt) {
+		const option = document.createElement('option');
+		option.value = opt;
+		option.textContent = opt[0].toUpperCase() + opt.slice(1);
+		if (opt === 'month') option.selected = true;
+		select.appendChild(option);
+	});
+	right.appendChild(label);
+	right.appendChild(select);
+	
+	header.appendChild(left);
+	header.appendChild(right);
 	wrap.appendChild(header);
 	
 	const canvasWrapper = document.createElement('div');
