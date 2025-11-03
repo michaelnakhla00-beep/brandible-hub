@@ -1540,8 +1540,10 @@ if (invoicePreviewBtn) {
 
     try {
       const payload = buildInvoicePayloadFromState({ store: false });
+      // Add timestamp to prevent caching
+      const cacheBuster = '?t=' + Date.now();
       const url = await requestInvoicePdf(payload);
-      if (url) window.open(url, '_blank');
+      if (url) window.open(url + cacheBuster, '_blank');
     } catch (err) {
       console.error('Preview invoice PDF failed:', err);
       showToast(err.message || 'Failed to preview invoice', 'error');
@@ -2512,14 +2514,35 @@ function renderDashboardChart(dataset) {
 		window.kpiChart = null;
 	}
 
-	// 2) Reset container to single canvas
-	// Ensure predictable layout height
-	container.style.position = 'relative';
-	container.style.height = '320px';
-	container.style.minHeight = '320px';
-	container.style.width = '100%';
-	container.innerHTML = '<canvas id="kpiChart" style="width:100%;height:100%;display:block;"></canvas>';
-	const canvas = document.getElementById('kpiChart');
+	// 2) Reset container with border wrapper (matching Lead Sources chart style)
+	container.innerHTML = '';
+	const wrap = document.createElement('div');
+	wrap.className = 'rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm';
+	wrap.style.position = 'relative';
+	wrap.style.height = '320px';
+	wrap.style.minHeight = '320px';
+	wrap.style.width = '100%';
+	
+	const header = document.createElement('div');
+	header.className = 'mb-4';
+	const title = document.createElement('div');
+	title.className = 'text-sm font-semibold text-slate-900 dark:text-white';
+	title.textContent = 'Revenue';
+	header.appendChild(title);
+	wrap.appendChild(header);
+	
+	const canvasWrapper = document.createElement('div');
+	canvasWrapper.style.position = 'relative';
+	canvasWrapper.style.height = 'calc(100% - 48px)';
+	const canvas = document.createElement('canvas');
+	canvas.id = 'kpiChart';
+	canvas.style.width = '100%';
+	canvas.style.height = '100%';
+	canvas.style.display = 'block';
+	canvasWrapper.appendChild(canvas);
+	wrap.appendChild(canvasWrapper);
+	container.appendChild(wrap);
+	
 	const ctx = canvas.getContext('2d');
 
 	// Build Chart.js config from dataset
