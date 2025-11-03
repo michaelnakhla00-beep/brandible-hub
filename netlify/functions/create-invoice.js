@@ -274,7 +274,7 @@ exports.handler = async (event, context) => {
             .eq('id', invoice.id);
         } catch (err) {
           console.error('Stripe send invoice failed:', err);
-          stripeNote = `Stripe error: ${err.message}`;
+          stripeNote = 'Stripe error: ' + err.message;
         }
       } else {
         stripeNote = 'Stripe not configured; invoice saved locally as open.';

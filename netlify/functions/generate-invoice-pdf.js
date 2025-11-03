@@ -3,8 +3,62 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-// Note: PDFKit should handle standard fonts internally
-// If font loading fails, it will use default fonts
+// Override PDFKit font loading to prevent file system access
+// PDFKit tries to resolve font files, but in serverless we need to use built-in fonts
+const originalFont = PDFDocument.prototype.font;
+PDFDocument.prototype.font = function(src, family, size) {
+  // If src is already a Buffer or valid font object, use it directly
+  if (Buffer.isBuffer(src) || (typeof src === 'object' && src !== null && !src.path)) {
+    return originalFont.call(this, src, family, size);
+  }
+  
+  // For standard PDFKit font names, try to load from PDFKit's font data
+  const standardFonts = {
+    'Helvetica': 'Helvetica',
+    'Helvetica-Bold': 'Helvetica-Bold',
+    'Courier': 'Courier',
+    'Courier-Bold': 'Courier-Bold',
+    'Times-Roman': 'Times-Roman',
+    'Times-Bold': 'Times-Bold'
+  };
+  
+  if (typeof src === 'string' && standardFonts[src]) {
+    try {
+      // Try to require PDFKit's font data directly
+      const fontName = standardFonts[src];
+      let fontData;
+      try {
+        // Try to load from PDFKit's data directory
+        const fontPath = require.resolve('pdfkit/js/data/' + fontName + '.afm');
+        fontData = fs.readFileSync(fontPath, 'utf8');
+        return originalFont.call(this, fontData, family || src, size);
+      } catch (e1) {
+        try {
+          // Try alternative path
+          const fontPath2 = path.join(__dirname, '../../node_modules/pdfkit/js/data', fontName + '.afm');
+          if (fs.existsSync(fontPath2)) {
+            fontData = fs.readFileSync(fontPath2, 'utf8');
+            return originalFont.call(this, fontData, family || src, size);
+          }
+        } catch (e2) {
+          // Fall back to using font name - PDFKit may have embedded data
+          console.warn('Font file not found, using font name:', fontName);
+        }
+      }
+      // If we got font data, use it
+      if (fontData) {
+        return originalFont.call(this, fontData, family || src, size);
+      }
+    } catch (e) {
+      console.warn('Font loading error, falling back to name:', e.message);
+    }
+    // Final fallback: use font name directly
+    return originalFont.call(this, src, family || src, size);
+  }
+  
+  // For any other font, try original behavior
+  return originalFont.call(this, src, family, size);
+};
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
