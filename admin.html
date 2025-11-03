@@ -95,11 +95,11 @@
         <div class="flex items-center gap-2 sm:gap-3">
           <span id="userEmail" class="hidden lg:inline text-sm font-medium text-slate-600 dark:text-slate-400"></span>
           <span class="pill-blue font-semibold hidden sm:inline">Admin</span>
-          <button onclick="toggleDark()" class="btn-ghost p-2 sm:p-3" title="Toggle dark mode">
+          <button onclick="toggleDark()" class="btn-icon" title="Toggle dark mode">
             <span class="text-lg sm:text-xl">🌗</span>
           </button>
-          <button onclick="window.refreshAdmin && window.refreshAdmin()" class="btn-ghost text-xs sm:text-sm font-medium px-2 sm:px-4" title="Refresh">
-            🔄 Refresh
+          <button onclick="window.refreshAdmin && window.refreshAdmin()" class="btn-ghost text-xs sm:text-sm" title="Refresh">
+            <span class="icon">🔄</span> Refresh
           </button>
           <button id="logoutBtn" class="btn-ghost text-xs sm:text-sm font-medium px-2 sm:px-4">Log out</button>
         </div>
@@ -177,7 +177,7 @@
               <option value="newest">Newest</option>
               <option value="oldest">Oldest</option>
             </select>
-            <button id="refreshBookingsBtn" class="btn-ghost text-sm p-2 sm:p-3" title="Refresh">
+            <button id="refreshBookingsBtn" class="btn-icon" title="Refresh">
               🔄
             </button>
           </div>
