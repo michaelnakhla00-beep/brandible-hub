@@ -42,11 +42,33 @@ function calculateTotals(items = [], taxRate = 0, discountRate = 0) {
   return { subtotal, taxAmount, discountAmount, total };
 }
 
-function fallbackInvoiceNumber() {
-  const now = new Date();
-  const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const random = Math.floor(Math.random() * 90000 + 10000);
-  return `INV-${datePart}-${random}`;
+async function generateInvoiceNumber(supabase, year = new Date().getFullYear()) {
+  // Query for the highest invoice number for this year
+  const { data: invoices, error } = await supabase
+    .from('invoices')
+    .select('number')
+    .like('number', `INV-${year}-%`)
+    .order('number', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.warn('Failed to query invoice numbers, using fallback:', error);
+    return `INV-${year}-00001`;
+  }
+
+  // Extract the highest sequence number
+  let nextSequence = 1;
+  if (invoices && invoices.length > 0 && invoices[0].number) {
+    const match = String(invoices[0].number).match(/^INV-(\d{4})-(\d+)$/i);
+    if (match && match[2]) {
+      const lastSeq = parseInt(match[2], 10);
+      nextSequence = lastSeq + 1;
+    }
+  }
+
+  // Format as 5-digit zero-padded number
+  const paddedSeq = String(nextSequence).padStart(5, '0');
+  return `INV-${year}-${paddedSeq}`;
 }
 
 function buildMeta({ attachments = [], taxRate = 0, discountRate = 0, discountAmount = 0 }) {
@@ -105,7 +127,10 @@ exports.handler = async (event, context) => {
     }
 
     const totals = calculateTotals(normalizedItems, taxRate, discountRate);
-    const invoiceNumber = providedNumber || fallbackInvoiceNumber();
+    
+    // Generate invoice number server-side to prevent duplicates
+    // Only use provided number if explicitly provided (for previews/re-testing)
+    const invoiceNumber = providedNumber || await generateInvoiceNumber(supabase);
 
     const meta = buildMeta({ attachments, taxRate, discountRate, discountAmount: totals.discountAmount });
 

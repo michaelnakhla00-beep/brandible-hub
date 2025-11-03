@@ -174,50 +174,50 @@ function generateInvoicePdf(invoiceData, logoPath) {
       const borderColor = '#E6E6E6';
       const tableStripe = '#F7F7F7';
 
-      // Header
+      // Header (compact)
       if (logoPath) {
-        doc.image(logoPath, 50, 36, { width: 110 });
+        doc.image(logoPath, 50, 40, { width: 100 });
       }
 
       doc
         .fillColor(textColor)
         .font('Helvetica-Bold')
         .fontSize(20)
-        .text('Brandible Marketing Group', 50, 120);
+        .text('Brandible Marketing Group', 50, 110);
 
       doc
         .font('Helvetica')
         .fontSize(12)
         .fillColor(primaryColor)
-        .text('Invoice', 50, 140);
+        .text('Invoice', 50, 130);
 
       // Right aligned invoice info
       const infoTop = 40;
       doc
         .font('Helvetica')
-        .fontSize(10)
+        .fontSize(9)
         .fillColor(textColor)
         .text(`Invoice #: ${invoiceData.invoiceNumber}`, 320, infoTop, { align: 'right' })
-        .moveDown(0.2)
+        .moveDown(0.15)
         .text(`Date: ${invoiceData.date ? new Date(invoiceData.date).toLocaleDateString() : new Date().toLocaleDateString()}`, { align: 'right' })
-        .moveDown(0.2)
+        .moveDown(0.15)
         .text(`Due: ${invoiceData.dueDate ? new Date(invoiceData.dueDate).toLocaleDateString() : '—'}`, { align: 'right' });
 
-      // Bill To
+      // Bill To (compact)
       doc
-        .moveDown(3)
+        .moveDown(2.5)
         .font('Helvetica-Bold')
-        .fontSize(12)
+        .fontSize(11)
         .text('Bill To:');
 
       doc
         .font('Helvetica')
-        .fontSize(11)
+        .fontSize(10)
         .text(invoiceData.clientName || 'Client')
         .text(invoiceData.clientEmail || '');
 
       // Table Header
-      let tableTop = doc.y + 18;
+      let tableTop = doc.y + 14;
       const tableLeft = 50;
       const tableWidth = 495;
       const rowHeight = 26;
@@ -270,12 +270,12 @@ function generateInvoicePdf(invoiceData, logoPath) {
         .rect(tableLeft, tableTop, tableWidth, Math.max(rowHeight, currentY - tableTop))
         .stroke();
 
-      // Summary
-      let summaryY = currentY + 16;
+      // Summary (compact)
+      let summaryY = currentY + 12;
       doc
         .strokeColor(borderColor)
-        .moveTo(tableLeft, summaryY - 10)
-        .lineTo(tableLeft + tableWidth, summaryY - 10)
+        .moveTo(tableLeft, summaryY - 8)
+        .lineTo(tableLeft + tableWidth, summaryY - 8)
         .stroke();
 
       const summaryLeft = tableLeft + tableWidth - 220;
@@ -300,32 +300,34 @@ function generateInvoicePdf(invoiceData, logoPath) {
           .fillColor(textColor)
           .text(row.label, summaryLeft, summaryY, { width: 120, align: 'right' })
           .text(row.value, summaryLeft + 130, summaryY, { width: 90, align: 'right' });
-        summaryY += 18;
+        summaryY += 16;
       });
 
       doc
         .font('Helvetica-Bold')
         .fontSize(12)
         .fillColor(primaryColor)
-        .text('Total', summaryLeft, summaryY + 5, { width: 120, align: 'right' })
-        .text(formatCurrency(invoiceData.total, invoiceData.currency), summaryLeft + 130, summaryY + 5, { width: 90, align: 'right' });
+        .text('Total', summaryLeft, summaryY + 3, { width: 120, align: 'right' })
+        .text(formatCurrency(invoiceData.total, invoiceData.currency), summaryLeft + 130, summaryY + 3, { width: 90, align: 'right' });
 
-      // Notes
+      // Notes (compact)
       if (invoiceData.notes) {
-        doc
-          .moveDown(2)
-          .font('Helvetica-Bold')
-          .fontSize(10)
-          .fillColor(textColor)
-          .text('Notes')
-          .moveDown(0.4)
-          .font('Helvetica')
-          .fontSize(10)
-          .text(invoiceData.notes, { width: 495 });
+        const notesY = summaryY + 25;
+        if (notesY < doc.page.height - 100) {
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(10)
+            .fillColor(textColor)
+            .text('Notes', 50, notesY);
+          doc
+            .font('Helvetica')
+            .fontSize(9)
+            .text(invoiceData.notes, 50, notesY + 12, { width: 495 });
+        }
       }
 
-      // Footer
-      const footerY = Math.max(summaryY + 60, doc.page.height - 120);
+      // Footer (compact, fit on one page)
+      const footerY = Math.min(summaryY + (invoiceData.notes ? 60 : 40), doc.page.height - 80);
       doc
         .strokeColor(borderColor)
         .moveTo(50, footerY)
@@ -334,19 +336,22 @@ function generateInvoicePdf(invoiceData, logoPath) {
 
       doc
         .font('Helvetica')
-        .fontSize(10)
+        .fontSize(9)
         .fillColor(textColor)
-        .text('Thank you for partnering with Brandible.', 50, footerY + 15, { align: 'center' });
+        .text('Thank you for partnering with Brandible.', 50, footerY + 8, { align: 'center' });
 
-      doc
-        .rect(50, footerY + 50, 495, 30)
-        .fill(primaryColor);
+      const footerBarY = footerY + 22;
+      if (footerBarY + 25 < doc.page.height) {
+        doc
+          .rect(50, footerBarY, 495, 25)
+          .fill(primaryColor);
 
-      doc
-        .fillColor('#FFFFFF')
-        .font('Helvetica-Bold')
-        .fontSize(12)
-        .text('www.brandible.com', 50, footerY + 58, { align: 'center' });
+        doc
+          .fillColor('#FFFFFF')
+          .font('Helvetica-Bold')
+          .fontSize(11)
+          .text('www.brandible.com', 50, footerBarY + 8, { align: 'center' });
+      }
 
       doc.end();
     } catch (error) {

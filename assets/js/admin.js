@@ -1423,7 +1423,8 @@ async function submitInvoiceForm() {
     const token = await getAuthToken();
     const payload = {
       clientId: activeInvoiceClient.id,
-      number: invoiceFormState.number,
+      // Don't send number - let server generate it to prevent duplicates
+      // number: invoiceFormState.number, // Removed - server generates unique number
       currency: invoiceFormState.currency,
       due_at: invoiceFormState.dueDate || null,
       notes: invoiceFormState.notes || '',
