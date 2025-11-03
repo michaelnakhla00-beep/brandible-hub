@@ -3328,18 +3328,22 @@ window.editResource = async function(resourceId) {
     // New: Charts
     try {
       // Overview/KPI chart uses the requested destroy/reset pattern
-      const revenueTimeRange = document.getElementById('revenueTimeRange');
-      let currentRevenueRange = revenueTimeRange ? revenueTimeRange.value : 'month';
-      const renderRevenueChart = () => {
+      let currentRevenueRange = 'month';
+      const renderRevenueChart = function() {
         renderDashboardChart(buildRevenueDataset(currentRevenueRange));
+        // Wire up the dropdown after it's created
+        setTimeout(function() {
+          const revenueTimeRange = document.getElementById('revenueTimeRange');
+          if (revenueTimeRange && !revenueTimeRange.dataset.wired) {
+            revenueTimeRange.dataset.wired = 'true';
+            revenueTimeRange.addEventListener('change', function(e) {
+              currentRevenueRange = e.target.value;
+              renderRevenueChart();
+            });
+          }
+        }, 100);
       };
       renderRevenueChart();
-      if (revenueTimeRange) {
-        revenueTimeRange.addEventListener('change', (e) => {
-          currentRevenueRange = e.target.value;
-          renderRevenueChart();
-        });
-      }
       const leadsData = await fetchLeadsFn().catch(() => []);
       allBookingsGlobal = leadsData;
       const leadSourceContainer = document.getElementById('leadSourceChartContainer');
