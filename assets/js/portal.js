@@ -202,41 +202,8 @@ function renderProjects({ projects = [] }) {
     });
   }
 
-  // Fallback simple list for backward compatibility
-  const list = document.getElementById("projects");
-  if (list) {
-    list.innerHTML = projects
-      .map(
-        (p) => `
-      <div class="p-4 flex items-start gap-4">
-        <div class="size-10 rounded-lg bg-indigo-100"></div>
-        <div class="flex-1">
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold">${p.name}</h3>
-            <span class="text-xs px-2 py-1 rounded-full ${
-              p.status === "In Progress"
-                ? "bg-amber-100 text-amber-700"
-                : p.status === "Completed" || p.status === "Done"
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-slate-100 text-slate-700"
-            }">${p.status}</span>
-          </div>
-          <p class="text-sm text-slate-600 mt-1">${p.summary || ""}</p>
-          ${
-            p.links?.length
-              ? `<div class="mt-3 flex flex-wrap gap-2">${p.links
-                  .map(
-                    (l) =>
-                      `<a class="chip" href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`
-                  )
-                  .join("")}</div>`
-              : ""
-          }
-        </div>
-      </div>`
-      )
-      .join("");
-  }
+  // No fallback - always use kanban columns if they exist
+  // If columns don't exist, projects will just not render (which is fine)
 }
 
 // Wire up collapsible project sections
