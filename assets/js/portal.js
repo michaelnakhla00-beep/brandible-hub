@@ -455,6 +455,12 @@ async function loadUserSettings() {
 async function saveUserSettings() {
   const token = await getPortalAuthToken();
   if (!token) return;
+  const saveBtn = document.getElementById('saveSettingsBtn');
+  const originalText = saveBtn?.textContent;
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
   try {
     const body = {
       email_notifications: document.getElementById('settingEmailNotifications')?.checked || false,
@@ -463,7 +469,7 @@ async function saveUserSettings() {
     const res = await fetch('/.netlify/functions/update-user-settings', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body)
     });
-    if (res.ok && window.showToast) window.showToast('Settings saved');
+    if (!res.ok) throw new Error('Failed to save settings');
 
     // Save contact info (phone, website) to client profile
     const contact = {
@@ -472,10 +478,29 @@ async function saveUserSettings() {
         website: document.getElementById('accountWebsite')?.value || null
       }
     };
-    try {
-      await fetch('/.netlify/functions/update-client-profile', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(contact) });
-    } catch (err) { console.warn('contact save failed', err); }
-  } catch (e) { console.error('save settings error', e); }
+    const contactRes = await fetch('/.netlify/functions/update-client-profile', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, 
+      body: JSON.stringify(contact) 
+    });
+    if (!contactRes.ok) throw new Error('Failed to save contact info');
+
+    // Refresh client data to get updated values
+    await refreshClientData();
+    
+    // Reload settings in modal to show updated values
+    await loadUserSettings();
+    
+    if (window.showToast) window.showToast('Settings saved', 'success');
+  } catch (e) { 
+    console.error('save settings error', e);
+    if (window.showToast) window.showToast('Failed to save settings', 'error', e.message);
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText || 'Save Settings';
+    }
+  }
 }
 
 // ---------------- Brand Info -----------------
@@ -669,6 +694,8 @@ async function refreshClientData() {
     const res = await fetch('/.netlify/functions/get-client');
     if (!res.ok) throw new Error(`Refresh failed ${res.status}`);
     const latest = await res.json();
+    // Update global client data so modal can access updated values
+    window.portalClientData = latest;
     renderKPIs(latest);
     renderProfile({
       id: latest.id,
@@ -1864,9 +1891,23 @@ function wireResourcesFilters() {
     }
     const openSettings = document.getElementById('openAccountSettingsBtn');
     const settingsModal = document.getElementById('accountSettingsModal');
-    if (openSettings && settingsModal) openSettings.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    if (openSettings && settingsModal) {
+      openSettings.addEventListener('click', async () => {
+        settingsModal.classList.remove('hidden');
+        // Reload fresh data when modal opens
+        await refreshClientData();
+        await loadUserSettings();
+      });
+    }
     const editBtn = document.getElementById('editProfileBtn');
-    if (editBtn && settingsModal) editBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    if (editBtn && settingsModal) {
+      editBtn.addEventListener('click', async () => {
+        settingsModal.classList.remove('hidden');
+        // Reload fresh data when modal opens
+        await refreshClientData();
+        await loadUserSettings();
+      });
+    }
     const closeSettings = document.getElementById('closeAccountSettings');
     if (closeSettings && settingsModal) closeSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
     const openChangePhoto = document.getElementById('openChangePhoto');

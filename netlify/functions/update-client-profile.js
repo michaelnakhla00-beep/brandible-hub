@@ -2,7 +2,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  if (event.httpMethod !== "PUT" && event.httpMethod !== "PATCH") {
+  if (event.httpMethod !== "PUT" && event.httpMethod !== "PATCH" && event.httpMethod !== "POST") {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: "Method not allowed" })
@@ -19,7 +19,8 @@ exports.handler = async (event, context) => {
     }
 
     const isAdmin = user.app_metadata?.roles?.includes("admin");
-    const { email: targetEmail, completion_percentage, missing_items } = JSON.parse(event.body || "{}");
+    const body = JSON.parse(event.body || "{}");
+    const { email: targetEmail, completion_percentage, missing_items, fields } = body;
 
     // Determine target email
     let emailToQuery = (user.email || "").toLowerCase();
@@ -57,8 +58,30 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Build update object
-    const updates = {};
+    // Update clients table if fields are provided (phone, website, etc.)
+    if (fields && typeof fields === 'object') {
+      const clientUpdates = {};
+      if (fields.phone !== undefined) clientUpdates.phone = fields.phone || null;
+      if (fields.website !== undefined) clientUpdates.website = fields.website || null;
+      
+      if (Object.keys(clientUpdates).length > 0) {
+        const { error: clientUpdateError } = await supabase
+          .from('clients')
+          .update(clientUpdates)
+          .eq('id', client.id);
+        
+        if (clientUpdateError) {
+          console.error("Error updating client:", clientUpdateError);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "Failed to update client: " + clientUpdateError.message })
+          };
+        }
+      }
+    }
+
+    // Build profile update object
+    const profileUpdates = {};
     if (completion_percentage !== undefined) {
       if (completion_percentage < 0 || completion_percentage > 100) {
         return {
@@ -66,44 +89,46 @@ exports.handler = async (event, context) => {
           body: JSON.stringify({ error: "completion_percentage must be between 0 and 100" })
         };
       }
-      updates.completion_percentage = completion_percentage;
+      profileUpdates.completion_percentage = completion_percentage;
     }
     if (missing_items !== undefined) {
-      updates.missing_items = Array.isArray(missing_items) ? missing_items : [];
+      profileUpdates.missing_items = Array.isArray(missing_items) ? missing_items : [];
     }
 
-    if (Object.keys(updates).length === 0) {
+    // Only update client_profiles if there are profile updates
+    if (Object.keys(profileUpdates).length > 0) {
+      const { data: profile, error } = await supabase
+        .from('client_profiles')
+        .upsert({
+          user_id: client.id,
+          email: emailToQuery,
+          ...profileUpdates
+        }, {
+          onConflict: 'user_id'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error:", error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: "Database error: " + error.message })
+        };
+      }
+
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "No valid fields to update" })
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ success: true, profile, client: { id: client.id, ...(fields || {}) } })
       };
     }
 
-    // Upsert profile
-    const { data: profile, error } = await supabase
-      .from('client_profiles')
-      .upsert({
-        user_id: client.id,
-        email: emailToQuery,
-        ...updates
-      }, {
-        onConflict: 'user_id'
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Supabase error:", error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Database error: " + error.message })
-      };
-    }
-
+    // If only client fields were updated (no profile updates), return success
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, profile })
+      body: JSON.stringify({ success: true, client: { id: client.id, ...(fields || {}) } })
     };
   } catch (err) {
     console.error("Error in update-client-profile:", err);
