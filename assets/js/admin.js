@@ -3413,15 +3413,24 @@ window.editResource = async function(resourceId) {
       function renderNotificationsTable() {
         const filtered = currentFilterType === 'all' 
           ? allNotificationsData 
-          : allNotificationsData.filter(n => n.type === currentFilterType);
-        if (table) table.innerHTML = filtered.map(n => `
-          <tr class="table-row">
-            <td class="py-3 px-4">${n.client?.name || n.client?.email || n.user_id || '—'}</td>
-            <td class="py-3 px-4">${n.message}</td>
-            <td class="py-3 px-4">${n.type}</td>
-            <td class="py-3 px-4">${new Date(n.created_at).toLocaleString()}</td>
-            <td class="py-3 px-4">${n.is_read ? 'Yes' : 'No'}</td>
-          </tr>`).join('');
+          : allNotificationsData.filter(function(n) {
+            const nType = n.type || '';
+            return nType.toLowerCase() === currentFilterType.toLowerCase();
+          });
+        if (table) {
+          if (filtered.length === 0) {
+            table.innerHTML = '<tr><td colspan="5" class="py-4 px-4 text-center text-slate-500">No notifications found</td></tr>';
+          } else {
+            table.innerHTML = filtered.map(function(n) {
+              const clientName = (n.client && (n.client.name || n.client.email)) || n.user_id || '—';
+              const message = n.message || '';
+              const type = n.type || '';
+              const date = n.created_at ? new Date(n.created_at).toLocaleString() : '';
+              const isRead = n.is_read ? 'Yes' : 'No';
+              return '<tr class="table-row"><td class="py-3 px-4">' + clientName + '</td><td class="py-3 px-4">' + message + '</td><td class="py-3 px-4">' + type + '</td><td class="py-3 px-4">' + date + '</td><td class="py-3 px-4">' + isRead + '</td></tr>';
+            }).join('');
+          }
+        }
       }
       if (sendBtn) sendBtn.addEventListener('click', async () => {
         const email = manualEmail.value.trim(); const message = manualMsg.value.trim(); const type = manualType.value;
@@ -3437,6 +3446,11 @@ window.editResource = async function(resourceId) {
           manualEmail.value = '';
           manualMsg.value = '';
           await loadAllNotifications();
+          // Reset filter to show new notification
+          if (filterType) {
+            filterType.value = 'all';
+            currentFilterType = 'all';
+          }
         } catch (err) {
           showToast('Failed to send notification', 'error', err.message);
         } finally {

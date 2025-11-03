@@ -23,9 +23,13 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body || '{}');
     const client_id = body.client_id;
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    let query = supabase.from('notifications').update({ is_read: true }).select('id');
+    let query;
     if (client_id) {
-      query = query.eq('user_id', client_id);
+      query = supabase.from('notifications').update({ is_read: true }).eq('user_id', client_id).select('id');
+    } else {
+      // Admin wants to mark all notifications as read - use a WHERE clause that matches all
+      // Use .neq('id', '') to match all rows (id is always a UUID, never empty)
+      query = supabase.from('notifications').update({ is_read: true }).neq('id', '').select('id');
     }
     const result = await query;
     if (result.error) {
