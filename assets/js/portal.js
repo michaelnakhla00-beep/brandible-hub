@@ -1662,6 +1662,8 @@ function wireResourcesFilters() {
     const openSettings = document.getElementById('openAccountSettingsBtn');
     const settingsModal = document.getElementById('accountSettingsModal');
     if (openSettings && settingsModal) openSettings.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    const editBtn = document.getElementById('editProfileBtn');
+    if (editBtn && settingsModal) editBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
     const closeSettings = document.getElementById('closeAccountSettings');
     if (closeSettings && settingsModal) closeSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
     const openChangePhoto = document.getElementById('openChangePhoto');
