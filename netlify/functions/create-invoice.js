@@ -1,4 +1,5 @@
-const { createClient } = require('@supabase/supabase-js');
+const supabaseJs = require('@supabase/supabase-js');
+const createClient = supabaseJs.createClient;
 const Stripe = require('stripe');
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
