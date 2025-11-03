@@ -3328,7 +3328,40 @@ window.editResource = async function(resourceId) {
         renderClientCards(clientCardsContainer, clients, {
           onView: (c) => c?.email && window.viewClient && window.viewClient(c.email),
           onEdit: (c) => c?.email && window.openProfileEditor && window.openProfileEditor(c.email),
-          onArchive: (c) => window.showToast && window.showToast('Archived', 'success', c?.name || c?.email || ''),
+          onArchive: async function(c) {
+            if (!c || !c.email) return;
+            try {
+              const token = await getAuthToken();
+              const headers = { 'Content-Type': 'application/json' };
+              if (token) {
+                headers.Authorization = 'Bearer ' + token;
+              }
+              const res = await fetch('/.netlify/functions/update-client', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({
+                  email: c.email,
+                  status: 'Archived',
+                }),
+              });
+              if (!res.ok) {
+                let error;
+                try {
+                  error = await res.json();
+                } catch (e) {
+                  error = { error: 'Archive failed' };
+                }
+                throw new Error(error.error || 'Archive failed');
+              }
+              const clientName = c.name || c.email || '';
+              if (window.showToast) window.showToast('Archived', 'success', clientName);
+              // Refresh client list
+              if (window.refreshAdmin) window.refreshAdmin();
+            } catch (err) {
+              console.error('Archive error:', err);
+              if (window.showToast) window.showToast('Failed to archive', 'error', err.message);
+            }
+          },
           onSearch: () => {},
         });
       }
@@ -3637,7 +3670,40 @@ if (createClientBtn) {
         renderClientCards(container, clients, {
           onView: (c) => c?.email && window.viewClient && window.viewClient(c.email),
           onEdit: (c) => c?.email && window.openProfileEditor && window.openProfileEditor(c.email),
-          onArchive: (c) => window.showToast && window.showToast('Archived', 'success', c?.name || c?.email || ''),
+          onArchive: async function(c) {
+            if (!c || !c.email) return;
+            try {
+              const token = await getAuthToken();
+              const headers = { 'Content-Type': 'application/json' };
+              if (token) {
+                headers.Authorization = 'Bearer ' + token;
+              }
+              const res = await fetch('/.netlify/functions/update-client', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({
+                  email: c.email,
+                  status: 'Archived',
+                }),
+              });
+              if (!res.ok) {
+                let error;
+                try {
+                  error = await res.json();
+                } catch (e) {
+                  error = { error: 'Archive failed' };
+                }
+                throw new Error(error.error || 'Archive failed');
+              }
+              const clientName = c.name || c.email || '';
+              if (window.showToast) window.showToast('Archived', 'success', clientName);
+              // Refresh client list
+              if (window.refreshAdmin) window.refreshAdmin();
+            } catch (err) {
+              console.error('Archive error:', err);
+              if (window.showToast) window.showToast('Failed to archive', 'error', err.message);
+            }
+          },
         });
       }
     } catch (err) {

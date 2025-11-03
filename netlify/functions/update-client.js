@@ -75,7 +75,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const { email, kpis, activity, updates } = requestData;
+    const { email, kpis, activity, updates, status } = requestData;
     
     console.log('Update request received:', { email, has_kpis: !!kpis, has_activity: !!activity, has_updates: !!updates });
     
@@ -145,6 +145,12 @@ exports.handler = async (event, context) => {
       } catch (err) {
         console.error('Failed to parse updates:', err);
       }
+    }
+    
+    // Add status if provided
+    if (status && typeof status === 'string') {
+      updateData.status = status;
+      console.log('Added status to update:', status);
     }
     
     console.log('Final update data:', JSON.stringify(updateData, null, 2));
