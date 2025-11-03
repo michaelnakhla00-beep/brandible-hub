@@ -443,12 +443,22 @@ exports.handler = async (event, context) => {
           .eq('id', invoiceData.invoiceId)
           .single();
 
+        const currentMeta = currentInvoice && currentInvoice.meta ? currentInvoice.meta : {};
         const nextMeta = {
-          ...(currentInvoice?.meta || {}),
+          taxRate: currentMeta.taxRate,
+          discountRate: currentMeta.discountRate,
           pdfUrl: url,
-          taxRate: invoiceData.taxRate !== undefined && invoiceData.taxRate !== null ? invoiceData.taxRate : (currentInvoice && currentInvoice.meta && currentInvoice.meta.taxRate !== undefined ? currentInvoice.meta.taxRate : null),
-          discountRate: invoiceData.discountRate !== undefined && invoiceData.discountRate !== null ? invoiceData.discountRate : (currentInvoice && currentInvoice.meta && currentInvoice.meta.discountRate !== undefined ? currentInvoice.meta.discountRate : null),
         };
+        if (invoiceData.taxRate !== undefined && invoiceData.taxRate !== null) {
+          nextMeta.taxRate = invoiceData.taxRate;
+        } else if (currentInvoice && currentInvoice.meta && currentInvoice.meta.taxRate !== undefined) {
+          nextMeta.taxRate = currentInvoice.meta.taxRate;
+        }
+        if (invoiceData.discountRate !== undefined && invoiceData.discountRate !== null) {
+          nextMeta.discountRate = invoiceData.discountRate;
+        } else if (currentInvoice && currentInvoice.meta && currentInvoice.meta.discountRate !== undefined) {
+          nextMeta.discountRate = currentInvoice.meta.discountRate;
+        }
 
         await supabase
           .from('invoices')
