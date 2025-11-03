@@ -248,8 +248,10 @@ exports.handler = async (event, context) => {
             customer: customer.id,
             collection_method: 'send_invoice',
             auto_advance: true,
-            footer: notes || undefined,
           };
+          if (notes && notes.trim()) {
+            invoiceParams.footer = notes;
+          }
           if (due_at) {
             const dueDate = new Date(due_at);
             if (!Number.isNaN(dueDate.getTime())) {
