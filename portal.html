@@ -165,7 +165,10 @@
 
         <!-- Profile -->
         <section id="profile" class="card-section">
-          <h2 class="section-title">Profile</h2>
+          <div class="flex items-center justify-between">
+            <h2 class="section-title">Profile</h2>
+            <div class="btn-surface"><button id="openAccountSettingsBtn" class="btn-icon" title="Account Settings">⚙️</button></div>
+          </div>
           <div id="profileCard" class="flex flex-col sm:flex-row items-center sm:items-center gap-4"></div>
         </section>
 
@@ -275,29 +278,7 @@
             </div>
           </div>
 
-          <!-- Account Settings -->
-          <div class="card-section" id="accountSettings">
-            <h2 class="section-title">Account Settings</h2>
-            <div class="grid gap-4 max-w-xl">
-              <div>
-                <label class="block text-sm font-medium text-slate-600">Name</label>
-                <input id="accountName" class="input-field w-full" disabled />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-600">Email</label>
-                <input id="accountEmail" class="input-field w-full" disabled />
-              </div>
-              <div class="mt-2">
-                <label class="block text-sm font-medium text-slate-600 mb-2">Notifications</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingEmailNotifications" class="rounded"/> Email notifications</label>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingInvoiceReminders" class="rounded"/> Invoice reminders</label>
-              </div>
-              <div class="flex gap-2">
-                <button id="saveSettingsBtn" class="btn-primary">Save Settings</button>
-                <a id="passwordResetLink" class="btn-ghost" href="#">Reset Password</a>
-              </div>
-            </div>
-          </div>
+          <!-- Account Settings (kept as modal instead of section) -->
 
           <!-- Brand Info -->
           <div class="card-section" id="brandInfo">
@@ -312,6 +293,36 @@
                   </div>
                   <p class="text-sm"><span class="font-semibold">Fonts:</span> <span id="brandFonts"></span></p>
                   <p class="text-sm mt-2"><span class="font-semibold">Target Audience:</span> <span id="brandAudience"></span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Account Settings Modal -->
+          <div id="accountSettingsModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[3000]">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 sm:p-8 relative">
+              <button id="closeAccountSettings" class="absolute top-4 right-5 text-slate-500 hover:text-slate-900">✕</button>
+              <h3 class="text-xl font-semibold mb-4">Account Settings</h3>
+              <div class="grid gap-4">
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-slate-600">Name</label>
+                    <input id="accountName" class="input-field w-full" disabled />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-600">Email</label>
+                    <input id="accountEmail" class="input-field w-full" disabled />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-600 mb-2">Notifications</label>
+                  <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingEmailNotifications" class="rounded"/> Email notifications</label>
+                  <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingInvoiceReminders" class="rounded"/> Invoice reminders</label>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                  <button id="saveSettingsBtn" class="btn-primary">Save Settings</button>
+                  <a id="passwordResetLink" class="btn-ghost" href="#">Reset Password</a>
+                  <button id="openChangePhoto" class="btn-ghost">Change Photo</button>
                 </div>
               </div>
             </div>

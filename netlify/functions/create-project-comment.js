@@ -64,6 +64,31 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // Auto-create notification when admin comments
+    try {
+      if (author_role === 'admin') {
+        const { data: proj } = await supabase
+          .from('projects')
+          .select('client_email')
+          .eq('id', project_id)
+          .single();
+        if (proj && proj.client_email) {
+          const { data: clientRow } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('email', proj.client_email.toLowerCase())
+            .single();
+          if (clientRow && clientRow.id) {
+            await supabase
+              .from('notifications')
+              .insert({ user_id: clientRow.id, message: 'New comment on your project', type: 'comment' });
+          }
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('Notification insert failed:', notifyErr);
+    }
+
     return {
       statusCode: 201,
       headers: { "Content-Type": "application/json" },

@@ -43,6 +43,20 @@ let invoiceFormState = null;
 const INVOICE_CURRENCY_KEY = 'brandible.invoiceCurrency';
 const INVOICE_PDF_ENDPOINT = '/.netlify/functions/generate-invoice-pdf';
 
+async function notifyClient(clientId, message, type = 'system') {
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity; const user = id && id.currentUser();
+      if (!user) return resolve(null); user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    await fetch('/.netlify/functions/create-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ client_id: clientId, message, type })
+    });
+  } catch (e) { console.warn('notifyClient failed', e); }
+}
+
 /* ---------------------------
    2) Render helpers
 ---------------------------- */
@@ -119,6 +133,7 @@ function renderClientsTable(clients = [], searchTerm = "") {
               View
             </button>
             <button onclick="openProfileEditor('${client.email}')" class="btn-ghost text-sm">Edit Profile</button>
+            <button onclick="openClientSettings('${client.email}');" class="btn-ghost text-sm">Settings</button>
             <button onclick="confirmDeleteClient('${client.email}', '${client.name || 'this client'}')" 
                     class="inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transition-all">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -935,6 +950,7 @@ async function uploadInvoiceAttachments(files = [], clientId) {
     const { data } = adminSupabaseClient.storage.from('client_files').getPublicUrl(path);
     uploads.push({ name: file.name, path, url: data.publicUrl });
   }
+  try { if (clientId && uploads.length) await notifyClient(clientId, `${uploads.length} new attachment(s) uploaded to your invoice.`, 'file'); } catch {}
   return uploads;
 }
 
@@ -1463,6 +1479,7 @@ async function submitInvoiceForm() {
 
     if (invoiceFormState.sendNow) {
       showToast(note ? `✅ Invoice created. ${note}` : '✅ Invoice created and sent successfully!');
+    if (activeInvoiceClient?.id) await notifyClient(activeInvoiceClient.id, `A new invoice ${createdInvoice?.number || ''} has been issued.`, 'invoice');
     } else {
       showToast('✅ Invoice draft created');
     }
@@ -1729,6 +1746,9 @@ window.viewClient = function (email) {
     
     // Load profile completion
     await loadProfileCompletionForClient(email);
+    
+    // Load brand info
+    await loadBrandInfoForClient(email);
     
     // Fetch projects from Supabase via Netlify function
     try {
@@ -2748,6 +2768,165 @@ async function loadProfileCompletionForClient(clientEmail) {
   }
 }
 
+async function loadBrandInfoForClient(clientEmail) {
+  if (!clientEmail) return;
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) return;
+    
+    const res = await fetch(`/.netlify/functions/get-brand-profile-admin?client_email=${encodeURIComponent(clientEmail)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (res.ok) {
+      const { brand } = await res.json();
+      const logoPreview = document.getElementById('brandLogoPreviewAdmin');
+      const logoInput = document.getElementById('brandLogoInputAdmin');
+      const fontsInput = document.getElementById('brandFontsInputAdmin');
+      const colorsInput = document.getElementById('brandColorsInputAdmin');
+      const colorsPreview = document.getElementById('brandColorsPreviewAdmin');
+      const audienceInput = document.getElementById('brandAudienceInputAdmin');
+      
+      if (brand) {
+        if (brand.logo_url && logoPreview) {
+          logoPreview.src = brand.logo_url;
+          logoPreview.style.display = 'block';
+        }
+        if (fontsInput) fontsInput.value = brand.brand_fonts || '';
+        if (colorsInput) {
+          const colors = Array.isArray(brand.brand_colors) ? brand.brand_colors : [];
+          colorsInput.value = JSON.stringify(colors);
+          if (colorsPreview) {
+            colorsPreview.innerHTML = colors.map(c => `<span class="inline-block w-8 h-8 rounded-lg border border-slate-300" style="background:${c}" title="${c}"></span>`).join('');
+          }
+        }
+        if (audienceInput) audienceInput.value = brand.target_audience || '';
+      }
+      
+      // Wire colors preview update
+      if (colorsInput && colorsPreview) {
+        colorsInput.addEventListener('input', () => {
+          try {
+            const parsed = JSON.parse(colorsInput.value || '[]');
+            if (Array.isArray(parsed)) {
+              colorsPreview.innerHTML = parsed.map(c => `<span class="inline-block w-8 h-8 rounded-lg border border-slate-300" style="background:${c}" title="${c}"></span>`).join('');
+            }
+          } catch {}
+        });
+      }
+      
+      // Wire logo preview
+      if (logoInput && logoPreview) {
+        logoInput.addEventListener('change', (e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              logoPreview.src = ev.target.result;
+              logoPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      }
+      
+      // Wire save button
+      const saveBtn = document.getElementById('saveBrandInfoBtn');
+      if (saveBtn) {
+        saveBtn.onclick = () => saveBrandInfo(clientEmail);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load brand info:', err);
+  }
+}
+
+async function saveBrandInfo(clientEmail) {
+  const btn = document.getElementById('saveBrandInfoBtn');
+  if (!btn || !clientEmail) return;
+  
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) throw new Error('Not authenticated');
+    
+    // Handle logo upload if file selected
+    let logoUrl = null;
+    const logoInput = document.getElementById('brandLogoInputAdmin');
+    const logoFile = logoInput?.files?.[0];
+    if (logoFile && originalClientData?.id) {
+      try {
+        logoUrl = await uploadAvatarViaFunction(logoFile, originalClientData.id);
+      } catch (e) {
+        console.warn('Logo upload failed, continuing without logo:', e);
+      }
+    } else {
+      // Check if preview exists (means logo already set)
+      const preview = document.getElementById('brandLogoPreviewAdmin');
+      if (preview && preview.src && !preview.src.includes('data:')) {
+        logoUrl = preview.src;
+      }
+    }
+    
+    // Parse brand colors
+    let brandColors = [];
+    const colorsInput = document.getElementById('brandColorsInputAdmin');
+    if (colorsInput?.value) {
+      try {
+        const parsed = JSON.parse(colorsInput.value);
+        if (Array.isArray(parsed)) brandColors = parsed;
+      } catch {}
+    }
+    
+    const payload = {
+      client_email: clientEmail,
+      logo_url: logoUrl,
+      brand_colors: brandColors,
+      brand_fonts: document.getElementById('brandFontsInputAdmin')?.value || null,
+      target_audience: document.getElementById('brandAudienceInputAdmin')?.value || null
+    };
+    
+    const res = await fetch('/.netlify/functions/update-brand-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Save failed' }));
+      throw new Error(err.error || 'Save failed');
+    }
+    
+    // Send notification
+    if (originalClientData?.id) {
+      await notifyClient(originalClientData.id, 'Brand Profile Updated', 'system');
+    }
+    
+    showToast('Brand info saved successfully!');
+  } catch (err) {
+    console.error('Save brand info failed:', err);
+    showToast('Save failed', 'error', err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Brand Info';
+  }
+}
+
 // Load and render project feedback management
 async function loadFeedbackManagement() {
   const container = document.getElementById('feedbackManagementContainer');
@@ -3144,6 +3323,108 @@ window.editResource = async function(resourceId) {
         });
       }
     } catch {}
+
+    // Notifications Admin
+    try {
+      const table = document.getElementById('notificationsAdminTable');
+      const sendBtn = document.getElementById('sendManualNotify');
+      const markAll = document.getElementById('markAllRead');
+      const manualEmail = document.getElementById('manualNotifyEmail');
+      const manualMsg = document.getElementById('manualNotifyMessage');
+      const manualType = document.getElementById('manualNotifyType');
+      async function loadAllNotifications() {
+        const token = await new Promise((resolve) => { const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(()=>resolve(null)); });
+        const res = await fetch('/.netlify/functions/get-all-notifications', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const json = res.ok ? await res.json() : { notifications: [] };
+        if (table) table.innerHTML = (json.notifications || []).map(n => `
+          <tr class="table-row">
+            <td class="py-3 px-4">${n.client?.name || n.client?.email || n.user_id || '—'}</td>
+            <td class="py-3 px-4">${n.message}</td>
+            <td class="py-3 px-4">${n.type}</td>
+            <td class="py-3 px-4">${new Date(n.created_at).toLocaleString()}</td>
+            <td class="py-3 px-4">${n.is_read ? 'Yes' : 'No'}</td>
+          </tr>`).join('');
+      }
+      if (sendBtn) sendBtn.addEventListener('click', async () => {
+        const email = manualEmail.value.trim(); const message = manualMsg.value.trim(); const type = manualType.value;
+        if (!email || !message) { showToast('Enter email and message', 'error'); return; }
+        sendBtn.disabled = true;
+        const origText = sendBtn.textContent;
+        sendBtn.textContent = 'Sending...';
+        try {
+          const token = await new Promise((resolve) => { const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(()=>resolve(null)); });
+          const res = await fetch('/.netlify/functions/create-notification', { method: 'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({ client_email: email, message, type }) });
+          if (!res.ok) throw new Error('Send failed');
+          showToast('Notification sent successfully!');
+          manualEmail.value = '';
+          manualMsg.value = '';
+          await loadAllNotifications();
+        } catch (err) {
+          showToast('Failed to send notification', 'error', err.message);
+        } finally {
+          sendBtn.disabled = false;
+          sendBtn.textContent = origText;
+        }
+      });
+      if (markAll) markAll.addEventListener('click', async ()=>{
+        markAll.disabled = true;
+        const origText = markAll.textContent;
+        markAll.textContent = 'Marking...';
+        try {
+          const token = await new Promise((resolve) => { const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(()=>resolve(null)); });
+          const res = await fetch('/.netlify/functions/mark-all-notifications-read', { method: 'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({}) });
+          if (!res.ok) throw new Error('Update failed');
+          showToast('All notifications marked as read');
+          await loadAllNotifications();
+        } catch (err) {
+          showToast('Failed to update', 'error', err.message);
+        } finally {
+          markAll.disabled = false;
+          markAll.textContent = origText;
+        }
+      });
+      await loadAllNotifications();
+    } catch (e) { console.warn('Load notifications admin failed', e); }
+
+    // Client settings modal wiring
+    window.openClientSettings = async function(email) {
+      const modal = document.getElementById('clientSettingsModal');
+      if (!modal) return;
+      document.getElementById('clientSettingsEmail').value = email;
+      const token = await new Promise((resolve) => { const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(()=>resolve(null)); });
+      try {
+        const res = await fetch(`/.netlify/functions/get-user-settings-admin?client_email=${encodeURIComponent(email)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const json = res.ok ? await res.json() : { settings: {} };
+        document.getElementById('clientSettingEmailNotifications').checked = !!json.settings.email_notifications;
+        document.getElementById('clientSettingInvoiceReminders').checked = !!json.settings.invoice_reminders;
+      } catch {}
+      const saveBtn = document.getElementById('saveClientSettingsBtn');
+      if (saveBtn) {
+        saveBtn.onclick = async () => {
+          saveBtn.disabled = true;
+          const origText = saveBtn.textContent;
+          saveBtn.textContent = 'Saving...';
+          try {
+            const body = {
+              client_email: email,
+              email_notifications: document.getElementById('clientSettingEmailNotifications').checked,
+              invoice_reminders: document.getElementById('clientSettingInvoiceReminders').checked,
+            };
+            const res = await fetch('/.netlify/functions/update-user-settings-admin', { method: 'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify(body) });
+            if (!res.ok) throw new Error('Update failed');
+            showToast('Client settings updated successfully!');
+          } catch (err) {
+            showToast('Failed to update settings', 'error', err.message);
+          } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = origText;
+          }
+        };
+      }
+      const closeBtn = document.getElementById('closeClientSettings');
+      if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+      modal.classList.remove('hidden');
+    };
 
     // New: Activity feed
     try {
@@ -3702,6 +3983,121 @@ window.openProjectModal = async function(client, index) {
   
   renderProjectActivity(p.activity || []);
   updateStatusBadge(p.status || 'In Progress');
+  // Load phases & deliverables
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(() => resolve(null));
+    });
+    const { data: projects } = { data: [] };
+    const phasesWrap = document.getElementById('phasesEditor');
+    const delivWrap = document.getElementById('deliverablesEditor');
+    const phasesList = document.getElementById('phasesList');
+    const delivList = document.getElementById('deliverablesList');
+    const togglePhases = document.getElementById('togglePhases');
+    const toggleDeliverables = document.getElementById('toggleDeliverables');
+    if (togglePhases && phasesWrap) togglePhases.onclick = () => phasesWrap.classList.toggle('hidden');
+    if (toggleDeliverables && delivWrap) toggleDeliverables.onclick = () => delivWrap.classList.toggle('hidden');
+
+    // Resolve project id from Supabase projects by title + client email
+    let projectId = null;
+    try {
+      const res = await fetch(`/.netlify/functions/get-projects?email=${encodeURIComponent(client.email)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (res.ok) {
+        const supaProjects = await res.json();
+        const found = (supaProjects || []).find(sp => (sp.title || '').toLowerCase() === (p.name || '').toLowerCase());
+        projectId = found ? found.id : null;
+      }
+    } catch {}
+
+    async function refreshPhases() {
+      if (!projectId || !phasesList) return;
+      const res = await fetch(`/.netlify/functions/get-project-phases?project_id=${projectId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const json = res.ok ? await res.json() : { phases: [] };
+      phasesList.innerHTML = (json.phases || []).map(ph => `
+        <div class="grid sm:grid-cols-5 gap-2 items-center border border-slate-200/60 dark:border-slate-700/60 rounded-xl p-2">
+          <input data-id="${ph.id}" data-field="phase_name" class="input-field sm:col-span-2" value="${ph.phase_name}"/>
+          <input data-id="${ph.id}" data-field="start_date" type="date" class="input-field" value="${ph.start_date || ''}"/>
+          <input data-id="${ph.id}" data-field="end_date" type="date" class="input-field" value="${ph.end_date || ''}"/>
+          <select data-id="${ph.id}" data-field="status" class="input-field">
+            <option ${ph.status==='pending'?'selected':''}>pending</option>
+            <option ${ph.status==='active'?'selected':''}>active</option>
+            <option ${ph.status==='done'?'selected':''}>done</option>
+          </select>
+          <button data-del="${ph.id}" class="btn-ghost btn-sm">Delete</button>
+        </div>
+      `).join('') || '<div class="text-sm text-slate-500">No phases yet</div>';
+      // Wire delete
+      phasesList.querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', async () => {
+        const id = b.getAttribute('data-del');
+        await fetch(`/.netlify/functions/delete-project-phase?id=${id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        await refreshPhases();
+      }));
+      // Wire field edits (save on blur)
+      phasesList.querySelectorAll('[data-id][data-field]').forEach(input => input.addEventListener('change', async () => {
+        const id = input.getAttribute('data-id');
+        const field = input.getAttribute('data-field');
+        const payload = { id, project_id: projectId };
+        payload[field] = input.value;
+        await fetch('/.netlify/functions/upsert-project-phase', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify(payload) });
+        await refreshPhases();
+      }));
+    }
+    if (document.getElementById('addPhaseBtn')) document.getElementById('addPhaseBtn').onclick = async () => {
+      if (!projectId) return;
+      await fetch('/.netlify/functions/upsert-project-phase', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({ project_id: projectId, phase_name: 'New Phase', status: 'pending' }) });
+      await refreshPhases();
+    };
+
+    async function refreshDeliverables() {
+      if (!projectId || !delivList) return;
+      const res = await fetch(`/.netlify/functions/get-project-deliverables?project_id=${projectId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const json = res.ok ? await res.json() : { deliverables: [] };
+      delivList.innerHTML = (json.deliverables || []).map(d => `
+        <div class="flex items-center gap-2 border border-slate-200/60 dark:border-slate-700/60 rounded-xl p-2">
+          <input type="checkbox" data-id="${d.id}" data-field="is_complete" ${d.is_complete?'checked':''}/>
+          <input data-id="${d.id}" data-field="title" class="input-field flex-1" value="${d.title}"/>
+          <button data-deliverable-del="${d.id}" class="btn-ghost btn-sm">Delete</button>
+        </div>
+      `).join('') || '<div class="text-sm text-slate-500">No deliverables yet</div>';
+      // Delete
+      delivList.querySelectorAll('button[data-deliverable-del]').forEach(b => b.addEventListener('click', async ()=>{
+        const id = b.getAttribute('data-deliverable-del');
+        await fetch(`/.netlify/functions/delete-deliverable?id=${id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        await refreshDeliverables();
+      }));
+      // Save edits
+      delivList.querySelectorAll('[data-id][data-field]').forEach(el => el.addEventListener('change', async ()=>{
+        const id = el.getAttribute('data-id');
+        const field = el.getAttribute('data-field');
+        const payload = { id, project_id: projectId };
+        payload[field] = (field==='is_complete') ? el.checked : el.value;
+        await fetch('/.netlify/functions/upsert-deliverable', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify(payload) });
+        await refreshDeliverables();
+      }));
+    }
+
+    const addDeliverableBtn = document.getElementById('addDeliverableBtn');
+    if (addDeliverableBtn) addDeliverableBtn.onclick = async () => {
+      if (!projectId) return;
+      const title = (document.getElementById('newDeliverableTitle')?.value || 'New Item').trim();
+      await fetch('/.netlify/functions/upsert-deliverable', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({ project_id: projectId, title, is_complete: false }) });
+      document.getElementById('newDeliverableTitle').value = '';
+      await refreshDeliverables();
+    };
+
+    await refreshPhases();
+    await refreshDeliverables();
+
+    // Auto-complete notification when all deliverables are complete
+    try {
+      const res = await fetch(`/.netlify/functions/get-project-deliverables?project_id=${projectId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const json = res.ok ? await res.json() : { deliverables: [] };
+      const arr = json.deliverables || [];
+      if (arr.length > 0 && arr.every(d => d.is_complete)) {
+        await notifyClient(client.id, `🎉 Project "${p.name}" completed!`, 'system');
+      }
+    } catch {}
+  } catch (e) { console.warn('Phases/Deliverables load failed', e); }
   m.classList.remove('hidden');
 }
 

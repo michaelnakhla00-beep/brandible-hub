@@ -116,6 +116,17 @@ function renderProjects({ projects = [] }) {
       <div class="flex items-center justify-between mt-2">
           <span class="status-badge ${statusClass}">${statusText}</span>
       </div>
+      <div class="mt-3">
+        <button class="btn-ghost btn-sm view-timeline" data-name="${(p.name || '').replace(/"/g,'&quot;')}">View Timeline & Deliverables</button>
+      </div>
+      <div class="mt-3 hidden" data-role="timeline-wrap">
+        <div class="p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/40">
+          <div class="text-sm font-semibold mb-2">Timeline</div>
+          <div class="space-y-2" data-role="phases"></div>
+          <div class="text-sm font-semibold mt-3 mb-2">Deliverables</div>
+          <ul class="space-y-1" data-role="deliverables"></ul>
+        </div>
+      </div>
       ${
         p.links?.length
             ? `<div class="mt-2 flex flex-wrap gap-2">${p.links
@@ -152,6 +163,20 @@ function renderProjects({ projects = [] }) {
         const i = Number(el.getAttribute('data-index')) || 0;
         if (window.openClientProjectModal && window.portalClientData) {
           window.openClientProjectModal(window.portalClientData, i);
+        }
+      });
+    });
+
+    // Wire timeline/deliverables buttons (stop propagation to avoid opening modal)
+    document.querySelectorAll('.project-card .view-timeline').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const card = e.currentTarget.closest('.project-card');
+        const wrap = card.querySelector('[data-role="timeline-wrap"]');
+        wrap.classList.toggle('hidden');
+        if (!wrap.dataset.loaded) {
+          await renderProjectTimelineDeliverables(card, btn.getAttribute('data-name'));
+          wrap.dataset.loaded = '1';
         }
       });
     });
@@ -304,10 +329,25 @@ async function loadNotifications() {
     if (badge) badge.textContent = unread;
     if (list) {
       list.innerHTML = (notifications || []).map(n => `
-        <li class="p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 ${n.is_read ? '' : 'bg-slate-50 dark:bg-slate-800/40'}">
+        <li data-id="${n.id}" class="p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 cursor-pointer ${n.is_read ? '' : 'bg-slate-50 dark:bg-slate-800/40'}">
           <div class="text-sm">${n.message}</div>
           <div class="text-xs text-slate-500 mt-1">${new Date(n.created_at).toLocaleString()}</div>
         </li>`).join('');
+      // Wire mark-as-read on click
+      list.querySelectorAll('li[data-id]').forEach(li => {
+        li.addEventListener('click', async () => {
+          const id = li.getAttribute('data-id');
+          try {
+            const token2 = await getPortalAuthToken();
+            await fetch('/.netlify/functions/mark-notification-read', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token2}` },
+              body: JSON.stringify({ id })
+            });
+            await loadNotifications();
+          } catch (err) { console.error('mark read failed', err); }
+        });
+      });
     }
   } catch (e) {
     console.error('notifications error', e);
@@ -367,6 +407,68 @@ async function loadBrandInfo() {
       colors.innerHTML = arr.map(c => `<span class="inline-block w-6 h-6 rounded-lg border border-slate-300" style="background:${c}"></span>`).join('');
     }
   } catch (e) { console.error('brand info error', e); }
+}
+
+// Resolve project id by title (from Supabase projects)
+async function resolveProjectIdByName(name) {
+  try {
+    const token = await getPortalAuthToken();
+    if (!token) return null;
+    const res = await fetch('/.netlify/functions/get-projects', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return null;
+    const projects = await res.json();
+    const found = (projects || []).find(p => (p.title || '').toLowerCase() === (name || '').toLowerCase());
+    return found ? found.id : null;
+  } catch { return null; }
+}
+
+async function renderProjectTimelineDeliverables(cardEl, projectName) {
+  const wrap = cardEl.querySelector('[data-role="timeline-wrap"]');
+  if (!wrap) return;
+  const phasesEl = wrap.querySelector('[data-role="phases"]');
+  const delivEl = wrap.querySelector('[data-role="deliverables"]');
+  const projectId = await resolveProjectIdByName(projectName);
+  if (!projectId) {
+    phasesEl.innerHTML = '<div class="text-xs text-slate-500">No phases found</div>';
+    delivEl.innerHTML = '<li class="text-xs text-slate-500">No deliverables found</li>';
+    return;
+  }
+  const token = await getPortalAuthToken();
+  try {
+    const [phasesRes, delivRes] = await Promise.all([
+      fetch(`/.netlify/functions/get-project-phases?project_id=${projectId}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/.netlify/functions/get-project-deliverables?project_id=${projectId}`, { headers: { Authorization: `Bearer ${token}` } })
+    ]);
+    const phasesJson = phasesRes.ok ? await phasesRes.json() : { phases: [] };
+    const delivJson = delivRes.ok ? await delivRes.json() : { deliverables: [] };
+    const phases = phasesJson.phases || [];
+    const deliverables = delivJson.deliverables || [];
+
+    // Render phases horizontally
+    phasesEl.innerHTML = phases.map(ph => {
+      const color = ph.status === 'done' ? 'bg-green-500' : ph.status === 'active' ? 'bg-indigo-500' : 'bg-slate-400';
+      return `<div class="text-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-medium">${ph.phase_name}</span>
+          <span class="text-slate-500">${ph.start_date || ''} → ${ph.end_date || ''}</span>
+        </div>
+        <div class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full mt-1">
+          <div class="h-2 ${color} rounded-full" style="width: 100%"></div>
+        </div>
+      </div>`;
+    }).join('') || '<div class="text-xs text-slate-500">No phases yet</div>';
+
+    // Render deliverables checklist (read-only)
+    delivEl.innerHTML = deliverables.map(d => `
+      <li class="flex items-center gap-2 text-sm">
+        <input type="checkbox" disabled ${d.is_complete ? 'checked' : ''} class="rounded"/>
+        <span>${d.title}</span>
+      </li>
+    `).join('') || '<li class="text-xs text-slate-500">No deliverables yet</li>';
+  } catch (e) {
+    phasesEl.innerHTML = '<div class="text-xs text-rose-500">Failed to load phases</div>';
+    delivEl.innerHTML = '<li class="text-xs text-rose-500">Failed to load deliverables</li>';
+  }
 }
 
 // Fetch files from Supabase Storage

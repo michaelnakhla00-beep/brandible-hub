@@ -159,6 +159,61 @@
         <div id="clientCardsContainer"></div>
       </section>
 
+      <!-- Notifications Admin -->
+      <section id="notificationsSection">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-2xl font-bold">Notifications</h2>
+          <div class="flex items-center gap-2">
+            <input id="manualNotifyEmail" class="input-field" placeholder="Client email"/>
+            <input id="manualNotifyMessage" class="input-field w-64" placeholder="Message"/>
+            <select id="manualNotifyType" class="input-field">
+              <option value="system">system</option>
+              <option value="file">file</option>
+              <option value="invoice">invoice</option>
+              <option value="comment">comment</option>
+            </select>
+            <button id="sendManualNotify" class="btn-primary btn-sm">Send</button>
+            <button id="markAllRead" class="btn-ghost btn-sm">Mark all read</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+          <table class="w-full text-sm">
+            <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40">
+              <tr>
+                <th class="text-left py-3 px-4">Client</th>
+                <th class="text-left py-3 px-4">Message</th>
+                <th class="text-left py-3 px-4">Type</th>
+                <th class="text-left py-3 px-4">Date</th>
+                <th class="text-left py-3 px-4">Read</th>
+              </tr>
+            </thead>
+            <tbody id="notificationsAdminTable" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Client Settings Modal -->
+      <div id="clientSettingsModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[2800]">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-xl p-6 sm:p-8 relative">
+          <button id="closeClientSettings" class="absolute top-4 right-5 text-slate-500 hover:text-slate-900">✕</button>
+          <h3 class="text-xl font-semibold mb-4">Client Settings</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-600">Client</label>
+              <input id="clientSettingsEmail" class="input-field w-full" disabled />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-2">Notifications</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="clientSettingEmailNotifications" class="rounded"/> Email notifications</label>
+              <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="clientSettingInvoiceReminders" class="rounded"/> Invoice reminders</label>
+            </div>
+            <div class="flex gap-2">
+              <button id="saveClientSettingsBtn" class="btn-primary">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Leads -->
       <section id="bookingsSection">
         <div class="mb-4 sm:mb-6">
@@ -376,6 +431,34 @@
                 <span id="adminClientCompletionPercent" class="text-sm font-semibold text-purple-600 dark:text-purple-400 w-12 text-right">0%</span>
               </div>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Adjust profile completion percentage</p>
+            </div>
+
+            <!-- Brand Info Editor -->
+            <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+              <h4 class="text-lg font-semibold mb-4">Brand Info</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Brand Logo</label>
+                  <img id="brandLogoPreviewAdmin" class="w-20 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-700 mb-2" src="" alt="Brand Logo" style="display: none;" />
+                  <input id="brandLogoInputAdmin" type="file" accept="image/*" class="text-sm w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2" />
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Brand Fonts</label>
+                  <input id="brandFontsInputAdmin" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Inter, Poppins, Roboto" />
+                </div>
+                <div class="md:col-span-2">
+                  <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Brand Colors (JSON array of HEX, e.g. [&quot;#635BFF&quot;,&quot;#FFD54F&quot;])</label>
+                  <textarea id="brandColorsInputAdmin" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" rows="2" placeholder='["#635BFF","#FFD54F"]'></textarea>
+                  <div id="brandColorsPreviewAdmin" class="mt-2 flex items-center gap-2 flex-wrap"></div>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Target Audience</label>
+                  <textarea id="brandAudienceInputAdmin" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" rows="3" placeholder="Describe target audience / tone of voice"></textarea>
+                </div>
+              </div>
+              <div class="mt-4">
+                <button id="saveBrandInfoBtn" class="btn-primary">Save Brand Info</button>
+              </div>
             </div>
           </div>
         </section>
@@ -675,6 +758,27 @@
       <div class="mt-6 border-t pt-4">
         <h3 class="font-semibold mb-2 text-slate-700">Activity Log</h3>
         <div id="projectActivity" class="space-y-2 max-h-48 overflow-y-auto text-sm text-slate-600"></div>
+      </div>
+
+      <!-- Phases Accordion -->
+      <div class="mt-6 border-t pt-4">
+        <button id="togglePhases" class="btn-ghost">📊 Project Phases</button>
+        <div id="phasesEditor" class="mt-3 hidden">
+          <div id="phasesList" class="space-y-3"></div>
+          <button id="addPhaseBtn" class="btn-primary btn-sm mt-2">Add Phase</button>
+        </div>
+      </div>
+
+      <!-- Deliverables Accordion -->
+      <div class="mt-6 border-t pt-4">
+        <button id="toggleDeliverables" class="btn-ghost">🧩 Deliverables</button>
+        <div id="deliverablesEditor" class="mt-3 hidden">
+          <div id="deliverablesList" class="space-y-2"></div>
+          <div class="flex gap-2 mt-2">
+            <input id="newDeliverableTitle" class="input-field flex-1" placeholder="New deliverable title"/>
+            <button id="addDeliverableBtn" class="btn-primary btn-sm">Add</button>
+          </div>
+        </div>
       </div>
 
       <div class="mt-6 flex justify-end gap-3">
