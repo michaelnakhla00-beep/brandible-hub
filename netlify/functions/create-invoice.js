@@ -24,36 +24,45 @@ function getStripe() {
   }
 }
 
-function normalizeItems(items = []) {
+function normalizeItems(items) {
+  if (!items || !Array.isArray(items)) items = [];
   return items
-    .filter((item) => item && item.description)
-    .map((item) => ({
-      description: item.description,
-      quantity: Number(item.quantity) || 1,
-      unit_amount: Number(item.unit_amount) || 0,
-    }));
+    .filter(function(item) { return item && item.description; })
+    .map(function(item) {
+      return {
+        description: item.description,
+        quantity: Number(item.quantity) || 1,
+        unit_amount: Number(item.unit_amount) || 0,
+      };
+    });
 }
 
-function calculateTotals(items = [], taxRate = 0, discountRate = 0) {
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_amount, 0);
+function calculateTotals(items, taxRate, discountRate) {
+  if (!items || !Array.isArray(items)) items = [];
+  if (taxRate === undefined || taxRate === null) taxRate = 0;
+  if (discountRate === undefined || discountRate === null) discountRate = 0;
+  const subtotal = items.reduce(function(sum, item) { return sum + item.quantity * item.unit_amount; }, 0);
   const taxAmount = subtotal * (Number(taxRate) || 0) / 100;
   const discountAmount = subtotal * (Number(discountRate) || 0) / 100;
   const total = subtotal + taxAmount - discountAmount;
-  return { subtotal, taxAmount, discountAmount, total };
+  return { subtotal: subtotal, taxAmount: taxAmount, discountAmount: discountAmount, total: total };
 }
 
-async function generateInvoiceNumber(supabase, year = new Date().getFullYear()) {
+async function generateInvoiceNumber(supabase, year) {
+  if (year === undefined || year === null) year = new Date().getFullYear();
   // Query for the highest invoice number for this year
-  const { data: invoices, error } = await supabase
+  const queryResult = await supabase
     .from('invoices')
     .select('number')
-    .like('number', `INV-${year}-%`)
+    .like('number', 'INV-' + year + '-%')
     .order('number', { ascending: false })
     .limit(1);
+  const invoices = queryResult.data;
+  const error = queryResult.error;
 
   if (error) {
     console.warn('Failed to query invoice numbers, using fallback:', error);
-    return `INV-${year}-00001`;
+    return 'INV-' + year + '-00001';
   }
 
   // Extract the highest sequence number
@@ -67,16 +76,24 @@ async function generateInvoiceNumber(supabase, year = new Date().getFullYear()) 
   }
 
   // Format as 5-digit zero-padded number
-  const paddedSeq = String(nextSequence).padStart(5, '0');
-  return `INV-${year}-${paddedSeq}`;
+  let paddedSeq = String(nextSequence);
+  while (paddedSeq.length < 5) {
+    paddedSeq = '0' + paddedSeq;
+  }
+  return 'INV-' + year + '-' + paddedSeq;
 }
 
-function buildMeta({ attachments = [], taxRate = 0, discountRate = 0, discountAmount = 0 }) {
+function buildMeta(params) {
+  if (!params) params = {};
+  const attachments = params.attachments || [];
+  const taxRate = params.taxRate || 0;
+  const discountRate = params.discountRate || 0;
+  const discountAmount = params.discountAmount || 0;
   return {
-    attachments,
+    attachments: attachments,
     taxRate: Number(taxRate) || 0,
     discountRate: Number(discountRate) || 0,
-    discountAmount,
+    discountAmount: discountAmount,
   };
 }
 
@@ -93,18 +110,16 @@ exports.handler = async (event, context) => {
     }
 
     const body = JSON.parse(event.body || '{}');
-    const {
-      clientId,
-      currency = 'usd',
-      due_at = null,
-      notes = '',
-      sendNow = true,
-      number: providedNumber,
-      taxRate = 0,
-      discountRate = 0,
-      items = [],
-      attachments = [],
-    } = body;
+    const clientId = body.clientId;
+    const currency = body.currency || 'usd';
+    const due_at = body.due_at || null;
+    const notes = body.notes || '';
+    const sendNow = body.sendNow !== undefined ? body.sendNow : true;
+    const providedNumber = body.number;
+    const taxRate = body.taxRate || 0;
+    const discountRate = body.discountRate || 0;
+    const items = body.items || [];
+    const attachments = body.attachments || [];
 
     if (!clientId) {
       return { statusCode: 400, body: JSON.stringify({ error: 'clientId is required' }) };
@@ -112,11 +127,13 @@ exports.handler = async (event, context) => {
 
     const supabase = getSupabase();
 
-    const { data: client, error: clientError } = await supabase
+    const clientResult = await supabase
       .from('clients')
       .select('id, email, name')
       .eq('id', clientId)
       .single();
+    const client = clientResult.data;
+    const clientError = clientResult.error;
     if (clientError) throw clientError;
     if (!client) {
       return { statusCode: 404, body: JSON.stringify({ error: 'Client not found' }) };
@@ -135,36 +152,41 @@ exports.handler = async (event, context) => {
 
     const meta = buildMeta({ attachments, taxRate, discountRate, discountAmount: totals.discountAmount });
 
-    const { data: invoice, error: insertError } = await supabase
+    const invoiceResult = await supabase
       .from('invoices')
       .insert({
         client_id: clientId,
         number: invoiceNumber,
-        currency,
+        currency: currency,
         status: sendNow ? 'open' : 'draft',
         subtotal: totals.subtotal,
         tax: totals.taxAmount,
         total: totals.total,
         issued_at: sendNow ? new Date().toISOString() : null,
-        due_at,
-        notes,
-        meta,
+        due_at: due_at,
+        notes: notes,
+        meta: meta,
       })
       .select('*')
       .single();
+    const invoice = invoiceResult.data;
+    const insertError = invoiceResult.error;
 
     if (insertError) throw insertError;
 
-    const lineRows = normalizedItems.map((item) => ({
-      invoice_id: invoice.id,
-      description: item.description,
-      quantity: item.quantity,
-      unit_amount: item.unit_amount,
-    }));
+    const lineRows = normalizedItems.map(function(item) {
+      return {
+        invoice_id: invoice.id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_amount: item.unit_amount,
+      };
+    });
 
-    const { error: itemsError } = await supabase
+    const itemsResult = await supabase
       .from('invoice_items')
       .insert(lineRows);
+    const itemsError = itemsResult.error;
     if (itemsError) throw itemsError;
 
     let hostedUrl = null;
@@ -178,16 +200,17 @@ exports.handler = async (event, context) => {
         try {
           const customer = await stripe.customers.create(
             { email: client.email, name: client.name },
-            { idempotencyKey: `${client.email}-${invoice.id}` }
+            { idempotencyKey: client.email + '-' + invoice.id }
           );
 
-          for (const item of normalizedItems) {
+          for (let i = 0; i < normalizedItems.length; i++) {
+            const item = normalizedItems[i];
             await stripe.invoiceItems.create({
               customer: customer.id,
               description: item.description,
               quantity: item.quantity,
               unit_amount: Math.round(item.unit_amount * 100),
-              currency,
+              currency: currency,
             });
           }
 
