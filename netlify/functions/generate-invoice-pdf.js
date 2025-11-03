@@ -28,22 +28,39 @@ PDFDocument.prototype.font = function(src, family, size) {
       const fontName = standardFonts[src];
       let fontData;
       try {
-        // Try to load from PDFKit's data directory
-        const fontPath = require.resolve('pdfkit/js/data/' + fontName + '.afm');
-        fontData = fs.readFileSync(fontPath, 'utf8');
-        return originalFont.call(this, fontData, family || src, size);
-      } catch (e1) {
+        // Try multiple possible paths for font files
+        const possiblePaths = [
+          require.resolve('pdfkit/js/data/' + fontName + '.afm'),
+          path.join(__dirname, '../../node_modules/pdfkit/js/data', fontName + '.afm'),
+          path.join(__dirname, '../../node_modules/pdfkit/js/data/fonts', fontName + '.afm'),
+          path.join('/var/task/node_modules/pdfkit/js/data', fontName + '.afm'),
+          path.join('/var/task/node_modules/pdfkit/js/data/fonts', fontName + '.afm'),
+        ];
+        
+        for (let i = 0; i < possiblePaths.length; i++) {
+          try {
+            const fontPath = possiblePaths[i];
+            if (fs.existsSync(fontPath)) {
+              fontData = fs.readFileSync(fontPath, 'utf8');
+              return originalFont.call(this, fontData, family || src, size);
+            }
+          } catch (pathError) {
+            // Continue to next path
+          }
+        }
+        
+        // If all paths failed, try require.resolve with error handling
         try {
-          // Try alternative path
-          const fontPath2 = path.join(__dirname, '../../node_modules/pdfkit/js/data', fontName + '.afm');
-          if (fs.existsSync(fontPath2)) {
-            fontData = fs.readFileSync(fontPath2, 'utf8');
+          const resolvedPath = require.resolve('pdfkit/js/data/' + fontName + '.afm');
+          if (fs.existsSync(resolvedPath)) {
+            fontData = fs.readFileSync(resolvedPath, 'utf8');
             return originalFont.call(this, fontData, family || src, size);
           }
-        } catch (e2) {
-          // Fall back to using font name - PDFKit may have embedded data
-          console.warn('Font file not found, using font name:', fontName);
+        } catch (resolveError) {
+          console.warn('Could not resolve font path:', fontName);
         }
+      } catch (e1) {
+        console.warn('Font file resolution failed:', e1.message);
       }
       // If we got font data, use it
       if (fontData) {
