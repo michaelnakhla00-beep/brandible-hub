@@ -87,7 +87,8 @@ exports.handler = async (event, context) => {
     }
 
     const user = context.clientContext && context.clientContext.user;
-    if (!user || !(user.app_metadata?.roles || []).includes('admin')) {
+    const userRoles = user && user.app_metadata && user.app_metadata.roles || [];
+    if (!user || !userRoles.includes('admin')) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Admin access required' }) };
     }
 
@@ -232,6 +233,10 @@ exports.handler = async (event, context) => {
           pdfUrl = finalized.invoice_pdf;
           stripeInvoiceId = finalized.id;
 
+          const finalizedAt = finalized.status_transitions && finalized.status_transitions.finalized_at
+            ? finalized.status_transitions.finalized_at
+            : null;
+          
           await supabase
             .from('invoices')
             .update({
@@ -239,8 +244,8 @@ exports.handler = async (event, context) => {
               stripe_invoice_id: stripeInvoiceId,
               hosted_url: hostedUrl,
               pdf_url: pdfUrl,
-              issued_at: finalized.status_transitions?.finalized_at
-                ? new Date(finalized.status_transitions.finalized_at * 1000).toISOString()
+              issued_at: finalizedAt
+                ? new Date(finalizedAt * 1000).toISOString()
                 : new Date().toISOString(),
             })
             .eq('id', invoice.id);
@@ -253,17 +258,17 @@ exports.handler = async (event, context) => {
       }
     }
 
+    const responseInvoice = Object.assign({}, invoice);
+    if (hostedUrl) responseInvoice.hosted_url = hostedUrl;
+    if (pdfUrl) responseInvoice.pdf_url = pdfUrl;
+    if (stripeInvoiceId) responseInvoice.stripe_invoice_id = stripeInvoiceId;
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
-        invoice: {
-          ...invoice,
-          hosted_url: hostedUrl,
-          pdf_url: pdfUrl,
-          stripe_invoice_id: stripeInvoiceId,
-        },
+        invoice: responseInvoice,
         note: stripeNote,
       }),
     };
