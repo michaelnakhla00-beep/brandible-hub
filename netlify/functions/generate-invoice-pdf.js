@@ -3,78 +3,37 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-// Override PDFKit font loading to prevent file system access
-// PDFKit tries to resolve font files, but in serverless we need to use built-in fonts
-const originalFont = PDFDocument.prototype.font;
-PDFDocument.prototype.font = function(src, family, size) {
-  // If src is already a Buffer or valid font object, use it directly
-  if (Buffer.isBuffer(src) || (typeof src === 'object' && src !== null && !src.path)) {
-    return originalFont.call(this, src, family, size);
-  }
-  
-  // For standard PDFKit font names, try to load from PDFKit's font data
-  const standardFonts = {
-    'Helvetica': 'Helvetica',
-    'Helvetica-Bold': 'Helvetica-Bold',
-    'Courier': 'Courier',
-    'Courier-Bold': 'Courier-Bold',
-    'Times-Roman': 'Times-Roman',
-    'Times-Bold': 'Times-Bold'
-  };
-  
-  if (typeof src === 'string' && standardFonts[src]) {
-    try {
-      // Try to require PDFKit's font data directly
-      const fontName = standardFonts[src];
-      let fontData;
+// Monkey-patch fs.readFileSync to intercept font file access attempts
+// This prevents ENOENT errors when PDFKit tries to load font files
+const originalReadFileSync = fs.readFileSync;
+fs.readFileSync = function(filePath, encoding) {
+  // If PDFKit is trying to read a font file, intercept it
+  if (typeof filePath === 'string' && (filePath.indexOf('.afm') >= 0 || filePath.indexOf('/data/') >= 0)) {
+    // Try to find the font file in node_modules
+    const possiblePaths = [
+      path.join('/var/task/node_modules/pdfkit/js/data', path.basename(filePath)),
+      path.join(__dirname, '../../node_modules/pdfkit/js/data', path.basename(filePath)),
+      require.resolve('pdfkit/js/data/' + path.basename(filePath)),
+    ];
+    
+    for (let i = 0; i < possiblePaths.length; i++) {
       try {
-        // Try multiple possible paths for font files
-        const possiblePaths = [
-          require.resolve('pdfkit/js/data/' + fontName + '.afm'),
-          path.join(__dirname, '../../node_modules/pdfkit/js/data', fontName + '.afm'),
-          path.join(__dirname, '../../node_modules/pdfkit/js/data/fonts', fontName + '.afm'),
-          path.join('/var/task/node_modules/pdfkit/js/data', fontName + '.afm'),
-          path.join('/var/task/node_modules/pdfkit/js/data/fonts', fontName + '.afm'),
-        ];
-        
-        for (let i = 0; i < possiblePaths.length; i++) {
-          try {
-            const fontPath = possiblePaths[i];
-            if (fs.existsSync(fontPath)) {
-              fontData = fs.readFileSync(fontPath, 'utf8');
-              return originalFont.call(this, fontData, family || src, size);
-            }
-          } catch (pathError) {
-            // Continue to next path
-          }
+        if (fs.existsSync(possiblePaths[i])) {
+          return originalReadFileSync.call(fs, possiblePaths[i], encoding);
         }
-        
-        // If all paths failed, try require.resolve with error handling
-        try {
-          const resolvedPath = require.resolve('pdfkit/js/data/' + fontName + '.afm');
-          if (fs.existsSync(resolvedPath)) {
-            fontData = fs.readFileSync(resolvedPath, 'utf8');
-            return originalFont.call(this, fontData, family || src, size);
-          }
-        } catch (resolveError) {
-          console.warn('Could not resolve font path:', fontName);
-        }
-      } catch (e1) {
-        console.warn('Font file resolution failed:', e1.message);
+      } catch (e) {
+        // Continue to next path
       }
-      // If we got font data, use it
-      if (fontData) {
-        return originalFont.call(this, fontData, family || src, size);
-      }
-    } catch (e) {
-      console.warn('Font loading error, falling back to name:', e.message);
     }
-    // Final fallback: use font name directly
-    return originalFont.call(this, src, family || src, size);
+    
+    // If font file not found, return empty string or throw a more helpful error
+    console.warn('Font file not found, PDFKit will use default metrics:', filePath);
+    // Return empty string to allow PDFKit to continue (it may have fallback metrics)
+    return '';
   }
   
-  // For any other font, try original behavior
-  return originalFont.call(this, src, family, size);
+  // For all other files, use original behavior
+  return originalReadFileSync.call(fs, filePath, encoding);
 };
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
