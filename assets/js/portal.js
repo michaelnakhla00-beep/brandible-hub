@@ -62,16 +62,7 @@ function renderProfile({ id, name, email, company = '', manager = '', phone = ''
       <div class="text-lg font-semibold">${name || ''}${company ? ' • ' + company : ''}</div>
       <div class="text-sm text-slate-500 dark:text-slate-400">${manager ? 'Manager: ' + manager + ' · ' : ''}${email}${phone ? ' · ' + phone : ''}${website ? ' · <a class=\"underline\" href=\"' + website + '\" target=\"_blank\">Website</a>' : ''}</div>
     </div>
-    <button id="changePhotoBtn" class="btn-primary text-sm w-full sm:w-auto">Change Photo</button>
   `;
-
-  const changeBtn = document.getElementById('changePhotoBtn');
-  if (changeBtn) {
-    changeBtn.onclick = () => {
-      const modal = document.getElementById('avatarModal');
-      if (modal) modal.classList.remove('hidden');
-    };
-  }
 }
 
 // Projects → Kanban columns; also mirrors a simple list if #projects exists
@@ -1668,6 +1659,14 @@ function wireResourcesFilters() {
         const id = window.netlifyIdentity; if (id) id.open('recovery');
       });
     }
+    const openSettings = document.getElementById('openAccountSettingsBtn');
+    const settingsModal = document.getElementById('accountSettingsModal');
+    if (openSettings && settingsModal) openSettings.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    const closeSettings = document.getElementById('closeAccountSettings');
+    if (closeSettings && settingsModal) closeSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    const openChangePhoto = document.getElementById('openChangePhoto');
+    const avatarModal = document.getElementById('avatarModal');
+    if (openChangePhoto && avatarModal) openChangePhoto.addEventListener('click', () => settingsModal && avatarModal && (settingsModal.classList.add('hidden'), avatarModal.classList.remove('hidden')));
     const notifBtn = document.getElementById('openNotifications');
     const panel = document.getElementById('notificationsPanel');
     if (notifBtn && panel) notifBtn.addEventListener('click', () => panel.classList.toggle('hidden'));

@@ -127,9 +127,16 @@
           </div>
           <div class="flex items-center gap-3">
             <span id="userEmail" class="hidden sm:inline text-sm text-slate-500"></span>
-            <div class="btn-surface"><button id="openNotifications" class="btn-icon" title="Notifications">🔔</button></div>
-            <div class="btn-surface"><button onclick="toggleDark()" class="btn-icon" title="Dark mode">🌗</button></div>
-            <div class="btn-surface"><button onclick="refreshClientData()" class="btn-ghost" title="Refresh data"><span class="icon">🔄</span> Refresh</button></div>
+            <div class="btn-surface"><button id="openNotifications" class="btn-icon" title="Notifications">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M8 20a4 4 0 008 0H8z"/><path fill-rule="evenodd" d="M12 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 006 14h12a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6z" clip-rule="evenodd"/></svg>
+            </button></div>
+            <div class="btn-surface"><button onclick="toggleDark()" class="btn-icon" title="Dark mode">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5"><path d="M21.752 15.002A9.718 9.718 0 0112 21.75a9.75 9.75 0 010-19.5 9.718 9.718 0 019.752 6.748 7.5 7.5 0 000 6.004z"/></svg>
+            </button></div>
+            <div class="btn-surface"><button onclick="refreshClientData()" class="btn-ghost" title="Refresh data">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M4.5 12a7.5 7.5 0 1112.9 5.303l1.4 1.4a.75.75 0 01-1.06 1.06l-2.652-2.652a.75.75 0 01-.22-.53V12a.75.75 0 011.5 0v2.69A6 6 0 106 12a.75.75 0 01-1.5 0z" clip-rule="evenodd"/></svg>
+              <span class="hidden sm:inline">Refresh</span>
+            </button></div>
             <button id="logoutBtn" class="btn-ghost">Log out</button>
           </div>
         </div>
@@ -167,7 +174,11 @@
         <section id="profile" class="card-section">
           <div class="flex items-center justify-between">
             <h2 class="section-title">Profile</h2>
-            <div class="btn-surface"><button id="openAccountSettingsBtn" class="btn-icon" title="Account Settings">⚙️</button></div>
+            <div class="btn-surface"><button id="openAccountSettingsBtn" class="btn-icon" title="Account Settings">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+                <path fill-rule="evenodd" d="M11.079 1.515a1.875 1.875 0 011.842 0l.853.49a1.875 1.875 0 002.175-.313l.677-.677a1.875 1.875 0 012.652 0l1.702 1.702a1.875 1.875 0 010 2.652l-.677.677a1.875 1.875 0 00-.313 2.175l.49.853c.36.627.36 1.398 0 2.025l-.49.853a1.875 1.875 0 00.313 2.175l.677.677c.732.732.732 1.92 0 2.652l-1.702 1.702a1.875 1.875 0 01-2.652 0l-.677-.677a1.875 1.875 0 00-2.175-.313l-.853.49c-.627.36-1.398.36-2.025 0l-.853-.49a1.875 1.875 0 00-2.175.313l-.677.677a1.875 1.875 0 01-2.652 0L2.22 18.9a1.875 1.875 0 010-2.652l.677-.677a1.875 1.875 0 00.313-2.175l-.49-.853a1.875 1.875 0 010-2.025l.49-.853A1.875 1.875 0 003.6 6.04l-.677-.677a1.875 1.875 0 010-2.652L4.625 1.31a1.875 1.875 0 012.652 0l.677.677a1.875 1.875 0 002.175.313l.853-.49zM15 12a3 3 0 11-6 0 3 3 0 016 0z" clip-rule="evenodd" />
+              </svg>
+            </button></div>
           </div>
           <div id="profileCard" class="flex flex-col sm:flex-row items-center sm:items-center gap-4"></div>
         </section>
