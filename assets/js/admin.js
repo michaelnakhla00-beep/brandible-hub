@@ -1184,7 +1184,7 @@ function defaultInvoiceState() {
     dueDate: defaultInvoiceDueDate(),
     notes: '',
     sendNow: true,
-    taxRate: 0,
+    taxRate: 6.25,
     discountRate: 0,
     items: [
       { description: '', quantity: 1, unit_amount: 0 },
