@@ -92,7 +92,6 @@
         <a href="#projects" class="sidebar-link" data-target="projects"><span>Projects</span></a>
         <a href="#filesCard" class="sidebar-link" data-target="filesCard"><span>Files</span></a>
         <a href="#invoicesCard" class="sidebar-link" data-target="invoicesCard"><span>Invoices</span></a>
-        <a href="#accountSettings" class="sidebar-link" data-target="accountSettings"><span>Account Settings</span></a>
         <a href="#brandInfo" class="sidebar-link" data-target="brandInfo"><span>Brand Info</span></a>
         <a href="#feedback" class="sidebar-link" data-target="feedback"><span>Feedback</span></a>
         <a href="#resources" class="sidebar-link" data-target="resources"><span>Resources</span></a>
@@ -180,7 +179,7 @@
               <div class="btn-surface"><button id="openAccountSettingsBtn" class="btn-icon" title="Account Settings">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M18.685 19.297A9.723 9.723 0 0012 15.75a9.723 9.723 0 00-6.685 3.547.75.75 0 01-1.154-.957A11.223 11.223 0 0112 14.25c3.57 0 6.745 1.676 8.839 4.09a.75.75 0 01-1.154.957zM12 12a4.5 4.5 0 100-9 4.5 4.5 0 000 9z" clip-rule="evenodd"/></svg>
               </button></div>
-              <button id="editProfileBtn" class="btn-ghost">Edit Profile</button>
+              <button id="editProfileBtn" class="btn-ghost border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">Edit Profile</button>
             </div>
           </div>
           <div id="profileCard" class="flex flex-col sm:flex-row items-center sm:items-center gap-4"></div>
@@ -196,10 +195,6 @@
         <div class="card-section">
             <div class="flex items-center justify-between mb-6">
               <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">Projects</h2>
-              <div class="flex items-center gap-2">
-                <button class="btn-ghost text-sm" id="filterActive">Active</button>
-                <button class="btn-ghost text-sm" id="filterAll">All</button>
-              </div>
             </div>
             <div class="space-y-4" id="kanban">
               <!-- In Progress Section -->
@@ -255,7 +250,7 @@
           <div class="card-section" id="filesCard">
             <div class="flex items-center justify-between mb-4">
               <h2 class="section-title">Files</h2>
-                <label class="btn-primary text-sm cursor-pointer">
+                <label class="btn-primary text-sm cursor-pointer border border-indigo-500 rounded-lg px-3 py-2">
                   <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                   </svg>
@@ -347,48 +342,48 @@
               <h3 class="text-xl font-semibold mb-4">Account Settings</h3>
               <div class="grid gap-4">
                 <div class="grid sm:grid-cols-2 gap-4">
-                  <div>
+                  <div class="border border-slate-300 dark:border-slate-600 rounded-lg p-4">
                     <label class="block text-sm font-medium text-slate-600">Name</label>
-                    <input id="accountName" class="input-field w-full" disabled />
+                    <input id="accountName" class="input-field w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" disabled />
                   </div>
-                  <div>
+                  <div class="border border-slate-300 dark:border-slate-600 rounded-lg p-4">
                     <label class="block text-sm font-medium text-slate-600">Email</label>
-                    <input id="accountEmail" class="input-field w-full" disabled />
+                    <input id="accountEmail" class="input-field w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" disabled />
                   </div>
                 </div>
                 <div class="grid sm:grid-cols-2 gap-4">
-                  <div>
+                  <div class="border border-slate-300 dark:border-slate-600 rounded-lg p-4">
                     <label class="block text-sm font-medium text-slate-600">Phone</label>
-                    <input id="accountPhone" class="input-field w-full" placeholder="(555) 555-5555" />
+                    <input id="accountPhone" class="input-field w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" placeholder="(555) 555-5555" />
                   </div>
-                  <div>
+                  <div class="border border-slate-300 dark:border-slate-600 rounded-lg p-4">
                     <label class="block text-sm font-medium text-slate-600">Website</label>
-                    <input id="accountWebsite" class="input-field w-full" placeholder="https://example.com" />
+                    <input id="accountWebsite" class="input-field w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" placeholder="https://example.com" />
                   </div>
                 </div>
                 <div class="grid sm:grid-cols-2 gap-4">
-                  <div>
+                  <div class="border border-slate-300 dark:border-slate-600 rounded-lg p-4">
                     <label class="block text-sm font-medium text-slate-600">Business type</label>
-                    <input id="accountBusinessType" class="input-field w-full" disabled />
+                    <input id="accountBusinessType" class="input-field w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" disabled />
                   </div>
-                  <div>
+                  <div class="border border-slate-300 dark:border-slate-600 rounded-lg p-4">
                     <label class="block text-sm font-medium text-slate-600">Member since</label>
-                    <input id="accountJoined" class="input-field w-full" disabled />
+                    <input id="accountJoined" class="input-field w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" disabled />
                   </div>
                 </div>
-                <div>
+                <div class="border border-slate-300 dark:border-slate-600 rounded-lg p-4">
                   <label class="block text-sm font-medium text-slate-600">Last update</label>
-                  <input id="accountLastUpdate" class="input-field w-full" disabled />
+                  <input id="accountLastUpdate" class="input-field w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" disabled />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-600 mb-2">Notifications</label>
                   <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingEmailNotifications" class="rounded"/> Email notifications</label>
                   <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="settingInvoiceReminders" class="rounded"/> Invoice reminders</label>
                 </div>
-                <div class="flex flex-wrap gap-3">
-                  <button id="saveSettingsBtn" class="btn-primary">Save Settings</button>
-                  <a id="passwordResetLink" class="btn-ghost" href="#">Reset Password</a>
-                  <button id="openChangePhoto" class="btn-ghost">Change Photo</button>
+                <div class="flex flex-wrap gap-3 border border-slate-300 dark:border-slate-600 rounded-lg p-4">
+                  <button id="saveSettingsBtn" class="btn-primary border border-indigo-500 rounded-lg px-3 py-2">Save Settings</button>
+                  <a id="passwordResetLink" class="btn-ghost border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2" href="#">Reset Password</a>
+                  <button id="openChangePhoto" class="btn-ghost border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">Change Photo</button>
                 </div>
               </div>
             </div>
@@ -424,7 +419,7 @@
                 <textarea id="feedbackComment" placeholder="Share your feedback..." rows="4" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all"></textarea>
               </div>
               
-              <button id="submitFeedback" class="btn-primary w-full">Submit Feedback</button>
+              <button id="submitFeedback" class="btn-primary w-full border border-indigo-500 rounded-lg px-3 py-2">Submit Feedback</button>
             </div>
 
             <div id="feedbackHistory" class="hidden">
@@ -465,7 +460,7 @@
               <input type="hidden" name="form-name" value="hub-support" />
               <input name="email" placeholder="Your email" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all" />
               <textarea name="message" placeholder="How can we help?" rows="3" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all"></textarea>
-              <button class="btn-primary w-full">Submit</button>
+              <button class="btn-primary w-full border border-indigo-500 rounded-lg px-3 py-2">Submit</button>
             </form>
           </div>
 
