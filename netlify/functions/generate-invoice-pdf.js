@@ -32,7 +32,7 @@ function formatCurrency(amount = 0, currency = 'USD') {
       currency: currency.toUpperCase(),
     }).format(Number(amount) || 0);
   } catch (error) {
-    return `$${Number(amount || 0).toFixed(2)}`;
+    return '$' + Number(amount || 0).toFixed(2);
   }
 }
 
@@ -41,27 +41,48 @@ function resolveLogoPath() {
     path.join(__dirname, '../../assets/images/Brandible.png'),
     path.join(__dirname, '../../assets/images/brandible.png'),
   ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+  for (let i = 0; i < candidates.length; i++) {
+    if (fs.existsSync(candidates[i])) {
+      return candidates[i];
+    }
+  }
+  return null;
 }
 
 function buildInvoiceFromRecord(record) {
   const meta = record.meta || {};
-  const items = (record.invoice_items || []).map((item) => ({
-    description: item.description || 'Line item',
-    qty: Number(item.quantity) || 0,
-    price: Number(item.unit_amount) || 0,
-  }));
+  const invoiceItems = record.invoice_items || [];
+  const items = [];
+  for (let i = 0; i < invoiceItems.length; i++) {
+    const item = invoiceItems[i];
+    items.push({
+      description: item.description || 'Line item',
+      qty: Number(item.quantity) || 0,
+      price: Number(item.unit_amount) || 0,
+    });
+  }
+
+  const clientsName = record.clients && record.clients.name ? record.clients.name : null;
+  const clientsEmail = record.clients && record.clients.email ? record.clients.email : null;
+  
+  let subtotal = Number(record.subtotal);
+  if (!subtotal && items.length > 0) {
+    subtotal = 0;
+    for (let i = 0; i < items.length; i++) {
+      subtotal += items[i].qty * items[i].price;
+    }
+  }
 
   return {
     clientId: record.client_id,
     invoiceId: record.id,
-    clientName: record.clients?.name || meta.clientName || 'Client',
-    clientEmail: record.clients?.email || meta.clientEmail || '',
+    clientName: clientsName || meta.clientName || 'Client',
+    clientEmail: clientsEmail || meta.clientEmail || '',
     invoiceNumber: record.number || meta.invoiceNumber || 'INV-0000',
     date: record.issued_at || record.created_at,
     dueDate: record.due_at,
-    items,
-    subtotal: Number(record.subtotal) || items.reduce((sum, item) => sum + item.qty * item.price, 0),
+    items: items,
+    subtotal: subtotal,
     taxAmount: Number(record.tax) || 0,
     taxRate: Number(meta.taxRate) || 0,
     discountAmount: Number(meta.discountAmount) || 0,
@@ -74,15 +95,27 @@ function buildInvoiceFromRecord(record) {
 
 function normalizeBodyPayload(body) {
   const items = Array.isArray(body.items) ? body.items : [];
-  const normalizedItems = items.map((item) => ({
-    description: item.description || 'Line item',
-    qty: Number(item.qty ?? item.quantity ?? 0),
-    price: Number(item.price ?? item.unit_amount ?? 0),
-  }));
+  const normalizedItems = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const qty = item.qty !== undefined && item.qty !== null ? item.qty : (item.quantity !== undefined && item.quantity !== null ? item.quantity : 0);
+    const price = item.price !== undefined && item.price !== null ? item.price : (item.unit_amount !== undefined && item.unit_amount !== null ? item.unit_amount : 0);
+    normalizedItems.push({
+      description: item.description || 'Line item',
+      qty: Number(qty),
+      price: Number(price),
+    });
+  }
 
-  const subtotal = body.subtotal !== undefined
-    ? Number(body.subtotal)
-    : normalizedItems.reduce((sum, item) => sum + item.qty * item.price, 0);
+  let subtotal;
+  if (body.subtotal !== undefined) {
+    subtotal = Number(body.subtotal);
+  } else {
+    subtotal = 0;
+    for (let i = 0; i < normalizedItems.length; i++) {
+      subtotal += normalizedItems[i].qty * normalizedItems[i].price;
+    }
+  }
 
   const taxAmount = body.taxAmount !== undefined
     ? Number(body.taxAmount)
@@ -118,12 +151,12 @@ function normalizeBodyPayload(body) {
 }
 
 function generateInvoicePdf(invoiceData, logoPath) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
       const chunks = [];
-      doc.on('data', (chunk) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('data', function(chunk) { chunks.push(chunk); });
+      doc.on('end', function() { resolve(Buffer.concat(chunks)); });
 
       const primaryColor = '#5B4FFF';
       const textColor = '#1F1F1F';
@@ -377,7 +410,7 @@ exports.handler = async (event, context) => {
         return { statusCode: 404, body: JSON.stringify({ error: 'Invoice not found' }) };
       }
 
-      if (!adminRequest && invoiceRecord?.clients?.email && invoiceRecord.clients.email !== user.email) {
+      if (!adminRequest && invoiceRecord && invoiceRecord.clients && invoiceRecord.clients.email && invoiceRecord.clients.email !== user.email) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Access denied' }) };
       }
 
@@ -413,8 +446,8 @@ exports.handler = async (event, context) => {
         const nextMeta = {
           ...(currentInvoice?.meta || {}),
           pdfUrl: url,
-          taxRate: invoiceData.taxRate ?? currentInvoice?.meta?.taxRate,
-          discountRate: invoiceData.discountRate ?? currentInvoice?.meta?.discountRate,
+          taxRate: invoiceData.taxRate !== undefined && invoiceData.taxRate !== null ? invoiceData.taxRate : (currentInvoice && currentInvoice.meta && currentInvoice.meta.taxRate !== undefined ? currentInvoice.meta.taxRate : null),
+          discountRate: invoiceData.discountRate !== undefined && invoiceData.discountRate !== null ? invoiceData.discountRate : (currentInvoice && currentInvoice.meta && currentInvoice.meta.discountRate !== undefined ? currentInvoice.meta.discountRate : null),
         };
 
         await supabase
