@@ -258,7 +258,12 @@ exports.handler = async (event, context) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
-        invoice: { ...invoice, hosted_url: hostedUrl, pdf_url: pdfUrl, stripe_invoice_id: stripeInvoiceId },
+        invoice: {
+          ...invoice,
+          hosted_url: hostedUrl,
+          pdf_url: pdfUrl,
+          stripe_invoice_id: stripeInvoiceId,
+        },
         note: stripeNote,
       }),
     };
@@ -270,5 +275,3 @@ exports.handler = async (event, context) => {
     };
   }
 };
-
-
