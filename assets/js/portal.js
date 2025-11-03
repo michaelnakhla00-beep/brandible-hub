@@ -1932,10 +1932,14 @@ function wireResourcesFilters() {
             progressBar.style.width = '100%';
             showToast('File uploaded', 'success', `${file.name} uploaded successfully`);
             
-            // Refresh file list
-            setTimeout(async () => {
+            // Refresh file list immediately from Storage
+            try {
+              const latestFiles = await fetchSupabaseFiles(userEmail);
+              renderFiles({ files: latestFiles, userEmail });
+            } catch (e2) {
+              console.warn('Post-upload file list refresh failed, falling back to soft refresh', e2);
               await refreshClientData();
-            }, 500);
+            }
           } catch (err) {
             console.error('Upload error:', err);
             showToast('Upload failed', 'error', err.message);

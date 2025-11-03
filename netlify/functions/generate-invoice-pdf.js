@@ -3,6 +3,53 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+// Fix font path resolution for Netlify Lambda
+// PDFKit's built-in fonts need to be resolved from node_modules
+const originalFont = PDFDocument.prototype.font;
+PDFDocument.prototype.font = function(src, family, size) {
+  if (typeof src === 'string') {
+    const fontMap = {
+      'Helvetica': 'Helvetica',
+      'Helvetica-Bold': 'Helvetica-Bold',
+      'Courier': 'Courier',
+      'Courier-Bold': 'Courier-Bold',
+      'Times-Roman': 'Times-Roman',
+      'Times-Bold': 'Times-Bold'
+    };
+    const mappedName = fontMap[src];
+    if (mappedName) {
+      try {
+        // Try multiple possible paths for font files
+        let afmPath;
+        try {
+          afmPath = require.resolve(`pdfkit/js/data/${mappedName}.afm`);
+        } catch (e1) {
+          try {
+            // Try alternative path structure
+            afmPath = require.resolve(`pdfkit/js/data/fonts/${mappedName}.afm`);
+          } catch (e2) {
+            // Try relative to __dirname if in Lambda
+            const possiblePath = path.join(__dirname, '../../node_modules/pdfkit/js/data', `${mappedName}.afm`);
+            if (fs.existsSync(possiblePath)) {
+              afmPath = possiblePath;
+            } else {
+              throw e2;
+            }
+          }
+        }
+        if (afmPath) {
+          return originalFont.call(this, afmPath, family || src, size);
+        }
+      } catch (e) {
+        console.warn(`Could not resolve font ${src}, using string name:`, e.message);
+        // Fall back to using font name as string (PDFKit might handle it)
+        return originalFont.call(this, src, family, size);
+      }
+    }
+  }
+  return originalFont.call(this, src, family, size);
+};
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const STORAGE_BUCKET = process.env.INVOICE_STORAGE_BUCKET || 'client_files';
