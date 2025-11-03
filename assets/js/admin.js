@@ -3305,7 +3305,18 @@ window.editResource = async function(resourceId) {
     // New: Charts
     try {
       // Overview/KPI chart uses the requested destroy/reset pattern
-      renderDashboardChart(buildRevenueDataset('month'));
+      const revenueTimeRange = document.getElementById('revenueTimeRange');
+      let currentRevenueRange = revenueTimeRange ? revenueTimeRange.value : 'month';
+      const renderRevenueChart = () => {
+        renderDashboardChart(buildRevenueDataset(currentRevenueRange));
+      };
+      renderRevenueChart();
+      if (revenueTimeRange) {
+        revenueTimeRange.addEventListener('change', (e) => {
+          currentRevenueRange = e.target.value;
+          renderRevenueChart();
+        });
+      }
       const leadsData = await fetchLeadsFn().catch(() => []);
       allBookingsGlobal = leadsData;
       const leadSourceContainer = document.getElementById('leadSourceChartContainer');
@@ -3389,11 +3400,21 @@ window.editResource = async function(resourceId) {
       const manualEmail = document.getElementById('manualNotifyEmail');
       const manualMsg = document.getElementById('manualNotifyMessage');
       const manualType = document.getElementById('manualNotifyType');
+      const filterType = document.getElementById('filterNotifyType');
+      let allNotificationsData = [];
+      let currentFilterType = 'all';
       async function loadAllNotifications() {
         const token = await new Promise((resolve) => { const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(()=>resolve(null)); });
         const res = await fetch('/.netlify/functions/get-all-notifications', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         const json = res.ok ? await res.json() : { notifications: [] };
-        if (table) table.innerHTML = (json.notifications || []).map(n => `
+        allNotificationsData = json.notifications || [];
+        renderNotificationsTable();
+      }
+      function renderNotificationsTable() {
+        const filtered = currentFilterType === 'all' 
+          ? allNotificationsData 
+          : allNotificationsData.filter(n => n.type === currentFilterType);
+        if (table) table.innerHTML = filtered.map(n => `
           <tr class="table-row">
             <td class="py-3 px-4">${n.client?.name || n.client?.email || n.user_id || '—'}</td>
             <td class="py-3 px-4">${n.message}</td>
@@ -3430,7 +3451,10 @@ window.editResource = async function(resourceId) {
         try {
           const token = await new Promise((resolve) => { const id = window.netlifyIdentity; const u = id && id.currentUser(); if (!u) return resolve(null); u.jwt().then(resolve).catch(()=>resolve(null)); });
           const res = await fetch('/.netlify/functions/mark-all-notifications-read', { method: 'POST', headers: { 'Content-Type':'application/json', ...(token?{ Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({}) });
-          if (!res.ok) throw new Error('Update failed');
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ error: 'Update failed' }));
+            throw new Error(errorData.error || 'Update failed');
+          }
           showToast('All notifications marked as read');
           await loadAllNotifications();
         } catch (err) {
@@ -3440,6 +3464,13 @@ window.editResource = async function(resourceId) {
           markAll.textContent = origText;
         }
       });
+      if (filterType) {
+        filterType.addEventListener('change', function(e) {
+          currentFilterType = e.target.value;
+          renderNotificationsTable();
+        });
+      }
+      await loadAllNotifications();
       const clearAllBtn = document.getElementById('clearAllNotifications');
       if (clearAllBtn) clearAllBtn.addEventListener('click', async () => {
         if (!confirm('Are you sure you want to delete all notifications? This cannot be undone.')) return;
