@@ -2,7 +2,7 @@
   publish = "."
 
 [functions]
-  included_files = ["data/clients.json"]
+  included_files = ["data/clients.json", "node_modules/pdfkit/js/data/*.afm", "node_modules/pdfkit/js/data/*.pfb"]
   directory = "netlify/functions"
   node_bundler = "esbuild"
   
