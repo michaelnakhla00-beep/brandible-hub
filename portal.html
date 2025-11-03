@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brandible Hub – Dashboard</title>
   
+  <!-- Network performance hints -->
+  <link rel="preconnect" href="https://api.supabase.com" crossorigin>
+  <link rel="dns-prefetch" href="https://api.supabase.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preload" as="image" href="/assets/images/Brandible.png">
+  
   <!-- Google Fonts - Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -267,6 +273,7 @@
             
             <!-- File List -->
             <ul id="files" class="space-y-2 min-h-[100px]"></ul>
+            <div class="mt-4 text-center"><button id="filesLoadMore" class="btn-ghost text-sm hidden">Load more</button></div>
             
             <!-- Empty State -->
             <div id="filesEmpty" class="text-center py-8 text-slate-400">
@@ -300,6 +307,7 @@
                 <tbody id="invoicesTable" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
               </table>
             </div>
+            <div class="mt-4 text-center"><button id="invoicesLoadMore" class="btn-ghost text-sm hidden">Load more</button></div>
             <div id="invoicesEmptyState" class="hidden text-center py-10 text-slate-400">
               <svg class="w-12 h-12 mx-auto mb-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-6 0V3a1 1 0 011-1h2a1 1 0 011 1v2m-6 4h8" />

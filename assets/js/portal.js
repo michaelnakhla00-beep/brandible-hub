@@ -3,6 +3,23 @@
 /* ---------------------------
    1) Fetch data (with Identity)
 ---------------------------- */
+// Lazy mount helper to defer heavy renders until visible
+function lazyMount(element, mountFn, threshold = 0.15) {
+  if (!element || typeof mountFn !== 'function') return;
+  const io = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      mountFn();
+      io.disconnect();
+    }
+  }, { threshold });
+  io.observe(element);
+}
+
+// Simple pagination state
+const FILES_PAGE_SIZE = 25;
+const INVOICES_PAGE_SIZE = 25;
+let filesPage = 1;
+let invoicesPage = 1;
 async function fetchClientData() {
   const token = await new Promise((resolve) => {
     const id = window.netlifyIdentity;
@@ -782,18 +799,22 @@ async function logClientActivity(clientEmail, activity, type = 'upload') {
 function renderFiles({ files = [], userEmail = '' }) {
   const el = document.getElementById("files");
   const emptyState = document.getElementById("filesEmpty");
+  const loadMoreBtn = document.getElementById('filesLoadMore');
   
   if (!el) return;
   
   if (files.length === 0) {
     el.innerHTML = '';
     if (emptyState) emptyState.style.display = 'block';
+    if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
     return;
   }
   
   if (emptyState) emptyState.style.display = 'none';
+  const sliceEnd = filesPage * FILES_PAGE_SIZE;
+  const visible = files.slice(0, sliceEnd);
   
-  el.innerHTML = files
+  el.innerHTML = visible
     .map(
       (f) => `
     <li class="group flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/30 hover:bg-white dark:hover:bg-slate-900/50 transition-all">
@@ -826,6 +847,18 @@ function renderFiles({ files = [], userEmail = '' }) {
     </li>`
     )
     .join("");
+
+  if (loadMoreBtn) {
+    if (files.length > sliceEnd) {
+      loadMoreBtn.classList.remove('hidden');
+      loadMoreBtn.onclick = () => {
+        filesPage += 1;
+        renderFiles({ files, userEmail });
+      };
+    } else {
+      loadMoreBtn.classList.add('hidden');
+    }
+  }
 }
 
 // Global functions for file operations
@@ -898,17 +931,22 @@ function renderInvoiceStatusPill(status) {
 function renderInvoices(invoices = portalInvoices) {
   const tableBody = document.getElementById('invoicesTable');
   const emptyState = document.getElementById('invoicesEmptyState');
+  const loadMoreBtn = document.getElementById('invoicesLoadMore');
   if (!tableBody) return;
 
   if (!invoices.length) {
     tableBody.innerHTML = '';
     if (emptyState) emptyState.classList.remove('hidden');
+    if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
     return;
   }
 
   if (emptyState) emptyState.classList.add('hidden');
 
-  tableBody.innerHTML = invoices
+  const sliceEnd = invoicesPage * INVOICES_PAGE_SIZE;
+  const visible = invoices.slice(0, sliceEnd);
+
+  tableBody.innerHTML = visible
     .map((inv) => {
       const payButton = inv.hosted_url && inv.status !== 'paid'
         ? `<button class="btn-primary text-xs" data-action="pay" data-id="${inv.id}">Pay</button>`
@@ -969,6 +1007,18 @@ function renderInvoices(invoices = portalInvoices) {
       }
     });
   });
+
+  if (loadMoreBtn) {
+    if (invoices.length > sliceEnd) {
+      loadMoreBtn.classList.remove('hidden');
+      loadMoreBtn.onclick = () => {
+        invoicesPage += 1;
+        renderInvoices(invoices);
+      };
+    } else {
+      loadMoreBtn.classList.add('hidden');
+    }
+  }
 }
 
 function renderInvoiceDetailAttachments(attachments = []) {
@@ -1750,10 +1800,29 @@ function wireResourcesFilters() {
     if (supabaseClient && userEmail) {
       storageFiles = await fetchSupabaseFiles(userEmail);
     }
-    
-    renderFiles({ files: storageFiles.length > 0 ? storageFiles : (data.files || []), userEmail });
-    await loadPortalInvoices();
-    renderActivity({ activity: data.activity || [] });
+    // Lazy mount heavy sections
+    const filesCard = document.getElementById('filesCard');
+    const invoicesCard = document.getElementById('invoicesCard');
+    const activityList = document.getElementById('activity');
+
+    lazyMount(filesCard, () => {
+      filesPage = 1;
+      renderFiles({ files: storageFiles.length > 0 ? storageFiles : (data.files || []), userEmail });
+    });
+
+    lazyMount(invoicesCard, async () => {
+      invoicesPage = 1;
+      if (!portalInvoices || portalInvoices.length === 0) {
+        await loadPortalInvoices();
+      } else {
+        renderInvoices();
+      }
+    });
+
+    lazyMount(activityList, () => {
+      renderActivity({ activity: data.activity || [] });
+    });
+
     renderUpdates({ updates: data.updates || [] });
 
     // New features: Feedback and Resources (load in background, don't block on errors)

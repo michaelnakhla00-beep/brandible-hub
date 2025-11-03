@@ -176,20 +176,20 @@ function generateInvoicePdf(invoiceData, logoPath) {
 
       // Header
       if (logoPath) {
-        doc.image(logoPath, 50, 40, { width: 120 });
+        doc.image(logoPath, 50, 36, { width: 110 });
       }
 
       doc
         .fillColor(textColor)
         .font('Helvetica-Bold')
         .fontSize(20)
-        .text('Brandible Marketing Group', 50, 140);
+        .text('Brandible Marketing Group', 50, 120);
 
       doc
         .font('Helvetica')
         .fontSize(12)
         .fillColor(primaryColor)
-        .text('Invoice', 50, 165);
+        .text('Invoice', 50, 140);
 
       // Right aligned invoice info
       const infoTop = 40;
@@ -217,7 +217,7 @@ function generateInvoicePdf(invoiceData, logoPath) {
         .text(invoiceData.clientEmail || '');
 
       // Table Header
-      let tableTop = doc.y + 20;
+      let tableTop = doc.y + 18;
       const tableLeft = 50;
       const tableWidth = 495;
       const rowHeight = 26;
@@ -271,7 +271,7 @@ function generateInvoicePdf(invoiceData, logoPath) {
         .stroke();
 
       // Summary
-      let summaryY = currentY + 20;
+      let summaryY = currentY + 16;
       doc
         .strokeColor(borderColor)
         .moveTo(tableLeft, summaryY - 10)
@@ -325,7 +325,7 @@ function generateInvoicePdf(invoiceData, logoPath) {
       }
 
       // Footer
-      const footerY = doc.page.height - 120;
+      const footerY = Math.max(summaryY + 60, doc.page.height - 120);
       doc
         .strokeColor(borderColor)
         .moveTo(50, footerY)
