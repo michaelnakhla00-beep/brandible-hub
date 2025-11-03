@@ -61,7 +61,7 @@ function renderProfile({ id, name, email, company = '', manager = '', phone = ''
   const memberSince = window.portalClientData?.created_at ? new Date(window.portalClientData.created_at).toLocaleDateString() : '';
   const lastUpdate = window.portalClientData?.last_update || '';
 
-  wrap.classList.add('transition-all','duration-200','hover:shadow-xl','hover:scale-[1.01]','rounded-2xl','p-2');
+  wrap.classList.add('rounded-2xl','p-2');
   wrap.innerHTML = `
     <img src="${avatar}" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-2 border-indigo-500 shadow flex-shrink-0"/>
     <div class="flex-1 text-center sm:text-left w-full sm:w-auto">
@@ -73,9 +73,7 @@ function renderProfile({ id, name, email, company = '', manager = '', phone = ''
         ${lastUpdate ? `<span class="pill-slate">Last update ${lastUpdate}</span>` : ''}
       </div>
     </div>
-    <div class="flex items-center gap-2">
-      <button id="editProfileBtn" class="btn-ghost btn-sm">🖋 Edit Profile</button>
-    </div>
+    <div class="hidden"></div>
   `;
 }
 
@@ -422,6 +420,16 @@ async function loadUserSettings() {
     const invCb = document.getElementById('settingInvoiceReminders');
     if (emailCb) emailCb.checked = !!settings.email_notifications;
     if (invCb) invCb.checked = !!settings.invoice_reminders;
+
+    // Contact info fields from current user data
+    const phoneEl = document.getElementById('accountPhone');
+    const webEl = document.getElementById('accountWebsite');
+    if (phoneEl) phoneEl.value = window.portalClientData?.phone || '';
+    if (webEl) webEl.value = window.portalClientData?.website || '';
+    const joinedEl = document.getElementById('accountJoined');
+    const lastEl = document.getElementById('accountLastUpdate');
+    if (joinedEl) joinedEl.value = window.portalClientData?.created_at ? new Date(window.portalClientData.created_at).toLocaleDateString() : '';
+    if (lastEl) lastEl.value = window.portalClientData?.last_update || '';
   } catch (e) {
     console.error('settings error', e);
   }
@@ -439,6 +447,17 @@ async function saveUserSettings() {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body)
     });
     if (res.ok && window.showToast) window.showToast('Settings saved');
+
+    // Save contact info (phone, website) to client profile
+    const contact = {
+      fields: {
+        phone: document.getElementById('accountPhone')?.value || null,
+        website: document.getElementById('accountWebsite')?.value || null
+      }
+    };
+    try {
+      await fetch('/.netlify/functions/update-client-profile', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(contact) });
+    } catch (err) { console.warn('contact save failed', err); }
   } catch (e) { console.error('save settings error', e); }
 }
 
@@ -451,13 +470,16 @@ async function loadBrandInfo() {
     if (!res.ok) return;
     const { brand } = await res.json();
     if (!brand) return;
+    window.portalBrand = brand;
     const logo = document.getElementById('brandLogo');
     const colors = document.getElementById('brandColors');
     const fonts = document.getElementById('brandFonts');
     const aud = document.getElementById('brandAudience');
+    const biz = document.getElementById('accountBusinessType');
     if (logo && brand.logo_url) logo.src = brand.logo_url;
     if (fonts) fonts.textContent = brand.brand_fonts || '—';
     if (aud) aud.textContent = brand.target_audience || '—';
+    if (biz) biz.value = brand.business_type || brand.brand_type || '';
     if (colors) {
       const arr = Array.isArray(brand.brand_colors) ? brand.brand_colors : [];
       colors.innerHTML = arr.map(c => `<span class="inline-block w-6 h-6 rounded-lg border border-slate-300" style="background:${c}"></span>`).join('');
@@ -631,7 +653,21 @@ async function refreshClientData() {
     if (!res.ok) throw new Error(`Refresh failed ${res.status}`);
     const latest = await res.json();
     renderKPIs(latest);
+    renderProfile({
+      id: latest.id,
+      name: latest.name,
+      email: latest.email,
+      company: latest.company,
+      manager: latest.manager,
+      phone: latest.phone,
+      website: latest.website,
+      profile_url: latest.profile_url
+    });
     renderProjects({ projects: latest.projects || [] });
+    wireCollapsibleSections();
+    if (latest.projects && latest.projects.length > 0) {
+      await loadProjectProgress(latest.projects);
+    }
     // Prefer fresh storage list where possible
     const userEmail = user?.email || '';
     let storageFiles = [];
