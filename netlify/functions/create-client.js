@@ -37,9 +37,9 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with service role key to bypass RLS
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
       console.error("Supabase credentials not configured");
