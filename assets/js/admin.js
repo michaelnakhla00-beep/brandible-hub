@@ -3187,7 +3187,10 @@ let currentEditRequest = null;
 
 async function loadEditRequestsManagement() {
   const container = document.getElementById('editRequestsContainer');
-  if (!container) return;
+  if (!container) {
+    // Container doesn't exist yet, skip loading
+    return;
+  }
   
   try {
     const token = await new Promise((resolve) => {
@@ -3198,7 +3201,7 @@ async function loadEditRequestsManagement() {
     });
     
     if (!token) {
-      container.innerHTML = '<p class="text-slate-500">Authentication required</p>';
+      if (container) container.innerHTML = '<p class="text-slate-500">Authentication required</p>';
       return;
     }
     
@@ -3207,15 +3210,18 @@ async function loadEditRequestsManagement() {
     });
     
     if (!res.ok) {
-      container.innerHTML = '<p class="text-slate-500">Failed to load edit requests</p>';
+      if (container) container.innerHTML = '<p class="text-slate-500">Failed to load edit requests</p>';
       return;
     }
     
     const { requests } = await res.json();
     allEditRequestsGlobal = requests || [];
     
-    renderEditRequests(allEditRequestsGlobal);
-    wireEditRequestsFilters();
+    // Only render if container still exists
+    if (container) {
+      renderEditRequests(allEditRequestsGlobal);
+      wireEditRequestsFilters();
+    }
   } catch (err) {
     console.error('Failed to load edit requests:', err);
     const container = document.getElementById('editRequestsContainer');
@@ -3286,6 +3292,11 @@ function wireEditRequestsFilters() {
   const statusFilter = document.getElementById('editRequestsStatusFilter');
   const priorityFilter = document.getElementById('editRequestsPriorityFilter');
   const refreshBtn = document.getElementById('refreshEditRequestsBtn');
+  
+  // Return early if no elements exist (page not fully loaded)
+  if (!searchInput && !statusFilter && !priorityFilter && !refreshBtn) {
+    return;
+  }
   
   const applyFilters = () => {
     const searchTerm = (searchInput?.value || '').toLowerCase();
@@ -3454,15 +3465,6 @@ function renderEditRequestDetailModal(request, comments) {
       ` : ''}
     </div>
   `;
-}
-
-// Format file size
-function formatFileSize(bytes) {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
 // Add comment to request
