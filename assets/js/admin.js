@@ -1879,7 +1879,6 @@ window.toggleEditMode = function() {
   if (profileEdit) profileEdit.classList.toggle("hidden", !editMode);
   
   // Toggle edit sections
-  document.getElementById("editKPIsSection").classList.toggle("hidden");
   document.getElementById("editActivitySection").classList.toggle("hidden");
   
   // Toggle "Add Project" button
@@ -1918,43 +1917,14 @@ window.cancelEditMode = function() {
   if (profileView) profileView.classList.remove("hidden");
   if (profileEdit) profileEdit.classList.add("hidden");
   
-  document.getElementById("editKPIsSection").classList.add("hidden");
   document.getElementById("editActivitySection").classList.add("hidden");
   document.getElementById("editBtn").textContent = "Edit";
   document.getElementById("editBtn").disabled = false;
 };
 
 function populateEditFields(client) {
-  if (!client.kpis) return;
-  
-  document.getElementById("editKPIProjects").value = client.kpis.activeProjects || 0;
-  document.getElementById("editKPIFiles").value = client.kpis.files || 0;
-  document.getElementById("editKPIInvoices").value = client.kpis.openInvoices || 0;
-  
-  // Handle date format conversion for date picker (expects YYYY-MM-DD)
-  const lastUpdate = client.kpis.lastUpdate || "";
-  if (lastUpdate) {
-    try {
-      // If it's already in YYYY-MM-DD format, use it directly
-      if (lastUpdate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        document.getElementById("editKPILastUpdate").value = lastUpdate;
-      } else {
-        // Try to parse and convert to YYYY-MM-DD
-        const date = new Date(lastUpdate);
-        if (!isNaN(date.getTime())) {
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          document.getElementById("editKPILastUpdate").value = `${year}-${month}-${day}`;
-        }
-      }
-    } catch (err) {
-      console.error('Error parsing date:', err);
-      document.getElementById("editKPILastUpdate").value = "";
-    }
-  } else {
-    document.getElementById("editKPILastUpdate").value = "";
-  }
+  // KPIs are now auto-calculated from actual data, no manual editing needed
+  // This function is kept for potential future use but KPI editing is removed
 }
 
 window.addActivityToClient = function() {
@@ -1995,16 +1965,8 @@ window.saveClientChanges = async function() {
     saveBtn.disabled = true;
     saveBtnText.textContent = "Saving...";
     
-    // Get updated KPI values
-    const updatedKPIs = {
-      activeProjects: parseInt(document.getElementById("editKPIProjects").value) || 0,
-      files: parseInt(document.getElementById("editKPIFiles").value) || 0,
-      openInvoices: parseInt(document.getElementById("editKPIInvoices").value) || 0,
-      lastUpdate: document.getElementById("editKPILastUpdate").value || ""
-    };
-    
-    // Update original data
-    originalClientData.kpis = updatedKPIs;
+    // KPIs are auto-calculated from actual data (projects, files, invoices)
+    // No manual editing needed - they're recalculated in get-client.js
     
     // Save profile changes if in edit mode
     const nameInput = document.getElementById("adminClientName");
@@ -2201,7 +2163,7 @@ window.saveClientChanges = async function() {
       },
       body: JSON.stringify({
         email: currentClientEmail,
-        kpis: updatedKPIs,
+        // KPIs are auto-calculated, don't send manual values
         activity: originalClientData.activity || []
       }),
     });
