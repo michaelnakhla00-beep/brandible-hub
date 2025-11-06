@@ -467,6 +467,102 @@
     background: rgb(51 65 85);
   }
   
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Scroll progress indicator */
+  .scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--brandible-gradient);
+    width: 0%;
+    z-index: 9999;
+    transition: width 0.1s ease-out;
+  }
+  
+  /* Scroll to top button */
+  .scroll-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 48px;
+    height: 48px;
+    background: var(--brandible-gradient);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    transition: all 0.3s ease;
+    z-index: 1000;
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  
+  .scroll-to-top.visible {
+    display: flex;
+    opacity: 1;
+    transform: scale(1);
+  }
+  
+  .scroll-to-top:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+  }
+  
+  .scroll-to-top:active {
+    transform: scale(0.95);
+  }
+  
+  .scroll-to-top svg {
+    width: 24px;
+    height: 24px;
+  }
+  
+  /* Active section indicator for navigation */
+  .sidebar-link-active {
+    position: relative;
+  }
+  
+  .sidebar-link-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--brandible-gradient);
+    border-radius: 0 2px 2px 0;
+  }
+  
+  /* Better section spacing */
+  section[id] {
+    scroll-margin-top: 100px; /* Account for sticky header */
+  }
+  
+  /* Improved mobile touch targets */
+  @media (max-width: 640px) {
+    .sidebar-link {
+      min-height: 48px;
+      padding: 0.75rem 1rem;
+    }
+    
+    .scroll-to-top {
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 44px;
+      height: 44px;
+    }
+  }
+
   /* Responsive refinements */
   @media (max-width: 640px) {
     /* Tighter spacing on small screens */
