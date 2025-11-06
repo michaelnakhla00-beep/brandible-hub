@@ -37,6 +37,7 @@ let currentClientId = null;
 let editMode = false;
 let originalClientData = null;
 let allBookingsGlobal = [];
+let leadsFilterMode = 'active'; // 'active' or 'inactive'
 let activeClientInvoices = [];
 let activeInvoiceClient = null;
 let invoiceFormState = null;
@@ -226,6 +227,50 @@ function wireSearch(allClients) {
       const sortOrder = sortLeadsDropdown.value;
       renderBookingsTable(allBookingsGlobal, term, sortOrder);
     });
+  }
+
+  // Active/Inactive toggle buttons
+  const activeLeadsBtn = document.getElementById("activeLeadsBtn");
+  const inactiveLeadsBtn = document.getElementById("inactiveLeadsBtn");
+  
+  function updateLeadsFilter(mode) {
+    leadsFilterMode = mode;
+    window.leadsFilterMode = mode; // Make it available to leadsCard.js
+    
+    // Update button styles
+    if (activeLeadsBtn && inactiveLeadsBtn) {
+      if (mode === 'active') {
+        activeLeadsBtn.className = 'px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors font-medium';
+        inactiveLeadsBtn.className = 'px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium';
+      } else {
+        activeLeadsBtn.className = 'px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium';
+        inactiveLeadsBtn.className = 'px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors font-medium';
+      }
+    }
+    
+    // Re-render leads
+    const term = bookingsSearch ? bookingsSearch.value.trim() : '';
+    const sortOrder = sortLeadsDropdown ? sortLeadsDropdown.value : 'newest';
+    renderBookingsTable(allBookingsGlobal, term, sortOrder);
+    
+    // Re-render card view if it exists
+    const leadsContainer = document.getElementById('leadsContainer');
+    if (leadsContainer && typeof renderLeads === 'function') {
+      renderLeads(leadsContainer, allBookingsGlobal, {
+        onChange: (lead) => {
+          const idx = allBookingsGlobal.findIndex((l) => l.id === lead.id);
+          if (idx >= 0) allBookingsGlobal[idx] = { ...allBookingsGlobal[idx], ...lead };
+        },
+        onExportCSV: () => window.exportLeadsToCSV && window.exportLeadsToCSV(),
+      });
+    }
+  }
+  
+  if (activeLeadsBtn) {
+    activeLeadsBtn.addEventListener("click", () => updateLeadsFilter('active'));
+  }
+  if (inactiveLeadsBtn) {
+    inactiveLeadsBtn.addEventListener("click", () => updateLeadsFilter('inactive'));
   }
 }
 
@@ -4377,6 +4422,7 @@ function getStatusColorClass(status) {
     case 'Contacted': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700';
     case 'In Progress': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700';
     case 'Closed': return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+    case 'Inactive': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-700';
     default: return 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300 border-slate-200 dark:border-slate-700';
   }
 }
@@ -4391,11 +4437,18 @@ function renderBookingsTable(leads = [], searchTerm = '', sortOrder = 'newest') 
     return;
   }
 
-  // Filter leads
+  // Filter by active/inactive status
   let filtered = leads;
+  if (leadsFilterMode === 'active') {
+    filtered = leads.filter(l => l.status !== 'Inactive');
+  } else {
+    filtered = leads.filter(l => l.status === 'Inactive');
+  }
+
+  // Filter by search term
   if (searchTerm.trim()) {
     const t = searchTerm.toLowerCase();
-    filtered = leads.filter(l =>
+    filtered = filtered.filter(l =>
       (l.name || '').toLowerCase().includes(t) ||
       (l.email || '').toLowerCase().includes(t) ||
       (l.service || '').toLowerCase().includes(t)
@@ -4445,7 +4498,15 @@ function renderBookingsTable(leads = [], searchTerm = '', sortOrder = 'newest') 
           <option value="Contacted" ${lead.status === 'Contacted' ? 'selected' : ''}>Contacted</option>
           <option value="In Progress" ${lead.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
           <option value="Closed" ${lead.status === 'Closed' ? 'selected' : ''}>Closed</option>
+          <option value="Inactive" ${lead.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
         </select>
+      </td>
+      <td class="py-3 px-4" onclick="event.stopPropagation()">
+        <button 
+          onclick="deleteLead(${lead.id}, ${JSON.stringify(safe(lead.name))})"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all">
+          Delete
+        </button>
       </td>
     </tr>
   `).join('');
@@ -4602,6 +4663,64 @@ async function updateLeadScore(leadId, newScore) {
 }
 
 window.updateLeadScore = updateLeadScore;
+
+async function deleteLead(leadId, leadName) {
+  if (!confirm(`Are you sure you want to delete "${leadName}"? This action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+
+    const res = await fetch('/.netlify/functions/delete-lead', {
+      method: 'DELETE',
+      headers: { 
+        'Content-Type': 'application/json', 
+        ...(token ? { Authorization: `Bearer ${token}` } : {}) 
+      },
+      body: JSON.stringify({ leadId })
+    });
+
+    if (res.ok) {
+      // Remove from global array
+      allBookingsGlobal = allBookingsGlobal.filter(l => l.id !== leadId);
+      
+      // Re-render leads
+      const bookingsSearch = document.getElementById("bookingsSearch");
+      const sortLeadsDropdown = document.getElementById("sortLeadsDropdown");
+      const term = bookingsSearch ? bookingsSearch.value.trim() : '';
+      const sortOrder = sortLeadsDropdown ? sortLeadsDropdown.value : 'newest';
+      renderBookingsTable(allBookingsGlobal, term, sortOrder);
+      
+      // Re-render card view if it exists
+      const leadsContainer = document.getElementById('leadsContainer');
+      if (leadsContainer && typeof renderLeads === 'function') {
+        renderLeads(leadsContainer, allBookingsGlobal, {
+          onChange: (lead) => {
+            const idx = allBookingsGlobal.findIndex((l) => l.id === lead.id);
+            if (idx >= 0) allBookingsGlobal[idx] = { ...allBookingsGlobal[idx], ...lead };
+          },
+          onExportCSV: () => window.exportLeadsToCSV && window.exportLeadsToCSV(),
+        });
+      }
+      
+      showToast('Lead deleted successfully', 'success');
+    } else {
+      const error = await res.json().catch(() => ({ error: 'Failed to delete lead' }));
+      showToast(error.error || 'Failed to delete lead', 'error');
+    }
+  } catch (e) {
+    console.error('Error deleting lead:', e);
+    showToast('Failed to delete lead', 'error');
+  }
+}
+
+window.deleteLead = deleteLead;
 
 // Global admin refresh: reload clients/leads and re-render main areas
 window.refreshAdmin = async function() {

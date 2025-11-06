@@ -2,6 +2,13 @@
 
 export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 	if (!container) return;
+	
+	// Clear any existing interval
+	if (container._filterModeInterval) {
+		clearInterval(container._filterModeInterval);
+		container._filterModeInterval = null;
+	}
+	
 	container.innerHTML = '';
 
 	const controls = document.createElement('div');
@@ -54,15 +61,35 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 	function currentRows() {
 		const sf = srcFilter.value;
 		const sc = scoreFilter.value;
+		// Get filter mode from global variable (set by admin.js)
+		const filterMode = window.leadsFilterMode || 'active';
 		return leads.filter((l) => {
 			const matchesSrc = !sf || (l.source || '').toLowerCase() === sf;
 			const matchesScore = !sc || (l.score || '').toLowerCase() === sc;
-			return matchesSrc && matchesScore;
+			// Filter by active/inactive
+			const matchesStatus = filterMode === 'active' ? l.status !== 'Inactive' : l.status === 'Inactive';
+			return matchesSrc && matchesScore && matchesStatus;
 		});
 	}
 
 	srcFilter.addEventListener('change', () => renderList(currentRows()));
 	scoreFilter.addEventListener('change', () => renderList(currentRows()));
+
+	// Listen for filter mode changes (set by admin.js)
+	let lastFilterMode = window.leadsFilterMode || 'active';
+	const checkFilterMode = () => {
+		const currentMode = window.leadsFilterMode || 'active';
+		if (currentMode !== lastFilterMode) {
+			lastFilterMode = currentMode;
+			renderList(currentRows());
+		}
+	};
+	const filterModeInterval = setInterval(checkFilterMode, 100);
+	
+	// Store interval ID so it can be cleared if needed
+	if (container) {
+		container._filterModeInterval = filterModeInterval;
+	}
 
 	renderList(leads);
 
@@ -127,7 +154,7 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 		statusLabel.textContent = 'Status:';
 		const statusSelect = document.createElement('select');
 		statusSelect.className = 'rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs';
-		['New','Contacted','In Progress','Closed'].forEach((s) => {
+		['New','Contacted','In Progress','Closed','Inactive'].forEach((s) => {
 			const opt = document.createElement('option');
 			opt.value = s;
 			opt.textContent = s;
@@ -211,10 +238,22 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 		followWrap.appendChild(follow);
 		followWrap.appendChild(assign);
 
+		// Delete button
+		const deleteBtn = document.createElement('button');
+		deleteBtn.className = 'mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all';
+		deleteBtn.textContent = 'Delete';
+		deleteBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			if (typeof window.deleteLead === 'function') {
+				window.deleteLead(lead.id, lead.name || lead.email || 'Unknown Lead');
+			}
+		});
+
 		row.appendChild(header);
 		row.appendChild(meta);
 		row.appendChild(notes);
 		row.appendChild(followWrap);
+		row.appendChild(deleteBtn);
 		return row;
 	}
 }

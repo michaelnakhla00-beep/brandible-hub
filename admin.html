@@ -227,6 +227,10 @@
       <section id="bookingsSection">
         <div class="mb-4 sm:mb-6">
           <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Leads</h2>
+          <div class="flex items-center gap-2 mb-4">
+            <button id="activeLeadsBtn" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors font-medium">Active Leads</button>
+            <button id="inactiveLeadsBtn" class="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium">Inactive Leads</button>
+          </div>
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             <button onclick="exportLeadsToCSV()" class="btn-ghost text-xs sm:text-sm whitespace-nowrap px-3 py-2" title="Export to CSV">
               📥 Export CSV
