@@ -38,6 +38,7 @@ let editMode = false;
 let originalClientData = null;
 let allBookingsGlobal = [];
 let leadsFilterMode = 'active'; // 'active' or 'inactive'
+window.leadsFilterMode = 'active'; // Initialize global for leadsCard.js
 let activeClientInvoices = [];
 let activeInvoiceClient = null;
 let invoiceFormState = null;
@@ -248,14 +249,15 @@ function wireSearch(allClients) {
       }
     }
     
-    // Re-render leads
+    // Re-render table view
     const term = bookingsSearch ? bookingsSearch.value.trim() : '';
     const sortOrder = sortLeadsDropdown ? sortLeadsDropdown.value : 'newest';
     renderBookingsTable(allBookingsGlobal, term, sortOrder);
     
-    // Re-render card view if it exists
+    // Re-render card view - this will use the updated window.leadsFilterMode
     const leadsContainer = document.getElementById('leadsContainer');
     if (leadsContainer && typeof renderLeads === 'function') {
+      // Force re-render by clearing and re-rendering
       renderLeads(leadsContainer, allBookingsGlobal, {
         onChange: (lead) => {
           const idx = allBookingsGlobal.findIndex((l) => l.id === lead.id);
@@ -5033,6 +5035,18 @@ async function refreshBookings() {
   const sortOrder = sortDropdown ? sortDropdown.value : 'newest';
   console.log('🎨 Rendering table with', data.length, 'leads');
   renderBookingsTable(allBookingsGlobal, term, sortOrder);
+  
+  // Also update card view if it exists
+  const leadsContainer = document.getElementById('leadsContainer');
+  if (leadsContainer && typeof renderLeads === 'function') {
+    renderLeads(leadsContainer, allBookingsGlobal, {
+      onChange: (lead) => {
+        const idx = allBookingsGlobal.findIndex((l) => l.id === lead.id);
+        if (idx >= 0) allBookingsGlobal[idx] = { ...allBookingsGlobal[idx], ...lead };
+      },
+      onExportCSV: () => window.exportLeadsToCSV && window.exportLeadsToCSV(),
+    });
+  }
 }
 
 // Simple section router for tabs

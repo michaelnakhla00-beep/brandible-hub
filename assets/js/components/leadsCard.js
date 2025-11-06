@@ -76,7 +76,12 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 	scoreFilter.addEventListener('change', () => renderList(currentRows()));
 
 	// Listen for filter mode changes (set by admin.js)
-	let lastFilterMode = window.leadsFilterMode || 'active';
+	// Initialize filter mode if not set
+	if (typeof window.leadsFilterMode === 'undefined') {
+		window.leadsFilterMode = 'active';
+	}
+	
+	let lastFilterMode = window.leadsFilterMode;
 	const checkFilterMode = () => {
 		const currentMode = window.leadsFilterMode || 'active';
 		if (currentMode !== lastFilterMode) {
@@ -91,7 +96,8 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 		container._filterModeInterval = filterModeInterval;
 	}
 
-	renderList(leads);
+	// Use filtered results for initial render
+	renderList(currentRows());
 
 	function LeadRow(lead) {
 		const row = document.createElement('div');
