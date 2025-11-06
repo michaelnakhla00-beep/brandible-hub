@@ -1815,7 +1815,7 @@ function renderEditRequests(requests) {
   };
   
   listEl.innerHTML = requests.map(req => `
-    <div class="card p-4 hover:shadow-lg transition-shadow cursor-pointer" onclick="openEditRequestDetail('${req.id}')">
+    <div class="card p-4 hover:shadow-lg transition-shadow cursor-pointer border border-slate-200 dark:border-slate-700 rounded-xl" onclick="openEditRequestDetail('${req.id}')">
       <div class="flex items-start justify-between gap-4">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-2">
@@ -2321,7 +2321,7 @@ function renderEditRequestDetail(request, comments) {
                  placeholder="Add a comment..." 
                  class="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" />
           <button onclick="addEditRequestComment('${request.id}')" 
-                  class="btn-primary text-sm px-4 py-2">
+                  class="btn-primary text-sm px-4 py-2 border border-indigo-500 rounded-lg">
             Post
           </button>
         </div>
@@ -2330,10 +2330,10 @@ function renderEditRequestDetail(request, comments) {
     
     ${request.status === 'Pending' ? `
       <div class="flex gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button onclick="editEditRequest('${request.id}')" class="btn-primary text-sm px-4 py-2">
+        <button onclick="editEditRequest('${request.id}')" class="btn-primary text-sm px-4 py-2 border border-indigo-500 rounded-lg">
           Edit Request
         </button>
-        <button onclick="deleteEditRequest('${request.id}')" class="btn-ghost text-sm px-4 py-2 text-red-600 hover:text-red-700">
+        <button onclick="deleteEditRequest('${request.id}')" class="btn-ghost text-sm px-4 py-2 text-red-600 hover:text-red-700 border border-red-300 dark:border-red-700 rounded-lg">
           Cancel Request
         </button>
       </div>
