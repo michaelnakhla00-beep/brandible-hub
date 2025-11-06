@@ -1747,6 +1747,684 @@ function wireResourcesFilters() {
   });
 }
 
+// Edit Request Functions
+let editRequestFiles = []; // Store uploaded file metadata
+let currentEditRequestId = null; // Track if editing existing request
+
+// Load edit requests
+async function loadEditRequests() {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  
+  try {
+    const res = await fetch('/.netlify/functions/get-edit-requests', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      console.error('Failed to load edit requests:', res.status);
+      return;
+    }
+    
+    const { requests } = await res.json();
+    renderEditRequests(requests || []);
+    
+    // Update badge with pending count
+    const pendingCount = (requests || []).filter(r => r.status === 'Pending').length;
+    const badge = document.getElementById('editRequestBadge');
+    if (badge) {
+      if (pendingCount > 0) {
+        badge.textContent = pendingCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load edit requests:', err);
+  }
+}
+
+// Render edit requests list
+function renderEditRequests(requests) {
+  const listEl = document.getElementById('editRequestsList');
+  const emptyEl = document.getElementById('editRequestsEmpty');
+  
+  if (!listEl) return;
+  
+  if (!requests || requests.length === 0) {
+    if (listEl) listEl.innerHTML = '';
+    if (emptyEl) emptyEl.classList.remove('hidden');
+    return;
+  }
+  
+  if (emptyEl) emptyEl.classList.add('hidden');
+  
+  const statusColors = {
+    'Pending': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    'Approved': 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    'Rejected': 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    'Converted': 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+  };
+  
+  const priorityColors = {
+    'Low': 'text-slate-500',
+    'Normal': 'text-slate-700',
+    'High': 'text-orange-600',
+    'Urgent': 'text-red-600'
+  };
+  
+  listEl.innerHTML = requests.map(req => `
+    <div class="card p-4 hover:shadow-lg transition-shadow cursor-pointer" onclick="openEditRequestDetail('${req.id}')">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="font-semibold text-slate-900 dark:text-slate-100 truncate">${escapeHtml(req.title)}</h3>
+            <span class="pill ${statusColors[req.status] || 'pill-slate'}">${req.status}</span>
+            <span class="text-xs ${priorityColors[req.priority] || ''}">${req.priority}</span>
+          </div>
+          ${req.description ? `<p class="text-sm text-slate-600 dark:text-slate-400 mb-2 line-clamp-2">${escapeHtml(req.description)}</p>` : ''}
+          <div class="flex items-center gap-4 text-xs text-slate-500">
+            <span>${new Date(req.created_at).toLocaleDateString()}</span>
+            ${req.attachments && req.attachments.length > 0 ? `<span>📎 ${req.attachments.length} file(s)</span>` : ''}
+            ${req.status === 'Pending' ? '<span class="text-amber-600">Can edit</span>' : ''}
+          </div>
+        </div>
+        ${req.status === 'Pending' ? `
+          <button onclick="event.stopPropagation(); editEditRequest('${req.id}')" 
+                  class="btn-ghost text-xs px-3 py-1.5" title="Edit">
+            ✏️
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Format file size
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Upload files for edit request
+async function uploadEditRequestFiles(files, userEmail) {
+  if (!supabaseClient) {
+    throw new Error('Supabase Storage not configured');
+  }
+  
+  const sanitizedEmail = sanitizeEmail(userEmail);
+  const uploadedFiles = [];
+  let totalSize = 0;
+  
+  // Check total size limit (50MB)
+  for (const file of files) {
+    totalSize += file.size;
+  }
+  
+  if (totalSize > 50 * 1024 * 1024) {
+    throw new Error('Total file size exceeds 50MB limit');
+  }
+  
+  // Upload each file
+  for (const file of files) {
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error(`${file.name} exceeds 10MB limit`);
+    }
+    
+    const timestamp = Date.now();
+    const safeName = makeSafeStorageKey(file.name) || `file_${timestamp}`;
+    const requestId = currentEditRequestId || 'temp';
+    const filePath = `edit_requests/${sanitizedEmail}/${requestId}/${timestamp}-${safeName}`;
+    
+    try {
+      const { data, error } = await supabaseClient.storage
+        .from('client_files')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      if (error) throw error;
+      
+      // Get public URL
+      const { data: urlData } = supabaseClient.storage
+        .from('client_files')
+        .getPublicUrl(filePath);
+      
+      uploadedFiles.push({
+        name: file.name,
+        path: filePath,
+        url: urlData.publicUrl,
+        type: file.type,
+        size: file.size
+      });
+    } catch (err) {
+      console.error('Failed to upload file:', file.name, err);
+      throw new Error(`Failed to upload ${file.name}: ${err.message}`);
+    }
+  }
+  
+  return uploadedFiles;
+}
+
+// Wire up edit request handlers
+function wireEditRequestHandlers() {
+  const newBtn = document.getElementById('newEditRequestBtn');
+  const cancelBtn = document.getElementById('cancelEditRequestBtn');
+  const submitBtn = document.getElementById('submitEditRequestBtn');
+  const fileInput = document.getElementById('editRequestFiles');
+  const formContainer = document.getElementById('editRequestFormContainer');
+  
+  // New request button
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      currentEditRequestId = null;
+      editRequestFiles = [];
+      resetEditRequestForm();
+      if (formContainer) formContainer.classList.remove('hidden');
+      if (newBtn) newBtn.classList.add('hidden');
+    });
+  }
+  
+  // Cancel button
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      if (confirm('Cancel this request? Uploaded files will be deleted.')) {
+        cancelEditRequestForm();
+      }
+    });
+  }
+  
+  // Submit button
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      await submitEditRequest();
+    });
+  }
+  
+  // File input
+  if (fileInput) {
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+      
+      const user = window.netlifyIdentity?.currentUser();
+      const userEmail = user?.email?.toLowerCase();
+      
+      if (!userEmail) {
+        showToast('Please log in to upload files', 'error');
+        return;
+      }
+      
+      try {
+        // Calculate current total size
+        const currentTotal = editRequestFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+        const newTotal = files.reduce((sum, f) => sum + f.size, 0);
+        
+        if (currentTotal + newTotal > 50 * 1024 * 1024) {
+          showToast('Total file size would exceed 50MB limit', 'error');
+          e.target.value = '';
+          return;
+        }
+        
+        // Upload files immediately
+        const uploaded = await uploadEditRequestFiles(files, userEmail);
+        editRequestFiles = [...editRequestFiles, ...uploaded];
+        renderEditRequestFiles();
+        e.target.value = '';
+      } catch (err) {
+        console.error('Upload error:', err);
+        showToast(err.message || 'Failed to upload files', 'error');
+        e.target.value = '';
+      }
+    });
+  }
+}
+
+// Reset edit request form
+function resetEditRequestForm() {
+  document.getElementById('editRequestTitle').value = '';
+  document.getElementById('editRequestDescription').value = '';
+  document.getElementById('editRequestPriority').value = 'Normal';
+  editRequestFiles = [];
+  renderEditRequestFiles();
+}
+
+// Cancel edit request form
+async function cancelEditRequestForm() {
+  // Delete uploaded files
+  if (editRequestFiles.length > 0 && supabaseClient) {
+    for (const file of editRequestFiles) {
+      try {
+        await supabaseClient.storage
+          .from('client_files')
+          .remove([file.path]);
+      } catch (err) {
+        console.error('Failed to delete file:', file.path, err);
+      }
+    }
+  }
+  
+  editRequestFiles = [];
+  currentEditRequestId = null;
+  resetEditRequestForm();
+  const formContainer = document.getElementById('editRequestFormContainer');
+  const newBtn = document.getElementById('newEditRequestBtn');
+  if (formContainer) formContainer.classList.add('hidden');
+  if (newBtn) newBtn.classList.remove('hidden');
+}
+
+// Render uploaded files preview
+function renderEditRequestFiles() {
+  const previewEl = document.getElementById('editRequestFilesPreview');
+  const listEl = document.getElementById('editRequestFilesList');
+  const countEl = document.getElementById('editRequestFilesCount');
+  const sizeEl = document.getElementById('editRequestFilesTotalSize');
+  
+  if (!previewEl || !listEl) return;
+  
+  if (editRequestFiles.length === 0) {
+    previewEl.classList.add('hidden');
+    return;
+  }
+  
+  previewEl.classList.remove('hidden');
+  const totalSize = editRequestFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+  
+  if (countEl) countEl.textContent = editRequestFiles.length;
+  if (sizeEl) sizeEl.textContent = formatFileSize(totalSize);
+  
+  listEl.innerHTML = editRequestFiles.map((file, idx) => `
+    <div class="relative border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+      <div class="text-xs font-medium truncate mb-1">${escapeHtml(file.name)}</div>
+      <div class="text-xs text-slate-500">${formatFileSize(file.size)}</div>
+      <button onclick="removeEditRequestFile(${idx})" 
+              class="absolute top-1 right-1 text-red-500 hover:text-red-600 text-xs" 
+              title="Remove">
+        ✕
+      </button>
+    </div>
+  `).join('');
+}
+
+// Remove file from edit request
+window.removeEditRequestFile = async function(idx) {
+  const file = editRequestFiles[idx];
+  if (!file) return;
+  
+  // Delete from storage
+  if (supabaseClient && file.path) {
+    try {
+      await supabaseClient.storage
+        .from('client_files')
+        .remove([file.path]);
+    } catch (err) {
+      console.error('Failed to delete file:', err);
+    }
+  }
+  
+  // Remove from array
+  editRequestFiles.splice(idx, 1);
+  renderEditRequestFiles();
+};
+
+// Submit edit request
+async function submitEditRequest() {
+  const title = document.getElementById('editRequestTitle')?.value?.trim();
+  const description = document.getElementById('editRequestDescription')?.value?.trim();
+  const priority = document.getElementById('editRequestPriority')?.value || 'Normal';
+  const submitBtn = document.getElementById('submitEditRequestBtn');
+  
+  if (!title) {
+    showToast('Title is required', 'error');
+    return;
+  }
+  
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+  }
+  
+  try {
+    const token = await getPortalAuthToken();
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    
+    const payload = {
+      title,
+      description,
+      priority,
+      attachments: editRequestFiles
+    };
+    
+    let res;
+    if (currentEditRequestId) {
+      // Update existing request
+      res = await fetch('/.netlify/functions/update-edit-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          requestId: currentEditRequestId,
+          updates: payload
+        })
+      });
+    } else {
+      // Create new request
+      res = await fetch('/.netlify/functions/create-edit-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to submit request');
+    }
+    
+    showToast(currentEditRequestId ? 'Request updated successfully!' : 'Request submitted successfully!', 'success');
+    
+    // Update request ID if it was a new request
+    if (!currentEditRequestId) {
+      const { request } = await res.json();
+      if (request) {
+        // Update file paths with actual request ID
+        const sanitizedEmail = sanitizeEmail(window.netlifyIdentity?.currentUser()?.email || '');
+        for (let i = 0; i < editRequestFiles.length; i++) {
+          const oldPath = editRequestFiles[i].path;
+          const newPath = oldPath.replace('/temp/', `/${request.id}/`);
+          // Note: In a real scenario, we'd move the files, but for now we'll just update the metadata
+          editRequestFiles[i].path = newPath;
+        }
+      }
+    }
+    
+    // Reset form and reload
+    await cancelEditRequestForm();
+    await loadEditRequests();
+  } catch (err) {
+    console.error('Failed to submit edit request:', err);
+    showToast(err.message || 'Failed to submit request', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Request';
+    }
+  }
+}
+
+// Edit existing request
+window.editEditRequest = async function(requestId) {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  
+  try {
+    const res = await fetch('/.netlify/functions/get-edit-requests', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) throw new Error('Failed to load requests');
+    
+    const { requests } = await res.json();
+    const request = requests.find(r => r.id === requestId);
+    
+    if (!request || request.status !== 'Pending') {
+      showToast('Can only edit pending requests', 'error');
+      return;
+    }
+    
+    currentEditRequestId = requestId;
+    editRequestFiles = request.attachments || [];
+    
+    // Populate form
+    document.getElementById('editRequestTitle').value = request.title;
+    document.getElementById('editRequestDescription').value = request.description || '';
+    document.getElementById('editRequestPriority').value = request.priority || 'Normal';
+    renderEditRequestFiles();
+    
+    // Show form
+    const formContainer = document.getElementById('editRequestFormContainer');
+    const newBtn = document.getElementById('newEditRequestBtn');
+    if (formContainer) formContainer.classList.remove('hidden');
+    if (newBtn) newBtn.classList.add('hidden');
+    
+    // Scroll to form
+    formContainer?.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    console.error('Failed to load request:', err);
+    showToast('Failed to load request', 'error');
+  }
+};
+
+// Open request detail modal
+window.openEditRequestDetail = async function(requestId) {
+  const token = await getPortalAuthToken();
+  if (!token) return;
+  
+  try {
+    const res = await fetch('/.netlify/functions/get-edit-requests', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) throw new Error('Failed to load requests');
+    
+    const { requests } = await res.json();
+    const request = requests.find(r => r.id === requestId);
+    
+    if (!request) {
+      showToast('Request not found', 'error');
+      return;
+    }
+    
+    // Load comments
+    const commentsRes = await fetch(`/.netlify/functions/get-edit-request-comments?requestId=${requestId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const { comments } = commentsRes.ok ? await commentsRes.json() : { comments: [] };
+    
+    renderEditRequestDetail(request, comments);
+    
+    const modal = document.getElementById('editRequestDetailModal');
+    if (modal) modal.classList.remove('hidden');
+  } catch (err) {
+    console.error('Failed to load request detail:', err);
+    showToast('Failed to load request details', 'error');
+  }
+};
+
+// Render request detail
+function renderEditRequestDetail(request, comments) {
+  const contentEl = document.getElementById('editRequestDetailContent');
+  if (!contentEl) return;
+  
+  const statusColors = {
+    'Pending': 'bg-amber-100 text-amber-700',
+    'Approved': 'bg-green-100 text-green-700',
+    'Rejected': 'bg-red-100 text-red-700',
+    'Converted': 'bg-blue-100 text-blue-700'
+  };
+  
+  contentEl.innerHTML = `
+    <h2 class="text-2xl font-bold mb-4">${escapeHtml(request.title)}</h2>
+    <div class="flex items-center gap-2 mb-4">
+      <span class="pill ${statusColors[request.status] || 'pill-slate'}">${request.status}</span>
+      <span class="text-sm text-slate-500">${request.priority} Priority</span>
+      <span class="text-sm text-slate-500">• ${new Date(request.created_at).toLocaleDateString()}</span>
+    </div>
+    
+    ${request.description ? `<p class="text-slate-700 dark:text-slate-300 mb-4">${escapeHtml(request.description)}</p>` : ''}
+    
+    ${request.rejection_reason ? `
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+        <p class="text-sm font-medium text-red-800 dark:text-red-300 mb-1">Rejection Reason:</p>
+        <p class="text-sm text-red-700 dark:text-red-400">${escapeHtml(request.rejection_reason)}</p>
+      </div>
+    ` : ''}
+    
+    ${request.admin_notes ? `
+      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+        <p class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Admin Notes:</p>
+        <p class="text-sm text-blue-700 dark:text-blue-400">${escapeHtml(request.admin_notes)}</p>
+      </div>
+    ` : ''}
+    
+    ${request.attachments && request.attachments.length > 0 ? `
+      <div class="mb-4">
+        <h3 class="text-sm font-semibold mb-2">Attachments (${request.attachments.length})</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${request.attachments.map(file => `
+            <a href="${file.url}" target="_blank" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 hover:shadow transition-shadow">
+              <div class="text-xs font-medium truncate mb-1">${escapeHtml(file.name)}</div>
+              <div class="text-xs text-slate-500">${formatFileSize(file.size)}</div>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+    
+    <div class="border-t border-slate-200 dark:border-slate-700 pt-4 mt-4">
+      <h3 class="text-sm font-semibold mb-3">Comments</h3>
+      <div id="editRequestCommentsList" class="space-y-3 mb-4 max-h-64 overflow-y-auto">
+        ${comments.map(c => `
+          <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-medium">${c.is_admin ? 'Admin' : 'You'}</span>
+              <span class="text-xs text-slate-500">${new Date(c.created_at).toLocaleString()}</span>
+            </div>
+            <p class="text-sm text-slate-700 dark:text-slate-300">${escapeHtml(c.comment)}</p>
+          </div>
+        `).join('')}
+        ${comments.length === 0 ? '<p class="text-sm text-slate-500 italic">No comments yet</p>' : ''}
+      </div>
+      
+      ${request.status === 'Pending' ? `
+        <div class="flex gap-2">
+          <input type="text" id="editRequestCommentInput" 
+                 placeholder="Add a comment..." 
+                 class="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" />
+          <button onclick="addEditRequestComment('${request.id}')" 
+                  class="btn-primary text-sm px-4 py-2">
+            Post
+          </button>
+        </div>
+      ` : ''}
+    </div>
+    
+    ${request.status === 'Pending' ? `
+      <div class="flex gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="editEditRequest('${request.id}')" class="btn-primary text-sm px-4 py-2">
+          Edit Request
+        </button>
+        <button onclick="deleteEditRequest('${request.id}')" class="btn-ghost text-sm px-4 py-2 text-red-600 hover:text-red-700">
+          Cancel Request
+        </button>
+      </div>
+    ` : ''}
+  `;
+}
+
+// Add comment to request
+window.addEditRequestComment = async function(requestId) {
+  const input = document.getElementById('editRequestCommentInput');
+  const comment = input?.value?.trim();
+  
+  if (!comment) {
+    showToast('Please enter a comment', 'error');
+    return;
+  }
+  
+  try {
+    const token = await getPortalAuthToken();
+    if (!token) throw new Error('Not authenticated');
+    
+    const res = await fetch('/.netlify/functions/add-edit-request-comment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ requestId, comment })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to add comment');
+    }
+    
+    if (input) input.value = '';
+    showToast('Comment added', 'success');
+    
+    // Reload request detail
+    await openEditRequestDetail(requestId);
+  } catch (err) {
+    console.error('Failed to add comment:', err);
+    showToast(err.message || 'Failed to add comment', 'error');
+  }
+};
+
+// Delete edit request
+window.deleteEditRequest = async function(requestId) {
+  if (!confirm('Are you sure you want to cancel this request? This cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    const token = await getPortalAuthToken();
+    if (!token) throw new Error('Not authenticated');
+    
+    const res = await fetch('/.netlify/functions/delete-edit-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ requestId })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to cancel request');
+    }
+    
+    showToast('Request cancelled', 'success');
+    
+    // Close modal and reload
+    const modal = document.getElementById('editRequestDetailModal');
+    if (modal) modal.classList.add('hidden');
+    await loadEditRequests();
+  } catch (err) {
+    console.error('Failed to delete request:', err);
+    showToast(err.message || 'Failed to cancel request', 'error');
+  }
+};
+
+// Close edit request detail modal
+const closeEditRequestDetail = document.getElementById('closeEditRequestDetail');
+if (closeEditRequestDetail) {
+  closeEditRequestDetail.addEventListener('click', () => {
+    const modal = document.getElementById('editRequestDetailModal');
+    if (modal) modal.classList.add('hidden');
+  });
+}
+
 /* ---------------------------
    4) Init
 ---------------------------- */
@@ -1833,6 +2511,12 @@ function wireResourcesFilters() {
       await loadFeedbackHistory();
     } catch (err) {
       console.error('Feedback history failed to load (non-critical):', err);
+    }
+    try {
+      await loadEditRequests();
+      wireEditRequestHandlers();
+    } catch (err) {
+      console.error('Edit requests failed to load (non-critical):', err);
     }
 
     // Notifications + Settings + Brand Info

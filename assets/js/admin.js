@@ -3181,6 +3181,581 @@ window.editResource = async function(resourceId) {
   window.openResourceModal(resourceId);
 };
 
+// Load and render edit requests management
+let allEditRequestsGlobal = [];
+let currentEditRequest = null;
+
+async function loadEditRequestsManagement() {
+  const container = document.getElementById('editRequestsContainer');
+  if (!container) return;
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      container.innerHTML = '<p class="text-slate-500">Authentication required</p>';
+      return;
+    }
+    
+    const res = await fetch('/.netlify/functions/get-edit-requests', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      container.innerHTML = '<p class="text-slate-500">Failed to load edit requests</p>';
+      return;
+    }
+    
+    const { requests } = await res.json();
+    allEditRequestsGlobal = requests || [];
+    
+    renderEditRequests(allEditRequestsGlobal);
+    wireEditRequestsFilters();
+  } catch (err) {
+    console.error('Failed to load edit requests:', err);
+    const container = document.getElementById('editRequestsContainer');
+    if (container) container.innerHTML = '<p class="text-slate-500">Failed to load edit requests</p>';
+  }
+}
+
+// Render edit requests
+function renderEditRequests(requests) {
+  const container = document.getElementById('editRequestsContainer');
+  if (!container) return;
+  
+  if (!requests || requests.length === 0) {
+    container.innerHTML = '<p class="text-slate-500">No edit requests yet</p>';
+    return;
+  }
+  
+  const statusColors = {
+    'Pending': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    'Approved': 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    'Rejected': 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    'Converted': 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+  };
+  
+  const priorityColors = {
+    'Low': 'text-slate-500',
+    'Normal': 'text-slate-700',
+    'High': 'text-orange-600',
+    'Urgent': 'text-red-600 font-semibold'
+  };
+  
+  container.innerHTML = requests.map(req => `
+    <div class="card p-4 hover:shadow-lg transition-shadow cursor-pointer mb-3" onclick="openEditRequestDetail('${req.id}')">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <h3 class="font-semibold text-slate-900 dark:text-slate-100">${escapeHtml(req.title)}</h3>
+            <span class="pill ${statusColors[req.status] || 'pill-slate'}">${req.status}</span>
+            <span class="text-xs ${priorityColors[req.priority] || ''}">${req.priority}</span>
+          </div>
+          <p class="text-sm text-slate-600 dark:text-slate-400 mb-2">From: ${escapeHtml(req.client_email)}</p>
+          ${req.description ? `<p class="text-sm text-slate-600 dark:text-slate-400 mb-2 line-clamp-2">${escapeHtml(req.description)}</p>` : ''}
+          <div class="flex items-center gap-4 text-xs text-slate-500">
+            <span>${new Date(req.created_at).toLocaleDateString()}</span>
+            ${req.attachments && req.attachments.length > 0 ? `<span>📎 ${req.attachments.length} file(s)</span>` : ''}
+          </div>
+        </div>
+        <button onclick="event.stopPropagation(); openEditRequestDetail('${req.id}')" 
+                class="btn-ghost text-xs px-3 py-1.5" title="View Details">
+          View
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Wire edit requests filters
+function wireEditRequestsFilters() {
+  const searchInput = document.getElementById('editRequestsSearch');
+  const statusFilter = document.getElementById('editRequestsStatusFilter');
+  const priorityFilter = document.getElementById('editRequestsPriorityFilter');
+  const refreshBtn = document.getElementById('refreshEditRequestsBtn');
+  
+  const applyFilters = () => {
+    const searchTerm = (searchInput?.value || '').toLowerCase();
+    const statusValue = statusFilter?.value || 'all';
+    const priorityValue = priorityFilter?.value || 'all';
+    
+    let filtered = [...allEditRequestsGlobal];
+    
+    if (searchTerm) {
+      filtered = filtered.filter(req => 
+        req.title?.toLowerCase().includes(searchTerm) ||
+        req.description?.toLowerCase().includes(searchTerm) ||
+        req.client_email?.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    if (statusValue !== 'all') {
+      filtered = filtered.filter(req => req.status === statusValue);
+    }
+    
+    if (priorityValue !== 'all') {
+      filtered = filtered.filter(req => req.priority === priorityValue);
+    }
+    
+    renderEditRequests(filtered);
+  };
+  
+  if (searchInput) searchInput.addEventListener('input', applyFilters);
+  if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+  if (priorityFilter) priorityFilter.addEventListener('change', applyFilters);
+  if (refreshBtn) refreshBtn.addEventListener('click', () => loadEditRequestsManagement());
+}
+
+// Open edit request detail
+window.openEditRequestDetail = async function(requestId) {
+  const request = allEditRequestsGlobal.find(r => r.id === requestId);
+  if (!request) {
+    if (window.showToast) window.showToast('Request not found', 'error');
+    return;
+  }
+  
+  currentEditRequest = request;
+  
+  // Load comments
+  const token = await new Promise((resolve) => {
+    const id = window.netlifyIdentity;
+    const user = id && id.currentUser();
+    if (!user) return resolve(null);
+    user.jwt().then(resolve).catch(() => resolve(null));
+  });
+  
+  let comments = [];
+  if (token) {
+    try {
+      const res = await fetch(`/.netlify/functions/get-edit-request-comments?requestId=${requestId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        comments = data.comments || [];
+      }
+    } catch (err) {
+      console.error('Failed to load comments:', err);
+    }
+  }
+  
+  renderEditRequestDetailModal(request, comments);
+  
+  const modal = document.getElementById('editRequestDetailModal');
+  if (modal) modal.classList.remove('hidden');
+};
+
+// Render edit request detail modal
+function renderEditRequestDetailModal(request, comments) {
+  const contentEl = document.getElementById('editRequestDetailContent');
+  if (!contentEl) return;
+  
+  const statusColors = {
+    'Pending': 'bg-amber-100 text-amber-700',
+    'Approved': 'bg-green-100 text-green-700',
+    'Rejected': 'bg-red-100 text-red-700',
+    'Converted': 'bg-blue-100 text-blue-700'
+  };
+  
+  contentEl.innerHTML = `
+    <h2 class="text-2xl font-bold mb-4">${escapeHtml(request.title)}</h2>
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <span class="pill ${statusColors[request.status] || 'pill-slate'}">${request.status}</span>
+      <span class="text-sm text-slate-500">${request.priority} Priority</span>
+      <span class="text-sm text-slate-500">• From: ${escapeHtml(request.client_email)}</span>
+      <span class="text-sm text-slate-500">• ${new Date(request.created_at).toLocaleDateString()}</span>
+    </div>
+    
+    ${request.description ? `<p class="text-slate-700 dark:text-slate-300 mb-4">${escapeHtml(request.description)}</p>` : ''}
+    
+    ${request.rejection_reason ? `
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+        <p class="text-sm font-medium text-red-800 dark:text-red-300 mb-1">Rejection Reason:</p>
+        <p class="text-sm text-red-700 dark:text-red-400">${escapeHtml(request.rejection_reason)}</p>
+      </div>
+    ` : ''}
+    
+    ${request.admin_notes ? `
+      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+        <p class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Admin Notes:</p>
+        <p class="text-sm text-blue-700 dark:text-blue-400">${escapeHtml(request.admin_notes)}</p>
+      </div>
+    ` : ''}
+    
+    ${request.attachments && request.attachments.length > 0 ? `
+      <div class="mb-4">
+        <h3 class="text-sm font-semibold mb-2">Attachments (${request.attachments.length})</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${request.attachments.map(file => `
+            <a href="${file.url}" target="_blank" class="border border-slate-200 dark:border-slate-700 rounded-lg p-2 hover:shadow transition-shadow">
+              <div class="text-xs font-medium truncate mb-1">${escapeHtml(file.name)}</div>
+              <div class="text-xs text-slate-500">${file.size ? formatFileSize(file.size) : ''}</div>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+    
+    <div class="border-t border-slate-200 dark:border-slate-700 pt-4 mt-4">
+      <h3 class="text-sm font-semibold mb-3">Comments</h3>
+      <div id="editRequestCommentsList" class="space-y-3 mb-4 max-h-64 overflow-y-auto">
+        ${comments.map(c => `
+          <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-medium">${c.is_admin ? 'Admin' : 'Client'}</span>
+              <span class="text-xs text-slate-500">${new Date(c.created_at).toLocaleString()}</span>
+            </div>
+            <p class="text-sm text-slate-700 dark:text-slate-300">${escapeHtml(c.comment)}</p>
+          </div>
+        `).join('')}
+        ${comments.length === 0 ? '<p class="text-sm text-slate-500 italic">No comments yet</p>' : ''}
+      </div>
+      
+      <div class="flex gap-2">
+        <input type="text" id="editRequestCommentInput" 
+               placeholder="Add a comment..." 
+               class="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" />
+        <button onclick="addEditRequestComment('${request.id}')" 
+                class="btn-primary text-sm px-4 py-2">
+          Post
+        </button>
+      </div>
+    </div>
+    
+    <div class="flex gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+      ${request.status === 'Pending' ? `
+        <button onclick="approveEditRequest('${request.id}')" class="btn-primary text-sm px-4 py-2">
+          Approve
+        </button>
+        <button onclick="rejectEditRequest('${request.id}')" class="btn-ghost text-sm px-4 py-2 text-red-600 hover:text-red-700">
+          Reject
+        </button>
+        <button onclick="requestMoreInfo('${request.id}')" class="btn-ghost text-sm px-4 py-2">
+          Request More Info
+        </button>
+      ` : ''}
+      ${request.status === 'Approved' ? `
+        <button onclick="convertRequestToProject('${request.id}')" class="btn-primary text-sm px-4 py-2">
+          Convert to Project
+        </button>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Format file size
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Add comment to request
+window.addEditRequestComment = async function(requestId) {
+  const input = document.getElementById('editRequestCommentInput');
+  const comment = input?.value?.trim();
+  
+  if (!comment) {
+    if (window.showToast) window.showToast('Please enter a comment', 'error');
+    return;
+  }
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      if (window.showToast) window.showToast('Authentication required', 'error');
+      return;
+    }
+    
+    const res = await fetch('/.netlify/functions/add-edit-request-comment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ requestId, comment })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to add comment');
+    }
+    
+    if (input) input.value = '';
+    if (window.showToast) window.showToast('Comment added', 'success');
+    
+    // Reload request detail
+    await openEditRequestDetail(requestId);
+  } catch (err) {
+    console.error('Failed to add comment:', err);
+    if (window.showToast) window.showToast(err.message || 'Failed to add comment', 'error');
+  }
+};
+
+// Approve edit request
+window.approveEditRequest = async function(requestId) {
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      if (window.showToast) window.showToast('Authentication required', 'error');
+      return;
+    }
+    
+    const res = await fetch('/.netlify/functions/update-edit-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        requestId,
+        updates: { status: 'Approved' }
+      })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to approve request');
+    }
+    
+    if (window.showToast) window.showToast('Request approved', 'success');
+    await loadEditRequestsManagement();
+    
+    // Close modal
+    const modal = document.getElementById('editRequestDetailModal');
+    if (modal) modal.classList.add('hidden');
+  } catch (err) {
+    console.error('Failed to approve request:', err);
+    if (window.showToast) window.showToast(err.message || 'Failed to approve request', 'error');
+  }
+};
+
+// Reject edit request
+window.rejectEditRequest = async function(requestId) {
+  const reason = prompt('Please provide a reason for rejection:');
+  if (!reason || !reason.trim()) {
+    if (window.showToast) window.showToast('Rejection reason is required', 'error');
+    return;
+  }
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      if (window.showToast) window.showToast('Authentication required', 'error');
+      return;
+    }
+    
+    const res = await fetch('/.netlify/functions/update-edit-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        requestId,
+        updates: { status: 'Rejected', rejection_reason: reason.trim() }
+      })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to reject request');
+    }
+    
+    if (window.showToast) window.showToast('Request rejected', 'success');
+    await loadEditRequestsManagement();
+    
+    // Close modal
+    const modal = document.getElementById('editRequestDetailModal');
+    if (modal) modal.classList.add('hidden');
+  } catch (err) {
+    console.error('Failed to reject request:', err);
+    if (window.showToast) window.showToast(err.message || 'Failed to reject request', 'error');
+  }
+};
+
+// Request more info
+window.requestMoreInfo = async function(requestId) {
+  const notes = prompt('What additional information do you need?');
+  if (!notes || !notes.trim()) {
+    if (window.showToast) window.showToast('Notes are required', 'error');
+    return;
+  }
+  
+  try {
+    const token = await new Promise((resolve) => {
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser();
+      if (!user) return resolve(null);
+      user.jwt().then(resolve).catch(() => resolve(null));
+    });
+    
+    if (!token) {
+      if (window.showToast) window.showToast('Authentication required', 'error');
+      return;
+    }
+    
+    const res = await fetch('/.netlify/functions/update-edit-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        requestId,
+        updates: { admin_notes: notes.trim() }
+      })
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to update request');
+    }
+    
+    if (window.showToast) window.showToast('Request updated', 'success');
+    await openEditRequestDetail(requestId);
+  } catch (err) {
+    console.error('Failed to request more info:', err);
+    if (window.showToast) window.showToast(err.message || 'Failed to update request', 'error');
+  }
+};
+
+// Convert request to project
+window.convertRequestToProject = async function(requestId) {
+  const request = allEditRequestsGlobal.find(r => r.id === requestId);
+  if (!request) {
+    if (window.showToast) window.showToast('Request not found', 'error');
+    return;
+  }
+  
+  // Pre-fill modal
+  const titleInput = document.getElementById('convertProjectTitle');
+  const descInput = document.getElementById('convertProjectDescription');
+  if (titleInput) titleInput.value = request.title;
+  if (descInput) descInput.value = request.description || '';
+  
+  // Show modal
+  const modal = document.getElementById('convertRequestModal');
+  if (modal) modal.classList.remove('hidden');
+  
+  // Wire up confirm button
+  const confirmBtn = document.getElementById('confirmConvertRequestBtn');
+  if (confirmBtn) {
+    confirmBtn.onclick = async () => {
+      const title = titleInput?.value?.trim();
+      if (!title) {
+        if (window.showToast) window.showToast('Project title is required', 'error');
+        return;
+      }
+      
+      try {
+        const token = await new Promise((resolve) => {
+          const id = window.netlifyIdentity;
+          const user = id && id.currentUser();
+          if (!user) return resolve(null);
+          user.jwt().then(resolve).catch(() => resolve(null));
+        });
+        
+        if (!token) {
+          if (window.showToast) window.showToast('Authentication required', 'error');
+          return;
+        }
+        
+        const res = await fetch('/.netlify/functions/convert-request-to-project', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            requestId,
+            projectTitle: title,
+            projectDescription: descInput?.value?.trim() || ''
+          })
+        });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || 'Failed to convert request');
+        }
+        
+        if (window.showToast) window.showToast('Request converted to project', 'success');
+        
+        // Close modals
+        const convertModal = document.getElementById('convertRequestModal');
+        const detailModal = document.getElementById('editRequestDetailModal');
+        if (convertModal) convertModal.classList.add('hidden');
+        if (detailModal) detailModal.classList.add('hidden');
+        
+        // Reload requests
+        await loadEditRequestsManagement();
+      } catch (err) {
+        console.error('Failed to convert request:', err);
+        if (window.showToast) window.showToast(err.message || 'Failed to convert request', 'error');
+      }
+    };
+  }
+  
+  // Wire up cancel button
+  const cancelBtn = document.getElementById('cancelConvertRequestBtn');
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      const modal = document.getElementById('convertRequestModal');
+      if (modal) modal.classList.add('hidden');
+    };
+  }
+};
+
+// Close modals
+const closeEditRequestDetailModal = document.getElementById('closeEditRequestDetailModal');
+if (closeEditRequestDetailModal) {
+  closeEditRequestDetailModal.addEventListener('click', () => {
+    const modal = document.getElementById('editRequestDetailModal');
+    if (modal) modal.classList.add('hidden');
+  });
+}
+
+const closeConvertRequestModal = document.getElementById('closeConvertRequestModal');
+if (closeConvertRequestModal) {
+  closeConvertRequestModal.addEventListener('click', () => {
+    const modal = document.getElementById('convertRequestModal');
+    if (modal) modal.classList.add('hidden');
+  });
+}
+
 // Wire resource form submission
 (function wireResourceForm() {
   const form = document.getElementById('resourceForm');
@@ -3315,6 +3890,11 @@ window.editResource = async function(resourceId) {
       await loadResourcesManagement();
     } catch (err) {
       console.error('Failed to load resources management:', err);
+    }
+    try {
+      await loadEditRequestsManagement();
+    } catch (err) {
+      console.error('Failed to load edit requests management:', err);
     }
 
     // New: Enhanced Overview KPIs

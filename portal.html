@@ -94,6 +94,7 @@
         <a href="#invoicesCard" class="sidebar-link" data-target="invoicesCard"><span>Invoices</span></a>
         <a href="#brandInfo" class="sidebar-link" data-target="brandInfo"><span>Brand Info</span></a>
         <a href="#feedback" class="sidebar-link" data-target="feedback"><span>Feedback</span></a>
+        <a href="#editRequest" class="sidebar-link" data-target="editRequest"><span>Request Edit</span><span id="editRequestBadge" class="hidden ml-auto text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">0</span></a>
         <a href="#resources" class="sidebar-link" data-target="resources"><span>Resources</span></a>
         <a href="#support" class="sidebar-link" data-target="support"><span>Support</span></a>
       </nav>
@@ -447,6 +448,113 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               <p class="text-sm">No resources available</p>
+            </div>
+          </div>
+
+          <!-- Request Edit Section -->
+          <div class="card-section" id="editRequest">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title">Request Edit</h2>
+              <button id="newEditRequestBtn" class="btn-primary text-sm border border-indigo-500 rounded-lg px-3 py-2">
+                <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                New Request
+              </button>
+            </div>
+
+            <!-- New Request Form (hidden by default) -->
+            <div id="editRequestFormContainer" class="hidden mb-6">
+              <div class="card p-5 space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Title *</label>
+                  <input id="editRequestTitle" type="text" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all" 
+                         placeholder="e.g., Update logo on homepage" required />
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Description *</label>
+                  <textarea id="editRequestDescription" rows="4" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all"
+                            placeholder="Describe what you'd like edited..." required></textarea>
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Priority</label>
+                  <select id="editRequestPriority" class="w-full rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-300 dark:focus:border-purple-700 transition-all">
+                    <option value="Low">Low</option>
+                    <option value="Normal" selected>Normal</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+                
+                <!-- File Upload Section -->
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Attachments (Screenshots, Reference Images, etc.)
+                  </label>
+                  <div class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 text-center">
+                    <input type="file" id="editRequestFiles" multiple 
+                           accept="image/*,.pdf,.doc,.docx" 
+                           class="hidden" />
+                    <label for="editRequestFiles" class="cursor-pointer">
+                      <svg class="w-12 h-12 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                      </svg>
+                      <p class="text-sm text-slate-600 dark:text-slate-400">
+                        Click to upload or drag and drop
+                      </p>
+                      <p class="text-xs text-slate-500 mt-1">
+                        PNG, JPG, PDF, DOC up to 10MB each (50MB total)
+                      </p>
+                    </label>
+                  </div>
+                  
+                  <!-- Uploaded Files Preview -->
+                  <div id="editRequestFilesPreview" class="mt-4 hidden">
+                    <p class="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                      Uploaded Files (<span id="editRequestFilesCount">0</span>):
+                    </p>
+                    <div id="editRequestFilesList" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+                    <p class="text-xs text-slate-500 mt-2">
+                      Total size: <span id="editRequestFilesTotalSize">0 MB</span> / 50 MB
+                    </p>
+                  </div>
+                </div>
+                
+                <div class="flex gap-3">
+                  <button id="submitEditRequestBtn" class="btn-primary flex-1 border border-indigo-500 rounded-lg px-3 py-2">
+                    Submit Request
+                  </button>
+                  <button id="cancelEditRequestBtn" class="btn-ghost border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Requests List -->
+            <div id="editRequestsList" class="space-y-3">
+              <!-- Requests will be loaded here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="editRequestsEmpty" class="text-center py-10 text-slate-400">
+              <svg class="w-12 h-12 mx-auto mb-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p class="text-sm">No edit requests yet</p>
+              <p class="text-xs mt-1">Click "New Request" to submit an edit request</p>
+            </div>
+          </div>
+
+          <!-- Request Detail Modal -->
+          <div id="editRequestDetailModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-[3000]">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 relative">
+              <button id="closeEditRequestDetail" class="absolute top-4 right-5 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">✕</button>
+              <div id="editRequestDetailContent">
+                <!-- Content will be loaded here -->
+              </div>
             </div>
           </div>
 
