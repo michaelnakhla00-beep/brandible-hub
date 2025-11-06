@@ -1,5 +1,6 @@
 // netlify/functions/create-edit-request.js
 const { createClient } = require('@supabase/supabase-js');
+const { notifyAdmins } = require('./notify-admins');
 
 exports.handler = async (event, context) => {
   if (event.httpMethod !== 'POST') {
@@ -82,11 +83,13 @@ exports.handler = async (event, context) => {
 
     const clientName = client?.name || userEmail;
 
-    // Notify admin - we need to notify all admins, but create-notification needs a client_id
-    // For now, we'll create a notification for the admin by using a special approach
-    // Since we can't directly notify admins without a client_id, we'll skip this for now
-    // and handle admin notifications differently (maybe via a separate admin notifications table)
-    // For now, admins will see new requests when they load the edit requests page
+    // Notify admins about new edit request
+    await notifyAdmins(
+      `New edit request: "${title.trim()}"`,
+      'system',
+      userEmail,
+      clientName
+    );
     
     return {
       statusCode: 201,

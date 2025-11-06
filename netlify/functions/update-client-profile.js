@@ -1,5 +1,6 @@
 // netlify/functions/update-client-profile.js
 const { createClient } = require('@supabase/supabase-js');
+const { notifyAdmins } = require('./notify-admins');
 
 exports.handler = async (event, context) => {
   if (event.httpMethod !== "PUT" && event.httpMethod !== "PATCH" && event.httpMethod !== "POST") {
@@ -76,6 +77,28 @@ exports.handler = async (event, context) => {
             statusCode: 500,
             body: JSON.stringify({ error: "Failed to update client: " + clientUpdateError.message })
           };
+        }
+        
+        // Notify admins if client (not admin) updated their profile
+        if (!isAdmin) {
+          const { data: clientData } = await supabase
+            .from('clients')
+            .select('name')
+            .eq('id', client.id)
+            .single();
+          
+          const updatedFields = [];
+          if (fields.phone !== undefined) updatedFields.push('phone');
+          if (fields.website !== undefined) updatedFields.push('website');
+          
+          if (updatedFields.length > 0) {
+            await notifyAdmins(
+              `Updated profile information: ${updatedFields.join(', ')}`,
+              'system',
+              emailToQuery,
+              clientData?.name
+            );
+          }
         }
       }
     }

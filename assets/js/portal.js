@@ -2718,6 +2718,36 @@ if (closeEditRequestDetail) {
             await logClientActivity(userEmail, `Uploaded ${file.name}`, 'upload');
             console.log('📝 Activity logging attempt completed');
             
+            // Notify admins about file upload
+            try {
+              const token = await new Promise((resolve) => {
+                const id = window.netlifyIdentity;
+                const user = id && id.currentUser();
+                if (!user) return resolve(null);
+                user.jwt().then(resolve).catch(() => resolve(null));
+              });
+              
+              const user = window.netlifyIdentity?.currentUser();
+              const clientName = user?.user_metadata?.full_name || userEmail;
+              
+              await fetch('/.netlify/functions/notify-admins', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  message: `Uploaded file: ${file.name}`,
+                  type: 'file',
+                  client_email: userEmail,
+                  client_name: clientName
+                })
+              });
+            } catch (notifyErr) {
+              console.warn('Failed to notify admins about file upload:', notifyErr);
+              // Don't fail the upload if notification fails
+            }
+            
             progressBar.style.width = '100%';
             showToast('File uploaded', 'success', `${file.name} uploaded successfully`);
             

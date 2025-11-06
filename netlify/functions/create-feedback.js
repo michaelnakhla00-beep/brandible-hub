@@ -1,5 +1,6 @@
 // netlify/functions/create-feedback.js
 const { createClient } = require('@supabase/supabase-js');
+const { notifyAdmins } = require('./notify-admins');
 
 exports.handler = async (event, context) => {
   if (event.httpMethod !== "POST") {
@@ -100,6 +101,30 @@ exports.handler = async (event, context) => {
         };
       }
 
+      // Get project and client info for notification
+      const { data: project } = await supabase
+        .from('projects')
+        .select('title')
+        .eq('id', project_id)
+        .single();
+      
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('name')
+        .eq('id', client.id)
+        .single();
+
+      // Notify admins about updated feedback
+      const projectTitle = project?.title || 'Project';
+      const clientName = clientData?.name || userEmail;
+      const stars = '⭐'.repeat(rating);
+      await notifyAdmins(
+        `Updated rating for "${projectTitle}" ${stars} (${rating}/5)${comment ? ' with comment' : ''}`,
+        'comment',
+        userEmail,
+        clientName
+      );
+
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" },
@@ -126,6 +151,30 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({ error: "Database error: " + error.message })
       };
     }
+
+    // Get project and client info for notification
+    const { data: project } = await supabase
+      .from('projects')
+      .select('title')
+      .eq('id', project_id)
+      .single();
+    
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('name')
+      .eq('id', client.id)
+      .single();
+
+    // Notify admins about project feedback
+    const projectTitle = project?.title || 'Project';
+    const clientName = clientData?.name || userEmail;
+    const stars = '⭐'.repeat(rating);
+    await notifyAdmins(
+      `Rated "${projectTitle}" ${stars} (${rating}/5)${comment ? ' with comment' : ''}`,
+      'comment',
+      userEmail,
+      clientName
+    );
 
     return {
       statusCode: 201,
