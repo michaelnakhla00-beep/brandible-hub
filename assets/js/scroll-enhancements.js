@@ -113,16 +113,52 @@
       if (section) observer.observe(section);
     });
     
-    // Also handle manual clicks on nav links
+    // Also handle manual clicks on nav links with proper scroll positioning
     navLinks.forEach(link => {
       link.addEventListener('click', function(e) {
         const href = this.getAttribute('href');
         if (href && href !== '#') {
-          // Small delay to let smooth scroll happen, then update active
-          setTimeout(() => {
-            navLinks.forEach(l => l.classList.remove('sidebar-link-active'));
-            this.classList.add('sidebar-link-active');
-          }, 100);
+          e.preventDefault(); // Prevent default anchor behavior
+          
+          const target = document.querySelector(href);
+          if (target) {
+            // Calculate header height dynamically
+            const header = document.querySelector('header');
+            const stickyNav = document.querySelector('nav');
+            let offset = 0;
+            
+            if (header) {
+              const headerRect = header.getBoundingClientRect();
+              offset += headerRect.height;
+            }
+            
+            if (stickyNav) {
+              const navRect = stickyNav.getBoundingClientRect();
+              // Only add nav height if it's sticky and visible
+              const navStyle = window.getComputedStyle(stickyNav);
+              if (navStyle.position === 'sticky' || navStyle.position === 'fixed') {
+                offset += navRect.height;
+              }
+            }
+            
+            // Add extra padding for better visual spacing
+            offset += 20;
+            
+            // Get target position
+            const targetPosition = target.getBoundingClientRect().top + window.pageYOffset;
+            
+            // Scroll to position accounting for headers
+            window.scrollTo({
+              top: targetPosition - offset,
+              behavior: 'smooth'
+            });
+            
+            // Update active state after scroll
+            setTimeout(() => {
+              navLinks.forEach(l => l.classList.remove('sidebar-link-active'));
+              this.classList.add('sidebar-link-active');
+            }, 100);
+          }
         }
       });
     });

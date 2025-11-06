@@ -543,9 +543,17 @@
     border-radius: 0 2px 2px 0;
   }
   
-  /* Better section spacing */
-  section[id] {
+  /* Better section spacing - apply to all scrollable targets */
+  section[id],
+  div[id],
+  [id] {
     scroll-margin-top: 100px; /* Account for sticky header */
+  }
+  
+  /* More specific targeting for main content sections */
+  .card-section[id],
+  section[id] {
+    scroll-margin-top: 120px; /* Extra space for sticky nav + header */
   }
   
   /* Improved mobile touch targets */
