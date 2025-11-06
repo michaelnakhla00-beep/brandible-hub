@@ -201,6 +201,20 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 		meta.appendChild(scoreWrap);
 		meta.appendChild(assignedWrap);
 
+		// Original form message/comment
+		const messageDiv = document.createElement('div');
+		messageDiv.className = 'mt-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700';
+		const messageLabel = document.createElement('div');
+		messageLabel.className = 'text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5';
+		messageLabel.textContent = 'Message/Comment:';
+		const messageText = document.createElement('div');
+		messageText.className = 'text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words';
+		// Escape HTML and display message
+		const message = lead.message || '';
+		messageText.textContent = message || 'No message provided';
+		messageDiv.appendChild(messageLabel);
+		messageDiv.appendChild(messageText);
+
 		const notes = document.createElement('textarea');
 		notes.className = 'mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:ring-2 ring-brand';
 		notes.placeholder = 'Notes…';
@@ -251,6 +265,7 @@ export function renderLeads(container, leads, { onChange, onExportCSV } = {}) {
 
 		row.appendChild(header);
 		row.appendChild(meta);
+		row.appendChild(messageDiv);
 		row.appendChild(notes);
 		row.appendChild(followWrap);
 		row.appendChild(deleteBtn);
